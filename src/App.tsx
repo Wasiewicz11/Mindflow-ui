@@ -92,7 +92,7 @@ export default function App() {
     if (stored) setUser(JSON.parse(stored));
 
     // Listen for token — decode user on first load
-    const token = localStorage.getItem('mindflow_token');
+    const token = localStorage.getItem('mindflow_access_token');
     if (token && !stored) {
       const decoded = decodeJwt(token);
       if (decoded) {

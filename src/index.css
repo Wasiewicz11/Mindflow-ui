@@ -1,0 +1,109 @@
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  body {
+    @apply font-sans antialiased bg-[#FDFDFD] text-gray-900 transition-colors duration-300;
+    overscroll-behavior-y: none;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .dark body {
+    @apply bg-[#000000] text-gray-100;
+  }
+
+  /* Gray Theme Overrides */
+  .theme-gray body {
+    @apply bg-[#18181B];
+  }
+}
+
+/* Gray Theme Utility Overrides */
+@layer utilities {
+  .theme-gray .dark\:bg-\[\#000000\] {
+    background-color: #18181B !important;
+  }
+  .theme-gray .dark\:bg-\[\#1C1C1E\] {
+    background-color: #27272A !important;
+  }
+  .theme-gray .dark\:bg-\[\#2C2C2E\] {
+    background-color: #3F3F46 !important;
+  }
+  .theme-gray .dark\:bg-black {
+    background-color: #18181B !important;
+  }
+  .theme-gray .dark\:bg-black\/90 {
+    background-color: rgba(24, 24, 27, 0.9) !important;
+  }
+  .theme-gray .dark\:bg-black\/40 {
+    background-color: rgba(24, 24, 27, 0.4) !important;
+  }
+  .theme-gray .dark\:bg-black\/20 {
+    background-color: rgba(24, 24, 27, 0.2) !important;
+  }
+}
+
+@layer components {
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-black/5 rounded-full;
+  }
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10;
+  }
+  .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    @apply bg-black/10;
+  }
+  .dark .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+    @apply bg-white/20;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    @apply hidden;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-0 { animation-delay: 0ms; }
+.delay-75 { animation-delay: 75ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }

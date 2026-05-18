@@ -9,7 +9,7 @@ interface Props {
 }
 
 export function TasksView({ space, onBack }: Props) {
-  const { tasks, addTask, editTask, removeTask } = useTasks();
+  const { tasks, addTask, editTask, removeTask } = useTasks(true);
   const [inputValue, setInputValue] = useState('');
   const [adding, setAdding] = useState(false);
   const [connected, setConnected] = useState(true);

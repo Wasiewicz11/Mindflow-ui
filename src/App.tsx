@@ -8,30 +8,18 @@ import { ThemeSelector } from './components/ThemeSelector';
 import { useAuth } from './hooks/useAuth';
 import { useTasks } from './hooks/useTasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from './api/spaces';
+import { getMe } from './api/users';
 import { getProjects, createProject, deleteProject } from './api/projects';
 import SpaceSettingsModal from './components/SpaceSettingsModal';
 import type { Task, Note, User, Space, Project } from './types';
 
 type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'settings';
 
-// Helper: decode Google JWT to get user info
-function decodeJwt(token: string): User | null {
-  try {
-    const payload = JSON.parse(atob(token.split('.')[1]));
-    return { name: payload.name, email: payload.email, picture: payload.picture };
-  } catch {
-    return null;
-  }
-}
-
 export default function App() {
   const { isLoggedIn, logout, initGoogleButton } = useAuth();
   const { tasks: rawTasks, addTask, editTask, removeTask } = useTasks(isLoggedIn);
 
-  const [user, setUser] = useState<User | null>(() => {
-    const stored = localStorage.getItem('mindflow_user');
-    return stored ? JSON.parse(stored) : null;
-  });
+  const [user, setUser] = useState<User | null>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
@@ -86,20 +74,9 @@ export default function App() {
     if (rawTasks.length >= 0) setIsLoading(false);
   }, [rawTasks]);
 
-  // Sync user from Google JWT (set after login)
   useEffect(() => {
-    const stored = localStorage.getItem('mindflow_user');
-    if (stored) setUser(JSON.parse(stored));
-
-    // Listen for token — decode user on first load
-    const token = localStorage.getItem('mindflow_access_token');
-    if (token && !stored) {
-      const decoded = decodeJwt(token);
-      if (decoded) {
-        setUser(decoded);
-        localStorage.setItem('mindflow_user', JSON.stringify(decoded));
-      }
-    }
+    if (!isLoggedIn) return;
+    getMe().then(setUser).catch(() => {});
   }, [isLoggedIn]);
 
   // Fetch spaces + projects from API
@@ -283,7 +260,7 @@ export default function App() {
       </button>
       <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
         <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 dark:bg-white/10">
-          {user?.picture && <img src={user.picture} alt="Profile" className="w-full h-full object-cover" />}
+          {user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
         </div>
         <span className="text-[10px] font-medium">Profil</span>
       </button>
@@ -314,7 +291,7 @@ export default function App() {
         <header className="flex-none px-6 pt-8 pb-4 lg:py-8 flex flex-col lg:flex-row lg:items-end justify-between animate-fade-in gap-4">
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-              {activeTab === 'dashboard' && `Dzień dobry, ${user?.name?.split(' ')[0] ?? 'Użytkowniku'}.`}
+              {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
               {activeTab === 'notes' && 'Twoja baza wiedzy.'}
               {activeTab === 'tasks' && (activeProjectId ? projects.find(p => p.id === activeProjectId)?.name ?? 'Wszystkie zadania.' : 'Wszystkie zadania.')}
               {activeTab === 'settings' && 'Ustawienia.'}
@@ -479,11 +456,11 @@ export default function App() {
               <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
                 <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Profil</h2>
                 <div className="flex items-center gap-4">
-                  {user?.picture && (
-                    <img src={user.picture} alt="Avatar" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
+                  {user?.avatarUrl && (
+                    <img src={user.avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
                   )}
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{user?.name}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
                     <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
                   </div>
                 </div>

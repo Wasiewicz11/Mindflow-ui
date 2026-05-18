@@ -330,9 +330,9 @@ const Sidebar: React.FC<SidebarProps> = ({
           }`}
         >
           <div className="w-5 h-5 flex-shrink-0">
-            {user?.picture && !imgError ? (
+            {user?.avatarUrl && !imgError ? (
               <img
-                src={user.picture}
+                src={user.avatarUrl}
                 alt="Profile"
                 referrerPolicy="no-referrer"
                 onError={() => setImgError(true)}
@@ -340,11 +340,11 @@ const Sidebar: React.FC<SidebarProps> = ({
               />
             ) : (
               <div className="w-full h-full rounded-full bg-gray-200 dark:bg-white/10 flex items-center justify-center text-[10px] font-bold text-gray-600 dark:text-gray-400">
-                {user ? getInitials(user.name) : '?'}
+                {user ? getInitials(`${user.firstName} ${user.lastName}`) : '?'}
               </div>
             )}
           </div>
-          <span className="block ml-3 font-medium text-sm truncate">{user?.name || 'Użytkownik'}</span>
+          <span className="block ml-3 font-medium text-sm truncate">{user ? `${user.firstName} ${user.lastName}` : 'Użytkownik'}</span>
         </button>
       </div>
 

@@ -4,9 +4,12 @@
 import type { Space as ApiSpace } from './api/spaces';
 
 export interface User {
-  name: string;
+  id: string;
   email: string;
-  picture: string;
+  firstName: string;
+  lastName: string;
+  avatarUrl: string | null;
+  timeZone: string;
 }
 
 // Space rozszerzone o color i projects (lokalnie zarządzane)

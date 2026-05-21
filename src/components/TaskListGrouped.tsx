@@ -9,6 +9,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onClearCompleted?: () => void;
   isLoading?: boolean;
   activeProjectId?: string | null;
 }
@@ -246,7 +247,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
 }
 
 
-export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, isLoading }: Props) {
+export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onClearCompleted, isLoading }: Props) {
   if (isLoading) {
     return (
       <div className="space-y-3 pt-4">
@@ -261,9 +262,13 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
     );
   }
 
-  const groups = groupTasks(tasks);
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
 
-  if (groups.length === 0) {
+  const groups = groupTasks(tasks);
+  const completedTasks = tasks.filter(t => t.isCompleted);
+
+  if (groups.length === 0 && completedTasks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24">
         <p className="text-[14px] text-[#9098a4]">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</p>
@@ -284,6 +289,104 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           onAdd={onAdd}
         />
       ))}
+
+      {/* Completed section */}
+      {completedTasks.length > 0 && (
+        <div className="mt-2">
+          {/* Header */}
+          <div
+            className="flex items-center gap-2 cursor-pointer select-none"
+            style={{ padding: '4px 0 6px' }}
+            onClick={() => setCompletedOpen(o => !o)}
+          >
+            <span className="text-[#9098a4] flex-none"><ChevronIcon open={completedOpen} /></span>
+            <span className="text-[15px] font-semibold text-[#9098a4]">Wykonane</span>
+            <span className="text-[13px] text-[#b0b5be]">{completedTasks.length}</span>
+            {onClearCompleted && (
+              <button
+                className="ml-auto text-[12px] font-medium transition-colors"
+                style={{ color: '#c0c5cc' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#e05050'; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#c0c5cc'; }}
+                onClick={e => { e.stopPropagation(); onClearCompleted(); }}
+              >
+                Wyczyść
+              </button>
+            )}
+          </div>
+
+          {/* Completed rows */}
+          {completedOpen && (
+            <>
+              {completedTasks.map(task => (
+                <div
+                  key={task.id}
+                  className="flex items-center cursor-pointer"
+                  style={{ padding: '9px 0', borderBottom: '1px solid #f1f0ed', gap: 10, opacity: 0.6 }}
+                  onClick={() => setEditingCompleted(task)}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#faf9f7')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  {/* Checked circle */}
+                  <button
+                    onClick={e => { e.stopPropagation(); onToggle(task.id); }}
+                    className="flex-none flex items-center justify-center rounded-full border-2 transition-colors hover:opacity-70"
+                    style={{ width: 20, height: 20, borderColor: '#0f1115', background: '#0f1115', flexShrink: 0 }}
+                  >
+                    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                      <path d="M5 13l4 4L19 7"/>
+                    </svg>
+                  </button>
+
+                  {/* Priority badge — dimmed */}
+                  <span
+                    className="flex-none text-[10.5px] font-semibold rounded-[5px]"
+                    style={{
+                      padding: '2px 6px',
+                      color: '#b0b5be',
+                      background: '#f1f0ed',
+                      letterSpacing: '0.03em',
+                      minWidth: 26,
+                      textAlign: 'center',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {(PRIORITY[task.priority] ?? PRIORITY.p4).label}
+                  </span>
+
+                  {/* Title strikethrough */}
+                  <span
+                    className="flex-1 text-[14px] text-[#9098a4] truncate min-w-0"
+                    style={{ fontWeight: 450, textDecoration: 'line-through' }}
+                  >
+                    {task.content}
+                  </span>
+
+                  {/* Date placeholder to keep alignment */}
+                  <div className="flex items-center gap-5 flex-none" style={{ color: '#d4d4d0' }}>
+                    <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 76 }}>
+                      <CalIcon />
+                      <span>{task.dueDate ? getDateLabel(task.dueDate) : '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Edit modal for completed tasks */}
+          {editingCompleted && (
+            <TaskEditModal
+              task={editingCompleted}
+              projects={projects}
+              onSave={updates => { onEdit(editingCompleted.id, updates); setEditingCompleted(null); }}
+              onDelete={() => { onDelete(editingCompleted.id); setEditingCompleted(null); }}
+              onToggleComplete={() => { onToggle(editingCompleted.id); setEditingCompleted(null); }}
+              onClose={() => setEditingCompleted(null)}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }

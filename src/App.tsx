@@ -430,6 +430,7 @@ export default function App() {
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}
                   onAdd={handleAddTask}
+                  onClearCompleted={handleClearCompleted}
                   isLoading={isLoading}
                   activeProjectId={activeProjectId}
                 />

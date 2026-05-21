@@ -71,6 +71,9 @@ export default function App() {
           dueDate: apiTask.dueDate,
           createdAt: existing?.createdAt ?? new Date(),
           project_id: existing?.project_id ?? apiTask.projectId ?? null,
+          description: existing?.description,
+          tags: existing?.tags,
+          subtasks: existing?.subtasks,
         };
       });
     });

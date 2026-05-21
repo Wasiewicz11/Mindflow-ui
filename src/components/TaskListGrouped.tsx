@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Task, Project } from '../types';
+import { TaskEditModal } from './TaskEditModal';
 
 interface Props {
   tasks: Task[];
@@ -231,11 +232,12 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
 
       {/* Edit modal */}
       {editingTask && (
-        <EditModal
+        <TaskEditModal
           task={editingTask}
           projects={projects}
           onSave={updates => { onEdit(editingTask.id, updates); setEditingTask(null); }}
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
+          onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
         />
       )}
@@ -243,118 +245,6 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
   );
 }
 
-function EditModal({ task, projects, onSave, onDelete, onClose }: {
-  task: Task;
-  projects: Project[];
-  onSave: (updates: Partial<Task>) => void;
-  onDelete: () => void;
-  onClose: () => void;
-}) {
-  const [content, setContent] = useState(task.content);
-  const [priority, setPriority] = useState(task.priority);
-  const [dueDate, setDueDate] = useState(task.dueDate ?? '');
-  const [projectId, setProjectId] = useState(task.project_id ?? '');
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    onSave({ content: content.trim(), priority, dueDate: dueDate || undefined, project_id: projectId || null });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'rgba(15,17,21,.15)' }}
-        onClick={onClose}
-      />
-      <div
-        className="relative z-10 w-full max-w-sm rounded-2xl p-6"
-        style={{ background: '#fff', border: '1px solid #ececec', boxShadow: '0 20px 40px -12px rgba(15,17,21,.18)' }}
-      >
-        <h3 className="text-[15px] font-semibold text-[#0f1115] mb-5">Edytuj zadanie</h3>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            autoFocus
-            type="text"
-            value={content}
-            onChange={e => setContent(e.target.value)}
-            className="w-full outline-none text-[14px] text-[#0f1115] rounded-xl"
-            style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px' }}
-            required
-          />
-
-          {/* Priority quick select */}
-          <div className="flex gap-1.5 flex-wrap">
-            {(Object.entries(PRIORITY) as [string, { label: string; fg: string; bg: string }][]).map(([k, v]) => (
-              <button
-                key={k}
-                type="button"
-                onClick={() => setPriority(k as 'p1'|'p2'|'p3'|'p4')}
-                className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold rounded-md transition-all"
-                style={{
-                  padding: '4px 9px',
-                  color: priority === k ? v.fg : '#9098a4',
-                  background: priority === k ? v.bg : '#f7f7f4',
-                  border: `1px solid ${priority === k ? v.bg : '#ececec'}`,
-                }}
-              >
-                <span className="rounded-full" style={{ width: 5, height: 5, background: priority === k ? v.fg : '#c0c5cc' }} />
-                {v.label}
-              </button>
-            ))}
-          </div>
-
-          <input
-            type="date"
-            value={dueDate}
-            onChange={e => setDueDate(e.target.value)}
-            className="w-full outline-none text-[13px] text-[#0f1115] rounded-xl"
-            style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '8px 12px' }}
-          />
-
-          {projects.length > 0 && (
-            <select
-              value={projectId}
-              onChange={e => setProjectId(e.target.value)}
-              className="w-full outline-none text-[13px] text-[#0f1115] rounded-xl appearance-none"
-              style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '8px 12px' }}
-            >
-              <option value="">Bez projektu</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          )}
-
-          <div className="flex items-center pt-2">
-            <button
-              type="button"
-              onClick={onDelete}
-              className="text-[13px] font-medium text-red-500 hover:text-red-700 transition-colors mr-auto"
-            >
-              Usuń
-            </button>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-3 py-2 text-[13px] font-medium text-[#9098a4] hover:text-[#0f1115] transition-colors rounded-lg"
-              >
-                Anuluj
-              </button>
-              <button
-                type="submit"
-                className="px-4 py-2 text-[13px] font-semibold rounded-lg text-white transition-colors"
-                style={{ background: '#0f1115' }}
-              >
-                Zapisz
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, isLoading }: Props) {
   if (isLoading) {

@@ -37,6 +37,12 @@ export interface Note {
   project_id?: string | null;
 }
 
+export interface Subtask {
+  id: string;
+  content: string;
+  isCompleted: boolean;
+}
+
 // Task rozszerzone o pola wizualne (isCompleted, priority jako p1-p4, project_id)
 export interface Task {
   id: string;
@@ -47,6 +53,9 @@ export interface Task {
   createdAt: Date;
   source?: 'app' | 'telegram';
   project_id?: string | null;
+  description?: string;
+  tags?: string[];
+  subtasks?: Subtask[];
 }
 
 export type InputMode = 'text' | 'audio';

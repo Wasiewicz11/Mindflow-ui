@@ -67,7 +67,7 @@ export default function App() {
           id: apiTask.id,
           content: apiTask.content,
           isCompleted: existing?.isCompleted ?? false,
-          priority: existing?.priority ?? 'p4',
+          priority: existing?.priority ?? ({ 1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4' } as Record<number, Task['priority']>)[apiTask.priority ?? 4] ?? 'p4',
           dueDate: apiTask.dueDate,
           createdAt: existing?.createdAt ?? new Date(),
           project_id: existing?.project_id ?? apiTask.projectId ?? null,
@@ -118,12 +118,13 @@ export default function App() {
   };
 
   const handleEditTask = async (id: string, updates: Partial<Task>) => {
-    // Update local state immediately
     setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-    // Push content update to API if content changed
-    if (updates.content !== undefined) {
-      await editTask(id, { content: updates.content });
-    }
+    const dto: import('./api/tasks').UpdateTaskDto = {};
+    if (updates.content   !== undefined) dto.content   = updates.content;
+    if (updates.priority  !== undefined) dto.priority  = { p1: 1, p2: 2, p3: 3, p4: 4 }[updates.priority];
+    if (updates.dueDate   !== undefined) dto.dueDate   = updates.dueDate;
+    if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
+    if (Object.keys(dto).length > 0) await editTask(id, dto);
   };
 
   const handleDeleteTask = async (id: string) => {

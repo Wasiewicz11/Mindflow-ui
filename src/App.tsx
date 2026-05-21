@@ -135,10 +135,6 @@ export default function App() {
     setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t));
   };
 
-  const handleBulkEditTasks = (ids: string[], updates: Partial<Task>) => {
-    setLocalTasks(prev => prev.map(t => ids.includes(t.id) ? { ...t, ...updates } : t));
-  };
-
   const handleClearCompleted = () => {
     const toDelete = localTasks.filter(t =>
       t.isCompleted && (activeProjectId ? t.project_id === activeProjectId : true)

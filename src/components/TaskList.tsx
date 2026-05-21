@@ -40,7 +40,12 @@ const TaskList: React.FC<TaskListProps> = ({
   const lastSelectedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const prevent = (e: KeyboardEvent) => { if (e.key === 'Shift') window.getSelection()?.removeAllRanges(); };
+    const prevent = (e: KeyboardEvent) => {
+      if (e.key !== 'Shift') return;
+      const tag = (document.activeElement as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      window.getSelection()?.removeAllRanges();
+    };
     window.addEventListener('keydown', prevent);
     return () => window.removeEventListener('keydown', prevent);
   }, []);

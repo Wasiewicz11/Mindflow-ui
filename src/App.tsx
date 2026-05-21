@@ -4,6 +4,7 @@ import Sidebar from './components/Sidebar';
 import TaskList from './components/TaskList';
 import TaskWeekView from './components/TaskWeekView';
 import { TaskBoardView } from './components/TaskBoardView';
+import { QuickAddTask } from './components/QuickAddTask';
 import NotesGrid from './components/NotesGrid';
 import { ThemeSelector } from './components/ThemeSelector';
 import { useAuth } from './hooks/useAuth';
@@ -451,6 +452,13 @@ export default function App() {
                 />
               )}
             </div>
+          )}
+
+          {activeTab === 'tasks' && taskViewMode === 'list' && (
+            <QuickAddTask
+              activeProjectId={activeProjectId}
+              onAdd={handleAddTask}
+            />
           )}
 
           {/* NOTES */}

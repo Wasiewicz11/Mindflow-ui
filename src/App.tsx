@@ -3,6 +3,7 @@ import { LoginScreen } from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import TaskList from './components/TaskList';
 import TaskWeekView from './components/TaskWeekView';
+import { TaskBoardView } from './components/TaskBoardView';
 import NotesGrid from './components/NotesGrid';
 import { ThemeSelector } from './components/ThemeSelector';
 import { useAuth } from './hooks/useAuth';
@@ -23,7 +24,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [taskViewMode, setTaskViewMode] = useState<'list' | 'week'>('list');
+  const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
   const [isLoading, setIsLoading] = useState(true);
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
 
@@ -319,6 +320,12 @@ export default function App() {
                 >
                   Tydzień
                 </button>
+                <button
+                  onClick={() => setTaskViewMode('board')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${taskViewMode === 'board' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
+                >
+                  Tablica
+                </button>
               </div>
             </div>
           )}
@@ -407,8 +414,8 @@ export default function App() {
 
           {/* TASKS */}
           {activeTab === 'tasks' && (
-            <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : 'max-w-3xl'}`}>
-              {taskViewMode === 'list' ? (
+            <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'max-w-full' : 'max-w-3xl'}`}>
+              {taskViewMode === 'list' && (
                 <TaskList
                   tasks={filteredTasks}
                   projects={projects}
@@ -421,7 +428,8 @@ export default function App() {
                   isLoading={isLoading}
                   activeProjectId={activeProjectId}
                 />
-              ) : (
+              )}
+              {taskViewMode === 'week' && (
                 <div className="h-[calc(100vh-200px)]">
                   <TaskWeekView
                     tasks={filteredTasks}
@@ -432,6 +440,15 @@ export default function App() {
                     onDelete={handleDeleteTask}
                   />
                 </div>
+              )}
+              {taskViewMode === 'board' && (
+                <TaskBoardView
+                  tasks={localTasks}
+                  projects={projects}
+                  onEdit={handleEditTask}
+                  onToggle={handleToggleTask}
+                  onDelete={handleDeleteTask}
+                />
               )}
             </div>
           )}

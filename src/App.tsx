@@ -454,7 +454,7 @@ export default function App() {
             </div>
           )}
 
-          {activeTab === 'tasks' && taskViewMode === 'list' && (
+          {activeTab === 'tasks' && (
             <QuickAddTask
               activeProjectId={activeProjectId}
               onAdd={handleAddTask}

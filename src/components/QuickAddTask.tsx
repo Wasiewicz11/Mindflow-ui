@@ -10,7 +10,7 @@ const PRIORITY_COLORS: Record<string, string> = {
   p1: 'text-red-500',
   p2: 'text-amber-500',
   p3: 'text-blue-500',
-  p4: 'text-gray-300 dark:text-gray-600',
+  p4: 'text-gray-300 dark:text-gray-500',
 };
 
 const PRIORITY_LABELS: Record<string, string> = {
@@ -55,9 +55,9 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
   };
 
   return createPortal(
-    <div className="fixed bottom-[72px] lg:bottom-6 left-0 right-0 px-4 lg:px-6 z-40 pointer-events-none animate-fade-in-up">
-      <div className="max-w-3xl mx-auto pointer-events-auto">
-        <div className="relative flex items-center bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-2xl shadow-[0_4px_24px_rgba(0,0,0,0.08)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)] px-4 py-3 gap-2">
+    <div className="fixed bottom-[68px] lg:bottom-4 left-0 lg:left-64 right-0 px-4 lg:px-6 z-40 pointer-events-none">
+      <div className="max-w-3xl pointer-events-auto">
+        <div className="relative flex items-center bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl shadow-sm px-3 py-2 gap-2">
           <input
             ref={inputRef}
             type="text"
@@ -65,10 +65,9 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
             onChange={(e) => setValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
             placeholder="Dodaj zadanie..."
-            className="flex-1 bg-transparent text-sm text-gray-700 dark:text-gray-200 placeholder-gray-300 dark:placeholder-gray-600 outline-none min-w-0"
+            className="flex-1 bg-transparent text-sm text-gray-600 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600 outline-none min-w-0"
           />
 
-          {/* Priority picker */}
           <div ref={pickerRef} className="relative flex-none">
             <button
               type="button"
@@ -80,7 +79,7 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
             </button>
 
             {showPicker && (
-              <div className="absolute bottom-full right-0 mb-2 bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/10 rounded-xl shadow-lg overflow-hidden animate-fade-in z-50 w-36">
+              <div className="absolute bottom-full right-0 mb-1.5 bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/10 rounded-xl shadow-lg overflow-hidden z-50 w-36">
                 {(['p1', 'p2', 'p3', 'p4'] as const).map((p) => (
                   <button
                     key={p}
@@ -95,19 +94,6 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
               </div>
             )}
           </div>
-
-          {/* Submit */}
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!value.trim()}
-            className="flex-none p-1.5 rounded-lg text-gray-300 dark:text-gray-600 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Dodaj"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-            </svg>
-          </button>
         </div>
       </div>
     </div>,

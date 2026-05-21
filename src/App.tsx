@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { LoginScreen } from './components/LoginScreen';
 import Sidebar from './components/Sidebar';
 import TaskList from './components/TaskList';
+import { TaskListGrouped } from './components/TaskListGrouped';
 import TaskWeekView from './components/TaskWeekView';
 import { TaskBoardView } from './components/TaskBoardView';
 import { QuickAddTask } from './components/QuickAddTask';
@@ -419,15 +420,13 @@ export default function App() {
           {activeTab === 'tasks' && (
             <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full -mx-6' : 'max-w-3xl'}`}>
               {taskViewMode === 'list' && (
-                <TaskList
+                <TaskListGrouped
                   tasks={filteredTasks}
                   projects={projects}
                   onToggle={handleToggleTask}
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}
                   onAdd={handleAddTask}
-                  onClearCompleted={handleClearCompleted}
-                  onBulkEdit={handleBulkEditTasks}
                   isLoading={isLoading}
                   activeProjectId={activeProjectId}
                 />

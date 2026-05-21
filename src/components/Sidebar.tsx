@@ -180,14 +180,14 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isDropTarget = (id: string) => draggingProjectId !== null && dragOverTarget === id;
 
   return (
-    <div className="hidden lg:flex w-64 h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10">
+    <div className="hidden lg:flex h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10" style={{ width: 220 }}>
 
       {/* LOGO */}
-      <div className="flex-none px-6 mb-8 flex items-center gap-3">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 flex items-center justify-center shadow-lg shadow-gray-900/20 dark:shadow-white/10">
-          <svg className="w-5 h-5 text-white dark:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-        </div>
-        <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">MindFlow</span>
+      <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
+        <span className="text-[#0f1115] dark:text-white flex">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
+        </span>
+        <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>MindFlow</span>
       </div>
 
       {/* MAIN NAV */}
@@ -196,16 +196,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             key={item.id}
             onClick={() => { setActiveTab(item.id as any); if (item.id === 'tasks') onSelectProject(null); }}
-            className={`w-full flex items-center px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-300 ease-out group ${
+            className={`w-full flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
               activeTab === item.id
-                ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm scale-[1.02]'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100/50 dark:hover:bg-white/5 hover:translate-x-1'
+                ? 'font-semibold text-[#0f1115] dark:text-white'
+                : 'font-medium text-[#5a606b] dark:text-gray-400 hover:text-[#0f1115] dark:hover:text-white'
             }`}
+            style={{ padding: '7px 10px', gap: 9 }}
+            onMouseEnter={e => { if (activeTab !== item.id) e.currentTarget.style.background = 'rgba(15,17,21,.035)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <div className={`mr-3 transition-transform duration-300 ${activeTab === item.id ? 'scale-110' : 'group-hover:scale-110'}`}>
+            <span className={`flex-none flex ${activeTab === item.id ? 'text-[#0f1115] dark:text-white' : 'text-[#8a909a] dark:text-gray-500'}`}>
               {item.icon}
-            </div>
-            {item.label}
+            </span>
+            <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
+            {activeTab === item.id && (
+              <span className="flex-none w-1 h-1 rounded-full bg-[#0f1115] dark:bg-white" />
+            )}
           </button>
         ))}
       </nav>
@@ -214,7 +220,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <nav className="flex-1 px-4 overflow-y-auto custom-scrollbar">
         <div className="mb-4">
           <div className="flex items-center justify-between px-3 mb-2 group">
-            <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Przestrzenie</h3>
+            <h3 className="text-[10.5px] font-medium text-[#b0b5be] dark:text-gray-500" style={{ letterSpacing: '0.01em' }}>Przestrzeń</h3>
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
               <button
                 onClick={onOpenJoinSpace}
@@ -303,7 +309,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               <div className={`flex items-center justify-between px-3 mb-2 rounded-lg py-1 transition-all duration-150 group ${
                 isDropTarget('none') ? 'bg-gray-100 dark:bg-white/10 ring-1 ring-gray-300 dark:ring-white/20' : ''
               }`}>
-                <h3 className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Inne Projekty</h3>
+                <h3 className="text-[10.5px] font-medium text-[#b0b5be] dark:text-gray-500" style={{ letterSpacing: '0.01em' }}>Inne projekty</h3>
                 <button
                   onClick={() => setIsAddingProject('none')}
                   className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-all hover:scale-110"

@@ -308,25 +308,27 @@ export default function App() {
           {/* Task view mode toggle */}
           {activeTab === 'tasks' && (
             <div className="flex items-center gap-2">
-              <div className="flex bg-gray-100 dark:bg-white/5 rounded-xl p-1 gap-1">
-                <button
-                  onClick={() => setTaskViewMode('list')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${taskViewMode === 'list' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                  Lista
-                </button>
-                <button
-                  onClick={() => setTaskViewMode('week')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${taskViewMode === 'week' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                  Tydzień
-                </button>
-                <button
-                  onClick={() => setTaskViewMode('board')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${taskViewMode === 'board' ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}
-                >
-                  Tablica
-                </button>
+              <div
+                className="flex dark:bg-white/5"
+                style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
+              >
+                {(['list', 'week', 'board'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setTaskViewMode(mode)}
+                    className="transition-all duration-150"
+                    style={{
+                      padding: '4px 11px',
+                      borderRadius: 5,
+                      fontSize: 12.5,
+                      fontWeight: 500,
+                      background: taskViewMode === mode ? '#0f1115' : 'transparent',
+                      color: taskViewMode === mode ? '#fff' : '#5a606b',
+                    }}
+                  >
+                    {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -415,7 +417,7 @@ export default function App() {
 
           {/* TASKS */}
           {activeTab === 'tasks' && (
-            <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'max-w-full' : 'max-w-3xl'}`}>
+            <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full -mx-6' : 'max-w-3xl'}`}>
               {taskViewMode === 'list' && (
                 <TaskList
                   tasks={filteredTasks}

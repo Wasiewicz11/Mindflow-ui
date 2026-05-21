@@ -8,159 +8,185 @@ interface Props {
   onDelete: (id: string) => void;
 }
 
-const PRIORITY_CONFIG = {
-  p1: { label: 'P1', color: 'bg-red-50 text-red-500 dark:bg-red-900/20 dark:text-red-400' },
-  p2: { label: 'P2', color: 'bg-orange-50 text-orange-500 dark:bg-orange-900/20 dark:text-orange-400' },
-  p3: { label: 'P3', color: 'bg-blue-50 text-blue-500 dark:bg-blue-900/20 dark:text-blue-400' },
-  p4: { label: 'P4', color: 'bg-gray-100 text-gray-400 dark:bg-white/5 dark:text-gray-500' },
+const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
+  p1: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  p2: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  p3: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  p4: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
-function formatDate(dateStr: string): string {
-  const date = new Date(dateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
-
-  if (diff < 0) return `${Math.abs(diff)}d temu`;
-  if (diff === 0) return 'Dziś';
+function formatDue(dateStr: string): string {
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
+  if (diff < 0)  return `${Math.abs(diff)}d temu`;
+  if (diff === 0) return 'Dzisiaj';
   if (diff === 1) return 'Jutro';
-  return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 }
 
-function isOverdue(dateStr: string): boolean {
-  const date = new Date(dateStr);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return date < today;
+function isOverdue(dateStr: string) {
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return d < today;
 }
 
-interface TaskCardProps {
-  task: Task;
-  onToggle: () => void;
+function CalIcon() {
+  return <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></svg>;
+}
+function PlusIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>;
+}
+function MoreIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>;
 }
 
-function TaskCard({ task, onToggle }: TaskCardProps) {
-  const priority = PRIORITY_CONFIG[task.priority] ?? PRIORITY_CONFIG.p4;
+function Card({ task }: { task: Task }) {
+  const p = PRIORITY[task.priority] ?? PRIORITY.p4;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
-    <div className="group bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-xl p-3.5 hover:border-gray-200 dark:hover:border-white/10 hover:shadow-sm transition-all duration-200 cursor-default">
-      {/* Top row: priority + date */}
-      <div className="flex items-center justify-between mb-2.5">
-        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-md ${priority.color}`}>
-          {priority.label}
+    <article
+      className="bg-white border rounded-xl transition-all duration-150 cursor-pointer"
+      style={{
+        borderColor: '#ececec',
+        padding: '12px 13px 11px',
+        boxShadow: '0 1px 0 rgba(15,17,21,.02)',
+      }}
+      onMouseEnter={e => {
+        const el = e.currentTarget;
+        el.style.borderColor = '#dcdcd6';
+        el.style.boxShadow = '0 4px 14px -8px rgba(15,17,21,.18), 0 1px 0 rgba(15,17,21,.02)';
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget;
+        el.style.borderColor = '#ececec';
+        el.style.boxShadow = '0 1px 0 rgba(15,17,21,.02)';
+      }}
+    >
+      {/* priority badge */}
+      <div className="flex items-center gap-1.5 mb-2">
+        <span
+          className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
+          style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
+        >
+          <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: p.fg }} />
+          {p.label}
         </span>
-        {task.dueDate && (
-          <span className={`text-[10px] font-medium ${overdue ? 'text-red-500 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
-            {formatDate(task.dueDate)}
-          </span>
-        )}
       </div>
 
-      {/* Content */}
-      <p className="text-sm text-gray-700 dark:text-gray-200 leading-snug line-clamp-2">
-        {task.content}
-      </p>
+      {/* title */}
+      <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115]">{task.content}</p>
 
-      {/* Complete button */}
-      <button
-        onClick={onToggle}
-        className="mt-3 flex items-center gap-1.5 text-[10px] font-medium text-gray-300 dark:text-gray-600 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors opacity-0 group-hover:opacity-100"
-      >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
-        </svg>
-        Ukończ
-      </button>
-    </div>
+      {/* due date */}
+      {task.dueDate && (
+        <div className={`flex items-center gap-1.5 mt-2 text-[11.5px] ${overdue ? 'text-red-500' : 'text-[#9098a4]'}`}>
+          <CalIcon />
+          {formatDue(task.dueDate)}
+        </div>
+      )}
+    </article>
   );
 }
 
-interface ColumnProps {
-  title: string;
-  color?: string;
-  tasks: Task[];
-  onToggle: (id: string) => void;
-}
-
-function Column({ title, color, tasks }: ColumnProps) {
+function Column({ project, tasks, isFirst }: { project: Project & { id: string }; tasks: Task[]; isFirst: boolean }) {
   const open = tasks.filter(t => !t.isCompleted);
 
   return (
-    <div className="flex-none w-[260px] flex flex-col">
-      {/* Column header */}
-      <div className="flex items-center gap-2 mb-3 px-0.5">
-        <span
-          className="w-2 h-2 rounded-full flex-none"
-          style={{ backgroundColor: color ?? '#9CA3AF' }}
-        />
-        <h3 className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate tracking-wide uppercase">
-          {title}
-        </h3>
-        <span className="ml-auto text-[10px] font-medium text-gray-400 dark:text-gray-600 bg-gray-100 dark:bg-white/5 px-1.5 py-0.5 rounded-md">
-          {open.length}
-        </span>
+    <section
+      className="group flex-none flex flex-col h-full min-h-0 relative"
+      style={{
+        width: 288,
+        padding: '0 18px',
+        borderLeft: isFirst ? 'none' : '1px solid #ececec',
+      }}
+    >
+      {/* color accent bar */}
+      <span
+        className="absolute rounded-sm"
+        style={{ top: 14, left: 18, right: 18, height: 2, background: project.color || '#9aa0aa', opacity: 0.9 }}
+      />
+
+      {/* header */}
+      <div className="flex items-center justify-between" style={{ padding: '22px 0 8px' }}>
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-semibold text-[#0f1115] tracking-[-0.005em]">{project.name}</span>
+          <span className="text-[11px] text-[#9098a4]">{open.length}</span>
+        </div>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <button
+            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef]"
+            style={{ width: 22, height: 22 }}
+            title="Dodaj zadanie"
+          >
+            <PlusIcon />
+          </button>
+          <button
+            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef]"
+            style={{ width: 22, height: 22 }}
+          >
+            <MoreIcon />
+          </button>
+        </div>
       </div>
 
-      {/* Cards */}
-      <div className="flex flex-col gap-2 flex-1">
-        {open.length === 0 ? (
-          <div className="h-20 border border-dashed border-gray-100 dark:border-white/5 rounded-xl flex items-center justify-center">
-            <p className="text-[11px] text-gray-300 dark:text-gray-600">Brak zadań</p>
+      {/* cards */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
+        {open.length === 0 && (
+          <div
+            className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
+            style={{ border: '1.5px dashed #e3e3df' }}
+          >
+            Brak zadań
           </div>
-        ) : (
-          open.map(task => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              onToggle={() => {}}
-            />
-          ))
         )}
+
+        {open.map(task => <Card key={task.id} task={task} />)}
+
+        <button
+          className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
+          style={{ padding: '9px 12px' }}
+        >
+          <PlusIcon /> Dodaj zadanie
+        </button>
       </div>
-    </div>
+    </section>
   );
 }
 
-export function TaskBoardView({ tasks, projects, onToggle }: Props) {
+export function TaskBoardView({ tasks, projects }: Props) {
   const openTasks = tasks.filter(t => !t.isCompleted);
+  const noProjectTasks = openTasks.filter(t => !t.project_id);
 
-  const columns: { id: string | null; name: string; color?: string }[] = [
-    ...projects.map(p => ({ id: p.id, name: p.name, color: p.color })),
-    { id: null, name: 'Bez projektu', color: '#9CA3AF' },
+  const columns = [
+    ...projects.map(p => ({ ...p })),
+    ...(noProjectTasks.length > 0 ? [{ id: '__none__', name: 'Bez projektu', color: '#9aa0aa', space_id: null }] : []),
   ];
 
-  const columnsWithTasks = columns.filter(col => {
-    const count = openTasks.filter(t =>
-      col.id === null ? !t.project_id : t.project_id === col.id
-    ).length;
-    return count > 0 || col.id !== null;
-  });
-
-  if (openTasks.length === 0) {
+  if (columns.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 animate-fade-in">
-        <div className="w-14 h-14 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-4">
-          <svg className="w-7 h-7 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
-          </svg>
-        </div>
-        <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">Brak otwartych zadań</p>
+      <div className="flex flex-col items-center justify-center h-64">
+        <p className="text-sm text-[#9098a4]">Brak projektów — dodaj projekt w sidebarze</p>
       </div>
     );
   }
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 -mx-1 px-1 animate-fade-in min-h-[400px]" style={{ scrollbarWidth: 'thin' }}>
-      {columnsWithTasks.map(col => (
-        <Column
-          key={col.id ?? '__none__'}
-          title={col.name}
-          color={col.color}
-          tasks={openTasks.filter(t => col.id === null ? !t.project_id : t.project_id === col.id)}
-          onToggle={onToggle}
-        />
-      ))}
+    <div
+      className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
+      style={{ paddingBottom: 220 }}
+    >
+      <div className="flex h-full min-w-min">
+        {columns.map((col, i) => (
+          <Column
+            key={col.id}
+            project={col as Project & { id: string }}
+            tasks={tasks.filter(t => col.id === '__none__' ? !t.project_id : t.project_id === col.id)}
+            isFirst={i === 0}
+          />
+        ))}
+      </div>
     </div>
   );
 }

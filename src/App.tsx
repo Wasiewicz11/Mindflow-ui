@@ -463,7 +463,7 @@ export default function App() {
           )}
 
           {activeTab === 'tasks' && (
-            <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
+            <div key={activeProjectId ?? 'all'} className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
               {taskViewMode === 'list' && (
                 <TaskListGrouped
                   tasks={filteredTasks}

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { Task, Project } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
@@ -16,6 +17,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   onClearCompleted?: () => void;
   isLoading?: boolean;
   activeProjectId?: string | null;
@@ -109,11 +111,14 @@ function PlusIcon() {
   );
 }
 
-function TaskRow({ task, project, onToggle, onClick }: {
+function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected, onSelect }: {
   task: Task;
   project?: Project;
   onToggle: () => void;
   onClick: () => void;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onSelect?: () => void;
 }) {
   const p = PRIORITY[task.priority] ?? PRIORITY.p4;
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
@@ -122,20 +127,50 @@ function TaskRow({ task, project, onToggle, onClick }: {
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
 
+  const handleRowClick = () => {
+    if (isSelectionMode) { onSelect?.(); return; }
+    onClick();
+  };
+
   return (
     <div
-      onClick={onClick}
-      className="flex items-center cursor-pointer group"
-      style={{ padding: '9px 0', borderBottom: '1px solid #f1f0ed', gap: 10 }}
-      onMouseEnter={e => (e.currentTarget.style.background = '#faf9f7')}
-      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+      onClick={handleRowClick}
+      className="flex items-center cursor-pointer group select-none transition-opacity"
+      style={{
+        padding: '9px 0',
+        borderBottom: '1px solid #f1f0ed',
+        gap: 10,
+        background: isSelected ? '#eef2ff' : 'transparent',
+        opacity: isSelectionMode && !isSelected ? 0.45 : 1,
+        borderRadius: isSelected ? 6 : 0,
+      }}
+      onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#faf9f7'; e.currentTarget.style.opacity = isSelectionMode ? '0.65' : '1'; } }}
+      onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#eef2ff' : 'transparent'; e.currentTarget.style.opacity = isSelectionMode && !isSelected ? '0.45' : '1'; }}
     >
-      {/* Checkbox */}
-      <button
-        onClick={e => { e.stopPropagation(); onToggle(); }}
-        className="flex-none rounded-full border transition-colors hover:border-[#9098a4]"
-        style={{ width: 20, height: 20, borderColor: '#d4d4d0', background: 'transparent', flexShrink: 0 }}
-      />
+      {/* Checkbox / selection circle */}
+      {isSelectionMode ? (
+        <button
+          onClick={e => { e.stopPropagation(); onSelect?.(); }}
+          className="flex-none flex items-center justify-center rounded-full border-2 transition-all"
+          style={{
+            width: 20, height: 20, flexShrink: 0,
+            borderColor: isSelected ? '#0f1115' : '#d4d4d0',
+            background: isSelected ? '#0f1115' : 'transparent',
+          }}
+        >
+          {isSelected && (
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+              <path d="M5 13l4 4L19 7"/>
+            </svg>
+          )}
+        </button>
+      ) : (
+        <button
+          onClick={e => { e.stopPropagation(); onToggle(); }}
+          className="flex-none rounded-full border transition-colors hover:border-[#9098a4]"
+          style={{ width: 20, height: 20, borderColor: '#d4d4d0', background: 'transparent', flexShrink: 0 }}
+        />
+      )}
 
       {/* Priority badge */}
       <span
@@ -195,13 +230,16 @@ function TaskRow({ task, project, onToggle, onClick }: {
   );
 }
 
-function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
+function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSelectionMode, selectedIds, onSelect }: {
   group: Group;
   projects: Project[];
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: 'p1'|'p2'|'p3'|'p4', dueDate?: string, projectId?: string) => void;
+  isSelectionMode?: boolean;
+  selectedIds?: string[];
+  onSelect?: (id: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -231,7 +269,10 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
               task={task}
               project={projects.find(p => p.id === task.project_id)}
               onToggle={() => onToggle(task.id)}
-              onClick={() => setEditingTask(task)}
+              onClick={() => { if (!isSelectionMode) setEditingTask(task); }}
+              isSelectionMode={isSelectionMode}
+              isSelected={selectedIds?.includes(task.id)}
+              onSelect={() => onSelect?.(task.id)}
             />
           ))}
 
@@ -270,8 +311,97 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
 }
 
 
-export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onClearCompleted, isLoading }: Props) {
+export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading }: Props) {
   const [addModalOpen, setAddModalOpen] = useState(false);
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkDueDate, setBulkDueDate] = useState('');
+
+  const activeTasks = tasks.filter(t => !t.isCompleted);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const exitSelection = () => { setIsSelectionMode(false); setSelectedIds([]); };
+
+  const floatingToolbar = isSelectionMode && selectedIds.length > 0 && typeof document !== 'undefined'
+    ? createPortal(
+      <div className="fixed z-[100] bottom-0 left-0 right-0 w-full lg:w-max lg:bottom-10 lg:left-1/2 lg:right-auto lg:-translate-x-1/2 bg-white/98 dark:bg-[#1C1C1E]/95 backdrop-blur-2xl border-t lg:border border-gray-200/60 dark:border-white/10 rounded-t-3xl lg:rounded-full shadow-[0_-20px_40px_rgba(0,0,0,0.1)] lg:shadow-[0_8px_32px_rgba(0,0,0,0.08)] px-4 pb-8 pt-5 lg:px-5 lg:py-2.5">
+        {/* Mobile header row */}
+        <div className="flex lg:hidden justify-between items-center mb-4 w-full px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-gray-800 dark:text-white">{selectedIds.length} zaznaczonych</span>
+            <button
+              onClick={() => selectedIds.length === activeTasks.length ? setSelectedIds([]) : setSelectedIds(activeTasks.map(t => t.id))}
+              className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              {selectedIds.length === activeTasks.length ? 'Odznacz wszystko' : 'Zaznacz wszystko'}
+            </button>
+          </div>
+          <button onClick={exitSelection} className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-500 transition-colors">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 lg:flex items-center gap-3 lg:gap-4 w-full lg:w-auto">
+          {/* Zaznacz wszystko — desktop only */}
+          <button
+            onClick={() => selectedIds.length === activeTasks.length ? setSelectedIds([]) : setSelectedIds(activeTasks.map(t => t.id))}
+            className="hidden lg:flex items-center justify-center bg-gray-100/80 hover:bg-gray-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-gray-700 whitespace-nowrap transition-colors"
+          >
+            {selectedIds.length === activeTasks.length ? 'Odznacz wszystko' : `${selectedIds.length} / ${activeTasks.length}`}
+          </button>
+          <div className="hidden lg:block h-5 w-px bg-gray-200"></div>
+
+          {/* Ukończ */}
+          <button
+            onClick={() => { onBulkEdit?.(selectedIds, { status: 'Completed' }); exitSelection(); }}
+            className="col-span-1 flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200/60 lg:border-none lg:bg-transparent lg:hover:bg-emerald-50 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
+            <span>Ukończ</span>
+          </button>
+
+          {/* Usuń */}
+          <button
+            onClick={() => {
+              if (!window.confirm(`Czy na pewno chcesz usunąć ${selectedIds.length} zadań?`)) return;
+              selectedIds.forEach(id => onDelete(id));
+              exitSelection();
+            }}
+            className="col-span-1 flex items-center justify-center gap-1.5 bg-red-50 hover:bg-red-100 text-red-500 border border-red-200/60 lg:border-none lg:bg-transparent lg:hover:bg-red-50 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+            <span>Usuń</span>
+          </button>
+
+          {/* Termin */}
+          <div className="col-span-1 relative flex items-center justify-center bg-gray-50 hover:bg-gray-100 border border-gray-100/80 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 py-2 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors">
+            <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <input
+              type="date"
+              value={bulkDueDate}
+              onChange={e => {
+                const chosen = e.target.value;
+                setBulkDueDate(chosen);
+                if (selectedIds.length > 0) onBulkEdit?.(selectedIds, { dueDate: chosen || undefined });
+                exitSelection();
+                setBulkDueDate('');
+              }}
+              className="bg-transparent text-xs font-semibold text-gray-700 outline-none cursor-pointer w-28 lg:w-24"
+            />
+          </div>
+
+          <div className="hidden lg:block h-5 w-px bg-gray-200"></div>
+          <button onClick={exitSelection} className="hidden lg:flex p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 rounded-full transition-colors items-center justify-center">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      </div>,
+      document.body
+    )
+    : null;
 
   if (isLoading) {
     return (
@@ -319,8 +449,10 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
 
   return (
     <div className="pt-2">
-      {/* Top-level add button */}
-      <div className="mb-4">
+      {floatingToolbar}
+
+      {/* Top-level add button + Wybierz wiele */}
+      <div className="mb-4 flex items-center justify-between">
         <button
           className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
           style={{ color: '#9098a4', background: '#f5f4f1' }}
@@ -330,6 +462,18 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         >
           <PlusIcon /> Nowe zadanie
         </button>
+        {activeTasks.length > 0 && (
+          <button
+            onClick={() => { setIsSelectionMode(m => !m); setSelectedIds([]); }}
+            className="text-[12px] font-semibold transition-colors rounded-lg px-3 py-1.5"
+            style={{
+              background: isSelectionMode ? '#0f1115' : '#f5f4f1',
+              color: isSelectionMode ? '#fff' : '#9098a4',
+            }}
+          >
+            {isSelectionMode ? 'Gotowe' : 'Wybierz'}
+          </button>
+        )}
       </div>
 
       {addModalOpen && (
@@ -349,6 +493,9 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           onEdit={onEdit}
           onDelete={onDelete}
           onAdd={onAdd}
+          isSelectionMode={isSelectionMode}
+          selectedIds={selectedIds}
+          onSelect={toggleSelect}
         />
       ))}
 

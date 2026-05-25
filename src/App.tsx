@@ -145,6 +145,10 @@ export default function App() {
     await editTask(id, { status: newStatus });
   };
 
+  const handleBulkEdit = (ids: string[], updates: Partial<import('./types').Task>) => {
+    ids.forEach(id => handleEditTask(id, updates));
+  };
+
   const handleClearCompleted = () => {
     const toDelete = localTasks.filter(t =>
       t.isCompleted && (activeProjectId ? t.project_id === activeProjectId : true)
@@ -468,6 +472,7 @@ export default function App() {
                   onEdit={handleEditTask}
                   onDelete={handleDeleteTask}
                   onAdd={handleAddTask}
+                  onBulkEdit={handleBulkEdit}
                   onClearCompleted={handleClearCompleted}
                   isLoading={isLoading}
                   activeProjectId={activeProjectId}

@@ -53,13 +53,11 @@ export function useTasks(isLoggedIn: boolean) {
 
   const addTask = useCallback(async (content: string, projectId?: string, status?: string) => {
     await createTask({ content, projectId, status });
-    await fetchTasks();
-  }, [fetchTasks]);
+  }, []);
 
   const editTask = useCallback(async (id: string, dto: UpdateTaskDto) => {
     await updateTask(id, dto);
-    await fetchTasks();
-  }, [fetchTasks]);
+  }, []);
 
   const removeTask = useCallback(async (id: string) => {
     await deleteTask(id);

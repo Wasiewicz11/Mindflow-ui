@@ -345,7 +345,7 @@ export default function App() {
         </header>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-28 lg:pb-8">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
 
           {/* DASHBOARD */}
           {activeTab === 'dashboard' && (

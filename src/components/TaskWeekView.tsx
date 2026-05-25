@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import type { Task, Project } from '../types';
 
+const STATUS_META: Record<string, { label: string; dot: string }> = {
+  NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)' },
+  InProgress:  { label: 'W trakcie',     dot: 'oklch(0.60 0.18 230)' },
+  Completed:   { label: 'Ukończone',     dot: 'oklch(0.55 0.18 145)' },
+};
+
 interface TaskWeekViewProps {
   tasks: Task[];
   projects?: Project[];
@@ -215,7 +221,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
               {task.content}
             </p>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {dateDisplay && (
                 <div className={`flex items-center gap-1 text-[9px] font-medium ${isOverdueOrToday ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
                   <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
@@ -227,6 +233,16 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg>
                 <span className="truncate max-w-[80px]">{project ? project.name : 'Skrzynka'}</span>
               </div>
+
+              {(() => {
+                const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
+                return (
+                  <div className="flex items-center gap-1 text-[9px] font-medium text-gray-400 dark:text-gray-500" title={st.label}>
+                    <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: st.dot }} />
+                    <span>{st.label}</span>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

@@ -1,5 +1,11 @@
 import type { Task, Project } from '../types';
 
+const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
+  NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
+  InProgress:  { label: 'W trakcie',     dot: 'oklch(0.60 0.18 230)', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)'  },
+  Completed:   { label: 'Ukończone',     dot: 'oklch(0.55 0.18 145)', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)'  },
+};
+
 interface Props {
   tasks: Task[];
   projects: Project[];
@@ -44,6 +50,7 @@ function MoreIcon() {
 
 function Card({ task }: { task: Task }) {
   const p = PRIORITY[task.priority] ?? PRIORITY.p4;
+  const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
@@ -65,14 +72,21 @@ function Card({ task }: { task: Task }) {
         el.style.boxShadow = '0 1px 0 rgba(15,17,21,.02)';
       }}
     >
-      {/* priority badge */}
-      <div className="flex items-center gap-1.5 mb-2">
+      {/* priority + status badges */}
+      <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         <span
           className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
           style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
         >
           <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: p.fg }} />
           {p.label}
+        </span>
+        <span
+          className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-md"
+          style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.03em', color: st.fg, background: st.bg }}
+        >
+          <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: st.dot }} />
+          {st.label}
         </span>
       </div>
 

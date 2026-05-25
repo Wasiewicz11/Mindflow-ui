@@ -2,6 +2,12 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project } from '../types';
 
+const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
+  NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
+  InProgress:  { label: 'W trakcie',     dot: 'oklch(0.60 0.18 230)', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)'  },
+  Completed:   { label: 'Ukończone',     dot: 'oklch(0.55 0.18 145)', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)'  },
+};
+
 interface TaskListProps {
   tasks: Task[];
   projects?: Project[];
@@ -199,6 +205,7 @@ const TaskList: React.FC<TaskListProps> = ({
     const dateLabel = formatDate(task.dueDate);
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !new Date(task.dueDate).toDateString().match(new Date().toDateString()) && !task.isCompleted;
     const project = projects.find(p => p.id === task.project_id);
+    const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
     const staggerClass = index < 5 ? `delay-${index * 75}` : 'delay-0';
     const isSelected = selectedIds.includes(task.id);
 
@@ -241,7 +248,7 @@ const TaskList: React.FC<TaskListProps> = ({
               {task.content}
             </span>
 
-            {(dateLabel || task.dueDate || project) && !compactMode && (
+            {!compactMode && (
               <div className="flex items-center space-x-3 mt-0.5">
                 {(dateLabel || task.dueDate) && (
                   <div className={`relative flex items-center text-[10px] w-fit ${isOverdue ? 'text-red-500 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -255,6 +262,13 @@ const TaskList: React.FC<TaskListProps> = ({
                     {project.name}
                   </div>
                 )}
+                <div
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold rounded-[4px]"
+                  style={{ padding: '1px 5px', color: st.fg, background: st.bg }}
+                >
+                  <span className="rounded-full flex-none" style={{ width: 4, height: 4, background: st.dot }} />
+                  {st.label}
+                </div>
               </div>
             )}
             {compactMode && (dateLabel || isOverdue) && !task.isCompleted && (

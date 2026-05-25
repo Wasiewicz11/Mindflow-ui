@@ -2,6 +2,12 @@ import { useState } from 'react';
 import type { Task, Project } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 
+const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
+  NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
+  InProgress:  { label: 'W trakcie',     dot: 'oklch(0.60 0.18 230)', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)'  },
+  Completed:   { label: 'Ukończone',     dot: 'oklch(0.55 0.18 145)', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)'  },
+};
+
 interface Props {
   tasks: Task[];
   projects: Project[];
@@ -109,6 +115,7 @@ function TaskRow({ task, project, onToggle, onClick }: {
   onClick: () => void;
 }) {
   const p = PRIORITY[task.priority] ?? PRIORITY.p4;
+  const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const dateLabel = task.dueDate ? getDateLabel(task.dueDate) : '';
   const overdue = task.dueDate
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
@@ -143,6 +150,16 @@ function TaskRow({ task, project, onToggle, onClick }: {
         }}
       >
         {p.label}
+      </span>
+
+      {/* Status badge */}
+      <span
+        className="flex-none inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px]"
+        title={st.label}
+        style={{ padding: '2px 7px', color: st.fg, background: st.bg, letterSpacing: '0.02em', flexShrink: 0 }}
+      >
+        <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: st.dot }} />
+        {st.label}
       </span>
 
       {/* Title */}

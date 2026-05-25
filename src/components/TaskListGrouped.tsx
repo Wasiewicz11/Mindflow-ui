@@ -271,6 +271,8 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
 
 
 export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onClearCompleted, isLoading }: Props) {
+  const [addModalOpen, setAddModalOpen] = useState(false);
+
   if (isLoading) {
     return (
       <div className="space-y-3 pt-4">
@@ -293,14 +295,51 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
 
   if (groups.length === 0 && completedTasks.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
+      <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-[14px] text-[#9098a4]">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</p>
+        <button
+          className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
+          style={{ color: '#9098a4', background: '#f5f4f1' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+          onClick={() => setAddModalOpen(true)}
+        >
+          <PlusIcon /> Nowe zadanie
+        </button>
+        {addModalOpen && (
+          <TaskAddModal
+            projects={projects}
+            onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
+            onClose={() => setAddModalOpen(false)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div className="pt-2">
+      {/* Top-level add button */}
+      <div className="mb-4">
+        <button
+          className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
+          style={{ color: '#9098a4', background: '#f5f4f1' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+          onClick={() => setAddModalOpen(true)}
+        >
+          <PlusIcon /> Nowe zadanie
+        </button>
+      </div>
+
+      {addModalOpen && (
+        <TaskAddModal
+          projects={projects}
+          onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
+          onClose={() => setAddModalOpen(false)}
+        />
+      )}
+
       {groups.map(group => (
         <GroupBlock
           key={group.key}

@@ -5,6 +5,7 @@ import TaskList from './components/TaskList';
 import { TaskListGrouped } from './components/TaskListGrouped';
 import TaskWeekView from './components/TaskWeekView';
 import { TaskBoardView } from './components/TaskBoardView';
+import { TaskKanbanView } from './components/TaskKanbanView';
 import { QuickAddTask } from './components/QuickAddTask';
 import NotesGrid from './components/NotesGrid';
 import { ThemeSelector } from './components/ThemeSelector';
@@ -454,13 +455,20 @@ export default function App() {
                 </div>
               )}
               {taskViewMode === 'board' && (
-                <TaskBoardView
-                  tasks={localTasks}
-                  projects={projects}
-                  onEdit={handleEditTask}
-                  onToggle={handleToggleTask}
-                  onDelete={handleDeleteTask}
-                />
+                activeProjectId ? (
+                  <TaskKanbanView
+                    tasks={filteredTasks}
+                    onEdit={handleEditTask}
+                  />
+                ) : (
+                  <TaskBoardView
+                    tasks={localTasks}
+                    projects={projects}
+                    onEdit={handleEditTask}
+                    onToggle={handleToggleTask}
+                    onDelete={handleDeleteTask}
+                  />
+                )
               )}
             </div>
           )}

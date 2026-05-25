@@ -7,7 +7,7 @@ interface Props {
   initialStatus?: TaskStatus;
   initialDueDate?: string;
   initialProjectId?: string;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
   onClose: () => void;
 }
 
@@ -38,11 +38,12 @@ function StatusIcon() {
 }
 
 export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDueDate = '', initialProjectId = '', onAdd, onClose }: Props) {
-  const [content, setContent]   = useState('');
-  const [priority, setPriority] = useState<'p1' | 'p2' | 'p3' | 'p4'>('p4');
-  const [status, setStatus]     = useState<TaskStatus>(initialStatus);
-  const [dueDate, setDueDate]   = useState(initialDueDate);
-  const [projectId, setProjectId] = useState(initialProjectId);
+  const [content, setContent]         = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority]       = useState<'p1' | 'p2' | 'p3' | 'p4'>('p4');
+  const [status, setStatus]           = useState<TaskStatus>(initialStatus);
+  const [dueDate, setDueDate]         = useState(initialDueDate);
+  const [projectId, setProjectId]     = useState(initialProjectId);
 
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
   const [showStatusPicker, setShowStatusPicker]     = useState(false);
@@ -64,7 +65,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDu
 
   function handleSave() {
     if (!content.trim()) return;
-    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status);
+    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status, description || undefined);
     onClose();
   }
 
@@ -213,6 +214,23 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDu
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
+
+          {/* Description */}
+          <div>
+            <p className="text-[11.5px] font-medium text-[#b0b5be] mb-1.5 uppercase tracking-wider">Opis</p>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Dodaj kontekst, linki, kroki..."
+              maxLength={500}
+              className="w-full resize-none outline-none text-[13.5px] text-[#0f1115] rounded-xl leading-relaxed"
+              style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px', minHeight: 80 }}
+            />
           </div>
         </div>
 

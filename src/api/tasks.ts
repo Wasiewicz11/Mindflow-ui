@@ -3,6 +3,7 @@ import { apiFetch } from './client';
 export interface Task {
   id: string;
   content: string;
+  description?: string;
   priority?: number;
   status?: string;
   dueDate?: string;
@@ -11,6 +12,7 @@ export interface Task {
 
 export interface CreateTaskDto {
   content: string;
+  description?: string;
   priority?: number;
   status?: string;
   dueDate?: string;
@@ -19,6 +21,7 @@ export interface CreateTaskDto {
 
 export interface UpdateTaskDto {
   content?: string;
+  description?: string;
   priority?: number;
   status?: string;
   dueDate?: string;

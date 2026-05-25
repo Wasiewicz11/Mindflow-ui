@@ -14,7 +14,7 @@ interface TaskListProps {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onClearCompleted?: () => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   compactMode?: boolean;

@@ -14,7 +14,7 @@ interface TaskWeekViewProps {
   projects?: Project[];
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onDelete?: (id: string) => void;
 }
 
@@ -251,7 +251,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
         <TaskAddModal
           projects={projects}
           initialDueDate={addingForDate === 'nodate' ? '' : addingForDate}
-          onAdd={(content, priority, dueDate, projectId) => onAdd(content, priority, dueDate, projectId)}
+          onAdd={(content, priority, dueDate, projectId, status, description) => onAdd(content, priority, dueDate, projectId, status, description)}
           onClose={() => setAddingForDate(null)}
         />
       )}

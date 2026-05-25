@@ -142,6 +142,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   function handleKeyDown(e: React.KeyboardEvent) {
     if (e.key === 'Escape') { save(); onClose(); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { save(); onClose(); }
   }
 
   const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
@@ -534,11 +535,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           className="flex-none flex items-center justify-between px-5 py-3"
           style={{ borderTop: '1px solid #f1f0ed' }}
         >
-          <p className="text-[11.5px] text-[#c0c5cc]">
-            {task.createdAt
-              ? `Dodano ${new Date(task.createdAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}`
-              : ''}
-          </p>
+          <div className="text-[11.5px] text-[#c0c5cc] flex flex-col gap-0.5">
+            {task.createdAt && (
+              <span>Dodano {new Date(task.createdAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}</span>
+            )}
+            <span>⌘ + Enter aby zapisać</span>
+          </div>
           <button
             onClick={() => { onToggleComplete(); onClose(); }}
             className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80"

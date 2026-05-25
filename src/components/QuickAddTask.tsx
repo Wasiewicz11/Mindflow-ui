@@ -5,7 +5,7 @@ import type { Project } from '../types';
 interface Props {
   activeProjectId: string | null;
   projects: Project[];
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {

@@ -16,7 +16,7 @@ interface Props {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   onClearCompleted?: () => void;
   isLoading?: boolean;
@@ -236,7 +236,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1'|'p2'|'p3'|'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1'|'p2'|'p3'|'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   isSelectionMode?: boolean;
   selectedIds?: string[];
   onSelect?: (id: string) => void;
@@ -304,7 +304,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
         <TaskAddModal
           projects={projects}
           initialProjectId={activeProjectId ?? undefined}
-          onAdd={(content, priority, dueDate, projectId) => onAdd(content, priority, dueDate, projectId)}
+          onAdd={(content, priority, dueDate, projectId, status, description) => onAdd(content, priority, dueDate, projectId, status, description)}
           onClose={() => setAddingOpen(false)}
         />
       )}
@@ -441,7 +441,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           <TaskAddModal
             projects={projects}
             initialProjectId={activeProjectId ?? undefined}
-            onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
+            onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
             onClose={() => setAddModalOpen(false)}
           />
         )}
@@ -482,7 +482,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         <TaskAddModal
           projects={projects}
           initialProjectId={activeProjectId ?? undefined}
-          onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
+          onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
           onClose={() => setAddModalOpen(false)}
         />
       )}

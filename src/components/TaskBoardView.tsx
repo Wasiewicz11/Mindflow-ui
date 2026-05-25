@@ -14,7 +14,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }
 
 const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
@@ -112,7 +112,7 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
   tasks: Task[];
   isFirst: boolean;
   projects: Project[];
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }) {
   const [addingOpen, setAddingOpen] = useState(false);
   const open = tasks.filter(t => !t.isCompleted);
@@ -183,7 +183,7 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
         <TaskAddModal
           projects={projects}
           initialProjectId={projectId}
-          onAdd={(content, priority, dueDate, pid) => { onAdd(content, priority, dueDate, pid ?? projectId); setAddingOpen(false); }}
+          onAdd={(content, priority, dueDate, pid, status, description) => { onAdd(content, priority, dueDate, pid ?? projectId, status, description); setAddingOpen(false); }}
           onClose={() => setAddingOpen(false)}
         />
       )}

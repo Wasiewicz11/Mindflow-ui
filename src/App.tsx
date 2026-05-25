@@ -74,7 +74,7 @@ export default function App() {
           dueDate: apiTask.dueDate,
           createdAt: existing?.createdAt ?? new Date(),
           project_id: existing?.project_id ?? apiTask.projectId ?? null,
-          description: existing?.description,
+          description: apiTask.description ?? existing?.description,
           tags: existing?.tags,
           subtasks: existing?.subtasks,
         };
@@ -109,12 +109,12 @@ export default function App() {
   }, [isLoggedIn, fetchSpaces]);
 
   // --- TASK HANDLERS ---
-  const handleAddTask = async (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('./types').TaskStatus) => {
+  const handleAddTask = async (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('./types').TaskStatus, description?: string) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    await addTask(content, finalProjectId, status);
+    await addTask(content, finalProjectId, status, description);
     setLocalTasks(prev => prev.map(t =>
       t.content === content && !t.dueDate
-        ? { ...t, priority, dueDate, project_id: finalProjectId || null, ...(status ? { status, isCompleted: status === 'Completed' } : {}) }
+        ? { ...t, priority, dueDate, project_id: finalProjectId || null, description, ...(status ? { status, isCompleted: status === 'Completed' } : {}) }
         : t
     ));
   };
@@ -128,7 +128,8 @@ export default function App() {
     if (updates.priority   !== undefined) dto.priority  = { p1: 1, p2: 2, p3: 3, p4: 4 }[updates.priority];
     if (updates.status     !== undefined) dto.status    = updates.status;
     if (updates.dueDate    !== undefined) dto.dueDate   = updates.dueDate;
-    if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
+    if (updates.project_id  !== undefined) dto.projectId   = updates.project_id ?? undefined;
+    if (updates.description !== undefined) dto.description = updates.description;
     if (Object.keys(dto).length > 0) await editTask(id, dto);
   };
 

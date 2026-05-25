@@ -115,7 +115,7 @@ interface Props {
   projects: Project[];
   activeProjectId?: string | null;
   onEdit: (id: string, updates: Partial<Task>) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
 }
 
 export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd }: Props) {

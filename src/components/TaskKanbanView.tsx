@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import type { Task } from '../types';
+import type { Task, TaskStatus, Project } from '../types';
+import { TaskAddModal } from './TaskAddModal';
 
 const STATUSES = [
   {
@@ -111,12 +112,15 @@ function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
 
 interface Props {
   tasks: Task[];
+  projects: Project[];
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus) => void;
 }
 
-export function TaskKanbanView({ tasks, onEdit }: Props) {
+export function TaskKanbanView({ tasks, projects, onEdit, onAdd }: Props) {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [addingInStatus, setAddingInStatus] = useState<TaskStatus | null>(null);
 
   function handleDragStart(e: React.DragEvent, id: string) {
     e.dataTransfer.effectAllowed = 'move';
@@ -152,6 +156,7 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
   }
 
   return (
+    <>
     <div
       className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
       style={{ paddingBottom: 220 }}
@@ -220,6 +225,7 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
                 )}
 
                 <button
+                  onClick={() => setAddingInStatus(col.key)}
                   className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
                   style={{ padding: '9px 12px' }}
                 >
@@ -231,5 +237,15 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
         })}
       </div>
     </div>
+
+    {addingInStatus && (
+      <TaskAddModal
+        projects={projects}
+        initialStatus={addingInStatus}
+        onAdd={onAdd}
+        onClose={() => setAddingInStatus(null)}
+      />
+    )}
+    </>
   );
 }

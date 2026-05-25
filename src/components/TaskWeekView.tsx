@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 
@@ -21,6 +22,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addingForDate, setAddingForDate] = useState<string | null>(null);
 
   const getDaysArray = () => {
     const days = [];
@@ -176,7 +178,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
     return (
       <div
         key={dateKey || title}
-        className="flex-shrink-0 w-[280px] lg:w-72 flex flex-col h-full rounded-2xl border-2 border-transparent transition-colors snap-center lg:snap-align-none"
+        className="group flex-shrink-0 w-[280px] lg:w-72 flex flex-col h-full rounded-2xl border-2 border-transparent transition-colors snap-center lg:snap-align-none"
         onDragOver={(e) => handleDragOver(e, dateKey)}
         onDragEnter={(e) => handleDragEnter(e, dateKey)}
         onDrop={(e) => handleDrop(e, dateKey)}
@@ -206,10 +208,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
 
           {dateKey && dateKey !== 'overdue' && !isOver && (
             <button
-              onClick={() => {
-                const content = prompt('Dodaj zadanie:');
-                if (content?.trim()) onAdd(content.trim(), 'p4', dateKey === 'nodate' ? undefined : dateKey);
-              }}
+              onClick={() => setAddingForDate(dateKey)}
               className="mt-2 w-full py-2 text-xs text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 hover:opacity-100"
             >
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" /></svg>
@@ -245,6 +244,15 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
           onDelete={() => { onDelete?.(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {addingForDate !== null && (
+        <TaskAddModal
+          projects={projects}
+          initialDueDate={addingForDate === 'nodate' ? '' : addingForDate}
+          onAdd={(content, priority, dueDate, projectId) => onAdd(content, priority, dueDate, projectId)}
+          onClose={() => setAddingForDate(null)}
         />
       )}
     </>

@@ -109,13 +109,12 @@ export default function App() {
   }, [isLoggedIn, fetchSpaces]);
 
   // --- TASK HANDLERS ---
-  const handleAddTask = async (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => {
+  const handleAddTask = async (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('./types').TaskStatus) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    await addTask(content, finalProjectId);
-    // Update local priority/dueDate after creation (API doesn't store these)
+    await addTask(content, finalProjectId, status);
     setLocalTasks(prev => prev.map(t =>
       t.content === content && !t.dueDate
-        ? { ...t, priority, dueDate, project_id: finalProjectId || null }
+        ? { ...t, priority, dueDate, project_id: finalProjectId || null, ...(status ? { status, isCompleted: status === 'Completed' } : {}) }
         : t
     ));
   };
@@ -458,7 +457,9 @@ export default function App() {
                 activeProjectId ? (
                   <TaskKanbanView
                     tasks={filteredTasks}
+                    projects={projects}
                     onEdit={handleEditTask}
+                    onAdd={handleAddTask}
                   />
                 ) : (
                   <TaskBoardView

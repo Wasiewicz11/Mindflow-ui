@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Task, Project } from '../types';
 import { TaskEditModal } from './TaskEditModal';
+import { TaskAddModal } from './TaskAddModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -204,6 +205,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
 }) {
   const [open, setOpen] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addingOpen, setAddingOpen] = useState(false);
 
   return (
     <div className="mb-8">
@@ -238,17 +240,13 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
             style={{ color: '#c0c5cc' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#c0c5cc'; }}
-            onClick={() => {
-              const content = prompt('Dodaj zadanie:');
-              if (content?.trim()) onAdd(content.trim(), 'p4');
-            }}
+            onClick={() => setAddingOpen(true)}
           >
             <PlusIcon /> Dodaj zadanie
           </button>
         </>
       )}
 
-      {/* Edit modal */}
       {editingTask && (
         <TaskEditModal
           task={editingTask}
@@ -257,6 +255,14 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd }: {
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {addingOpen && (
+        <TaskAddModal
+          projects={projects}
+          onAdd={(content, priority, dueDate, projectId) => onAdd(content, priority, dueDate, projectId)}
+          onClose={() => setAddingOpen(false)}
         />
       )}
     </div>

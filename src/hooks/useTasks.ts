@@ -51,8 +51,8 @@ export function useTasks(isLoggedIn: boolean) {
     };
   }, [fetchTasks, isLoggedIn]);
 
-  const addTask = useCallback(async (content: string, projectId?: string) => {
-    await createTask({ content, projectId });
+  const addTask = useCallback(async (content: string, projectId?: string, status?: string) => {
+    await createTask({ content, projectId, status });
     await fetchTasks();
   }, [fetchTasks]);
 

@@ -158,7 +158,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       <button
         onClick={() => { setActiveTab('tasks'); onSelectProject(project.id); }}
-        className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-grab active:cursor-grabbing ${
+        className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
           activeProjectId === project.id && activeTab === 'tasks'
             ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium translate-x-1'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 hover:translate-x-1'

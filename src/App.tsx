@@ -426,6 +426,38 @@ export default function App() {
           )}
 
           {/* TASKS */}
+          {activeTab === 'tasks' && projects.length > 0 && (
+            <div className="lg:hidden -mx-6 px-4 mb-4 overflow-x-auto flex gap-2 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+              <button
+                onClick={() => setActiveProjectId(null)}
+                className="flex-none text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                style={{
+                  background: activeProjectId === null ? '#0f1115' : '#f1f0ed',
+                  color: activeProjectId === null ? '#fff' : '#5a606b',
+                }}
+              >
+                Wszystkie
+              </button>
+              {projects.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setActiveProjectId(activeProjectId === p.id ? null : p.id)}
+                  className="flex-none flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                  style={{
+                    background: activeProjectId === p.id ? '#0f1115' : '#f1f0ed',
+                    color: activeProjectId === p.id ? '#fff' : '#5a606b',
+                  }}
+                >
+                  <span
+                    className="rounded-full flex-none"
+                    style={{ width: 6, height: 6, background: activeProjectId === p.id ? '#fff' : (p.color || '#9aa0aa') }}
+                  />
+                  {p.name}
+                </button>
+              ))}
+            </div>
+          )}
+
           {activeTab === 'tasks' && (
             <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full -mx-6' : 'max-w-3xl'}`}>
               {taskViewMode === 'list' && (

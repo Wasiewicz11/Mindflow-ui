@@ -191,7 +191,7 @@ export function TaskBoardView({ tasks, projects }: Props) {
       className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
       style={{ paddingBottom: 220 }}
     >
-      <div className="flex h-full min-w-min">
+      <div className="flex h-full min-w-min mx-auto">
         {columns.map((col, i) => (
           <Column
             key={col.id}

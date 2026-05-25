@@ -113,11 +113,12 @@ function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
 interface Props {
   tasks: Task[];
   projects: Project[];
+  activeProjectId?: string | null;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus) => void;
 }
 
-export function TaskKanbanView({ tasks, projects, onEdit, onAdd }: Props) {
+export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd }: Props) {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [addingInStatus, setAddingInStatus] = useState<TaskStatus | null>(null);
@@ -242,6 +243,7 @@ export function TaskKanbanView({ tasks, projects, onEdit, onAdd }: Props) {
       <TaskAddModal
         projects={projects}
         initialStatus={addingInStatus}
+        initialProjectId={activeProjectId ?? undefined}
         onAdd={onAdd}
         onClose={() => setAddingInStatus(null)}
       />

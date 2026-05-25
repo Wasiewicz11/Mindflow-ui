@@ -495,6 +495,7 @@ export default function App() {
                   <TaskKanbanView
                     tasks={filteredTasks}
                     projects={projects}
+                    activeProjectId={activeProjectId}
                     onEdit={handleEditTask}
                     onAdd={handleAddTask}
                   />
@@ -515,6 +516,7 @@ export default function App() {
           {activeTab === 'tasks' && (
             <QuickAddTask
               activeProjectId={activeProjectId}
+              projects={projects}
               onAdd={handleAddTask}
             />
           )}

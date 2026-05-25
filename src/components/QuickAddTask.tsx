@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import type { Project } from '../types';
 
 interface Props {
   activeProjectId: string | null;
+  projects: Project[];
   onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
 }
 
@@ -28,7 +30,7 @@ function FlagIcon({ className }: { className?: string }) {
   );
 }
 
-export function QuickAddTask({ activeProjectId, onAdd }: Props) {
+export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
   const [value, setValue] = useState('');
   const [priority, setPriority] = useState<'p1' | 'p2' | 'p3' | 'p4'>('p4');
   const [showPicker, setShowPicker] = useState(false);
@@ -45,6 +47,8 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [showPicker]);
+
+  const activeProject = activeProjectId ? projects.find(p => p.id === activeProjectId) : null;
 
   const handleSubmit = () => {
     if (!value.trim()) return;
@@ -67,6 +71,22 @@ export function QuickAddTask({ activeProjectId, onAdd }: Props) {
             placeholder="Dodaj zadanie..."
             className="flex-1 bg-transparent text-sm text-gray-600 dark:text-gray-300 placeholder-gray-300 dark:placeholder-gray-600 outline-none min-w-0"
           />
+
+          {activeProject && (
+            <span
+              className="flex-none inline-flex items-center gap-1 text-[11px] font-medium rounded-md px-2 py-0.5 whitespace-nowrap"
+              style={{
+                color: activeProject.color || '#9098a4',
+                background: (activeProject.color || '#9098a4') + '22',
+              }}
+            >
+              <span
+                className="rounded-full flex-none"
+                style={{ width: 6, height: 6, background: activeProject.color || '#9098a4' }}
+              />
+              {activeProject.name}
+            </span>
+          )}
 
           <div ref={pickerRef} className="relative flex-none">
             <button

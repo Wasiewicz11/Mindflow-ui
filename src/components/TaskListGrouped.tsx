@@ -230,7 +230,7 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
   );
 }
 
-function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSelectionMode, selectedIds, onSelect }: {
+function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSelectionMode, selectedIds, onSelect, activeProjectId }: {
   group: Group;
   projects: Project[];
   onToggle: (id: string) => void;
@@ -240,6 +240,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   isSelectionMode?: boolean;
   selectedIds?: string[];
   onSelect?: (id: string) => void;
+  activeProjectId?: string | null;
 }) {
   const [open, setOpen] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -302,6 +303,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
       {addingOpen && (
         <TaskAddModal
           projects={projects}
+          initialProjectId={activeProjectId ?? undefined}
           onAdd={(content, priority, dueDate, projectId) => onAdd(content, priority, dueDate, projectId)}
           onClose={() => setAddingOpen(false)}
         />
@@ -311,11 +313,13 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
 }
 
 
-export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading }: Props) {
+export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading, activeProjectId }: Props) {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkDueDate, setBulkDueDate] = useState('');
+  const [completedOpen, setCompletedOpen] = useState(false);
+  const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
 
   const activeTasks = tasks.filter(t => !t.isCompleted);
 
@@ -417,9 +421,6 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
     );
   }
 
-  const [completedOpen, setCompletedOpen] = useState(false);
-  const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
-
   const groups = groupTasks(tasks);
   const completedTasks = tasks.filter(t => t.isCompleted);
 
@@ -439,6 +440,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         {addModalOpen && (
           <TaskAddModal
             projects={projects}
+            initialProjectId={activeProjectId ?? undefined}
             onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
             onClose={() => setAddModalOpen(false)}
           />
@@ -479,6 +481,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       {addModalOpen && (
         <TaskAddModal
           projects={projects}
+          initialProjectId={activeProjectId ?? undefined}
           onAdd={(content, priority, dueDate, projectId) => { onAdd(content, priority, dueDate, projectId); setAddModalOpen(false); }}
           onClose={() => setAddModalOpen(false)}
         />
@@ -496,6 +499,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           isSelectionMode={isSelectionMode}
           selectedIds={selectedIds}
           onSelect={toggleSelect}
+          activeProjectId={activeProjectId}
         />
       ))}
 

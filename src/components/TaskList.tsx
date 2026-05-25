@@ -42,6 +42,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
   // Selection Mode State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [bulkDueDate, setBulkDueDate] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const lastSelectedIdRef = useRef<string | null>(null);
 
@@ -382,13 +383,39 @@ const TaskList: React.FC<TaskListProps> = ({
 
         {/* Usuń zaznaczone */}
         <button
-          onClick={async () => { await Promise.all(selectedIds.map(id => onDelete(id))); setIsSelectionMode(false); setSelectedIds([]); }}
+          onClick={() => {
+            if (!window.confirm(`Czy na pewno chcesz usunąć ${selectedIds.length} zadań?`)) return;
+            selectedIds.forEach(id => onDelete(id));
+            setIsSelectionMode(false);
+            setSelectedIds([]);
+          }}
           className="col-span-1 flex items-center justify-center gap-1.5 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 dark:text-red-400 border border-red-200/60 dark:border-red-800/40 lg:border-none lg:bg-transparent lg:hover:bg-red-50 dark:lg:hover:bg-red-900/20 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold"
           title="Usuń zaznaczone"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
           <span className="lg:hidden">Usuń</span>
         </button>
+
+        {/* Termin dla zaznaczonych */}
+        <div className="col-span-1 relative flex items-center justify-center bg-gray-50 dark:bg-white/5 hover:bg-gray-100 dark:hover:bg-white/10 border border-gray-100/80 dark:border-white/5 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 dark:lg:hover:bg-white/10 py-2 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors">
+          <svg className="w-4 h-4 text-gray-400 dark:text-gray-500 flex-shrink-0 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+          <input
+            type="date"
+            value={bulkDueDate}
+            onChange={(e) => {
+              const chosen = e.target.value;
+              setBulkDueDate(chosen);
+              if (onBulkEdit && selectedIds.length > 0) {
+                onBulkEdit(selectedIds, { dueDate: chosen || undefined });
+              }
+              setIsSelectionMode(false);
+              setSelectedIds([]);
+              setBulkDueDate('');
+            }}
+            className="bg-transparent text-xs lg:text-[11px] font-semibold text-gray-700 dark:text-gray-300 outline-none cursor-pointer focus:ring-0 w-28 lg:w-24"
+            title="Ustaw termin dla zaznaczonych"
+          />
+        </div>
 
         <div className="hidden lg:block h-5 w-px bg-gray-200/80 dark:bg-white/10 ml-1"></div>
 

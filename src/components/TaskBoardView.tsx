@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { Task, Project } from '../types';
+import { TaskAddModal } from './TaskAddModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -12,6 +14,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
 }
 
 const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
@@ -104,8 +107,16 @@ function Card({ task }: { task: Task }) {
   );
 }
 
-function Column({ project, tasks, isFirst }: { project: Project & { id: string }; tasks: Task[]; isFirst: boolean }) {
+function Column({ project, tasks, isFirst, projects, onAdd }: {
+  project: Project & { id: string };
+  tasks: Task[];
+  isFirst: boolean;
+  projects: Project[];
+  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string) => void;
+}) {
+  const [addingOpen, setAddingOpen] = useState(false);
   const open = tasks.filter(t => !t.isCompleted);
+  const projectId = project.id === '__none__' ? undefined : project.id;
 
   return (
     <section
@@ -130,6 +141,7 @@ function Column({ project, tasks, isFirst }: { project: Project & { id: string }
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           <button
+            onClick={() => setAddingOpen(true)}
             className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef]"
             style={{ width: 22, height: 22 }}
             title="Dodaj zadanie"
@@ -159,17 +171,27 @@ function Column({ project, tasks, isFirst }: { project: Project & { id: string }
         {open.map(task => <Card key={task.id} task={task} />)}
 
         <button
+          onClick={() => setAddingOpen(true)}
           className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
           style={{ padding: '9px 12px' }}
         >
           <PlusIcon /> Dodaj zadanie
         </button>
       </div>
+
+      {addingOpen && (
+        <TaskAddModal
+          projects={projects}
+          initialProjectId={projectId}
+          onAdd={(content, priority, dueDate, pid) => { onAdd(content, priority, dueDate, pid ?? projectId); setAddingOpen(false); }}
+          onClose={() => setAddingOpen(false)}
+        />
+      )}
     </section>
   );
 }
 
-export function TaskBoardView({ tasks, projects }: Props) {
+export function TaskBoardView({ tasks, projects, onAdd }: Props) {
   const openTasks = tasks.filter(t => !t.isCompleted);
   const noProjectTasks = openTasks.filter(t => !t.project_id);
 
@@ -198,6 +220,8 @@ export function TaskBoardView({ tasks, projects }: Props) {
             project={col as Project & { id: string }}
             tasks={tasks.filter(t => col.id === '__none__' ? !t.project_id : t.project_id === col.id)}
             isFirst={i === 0}
+            projects={projects}
+            onAdd={onAdd}
           />
         ))}
       </div>

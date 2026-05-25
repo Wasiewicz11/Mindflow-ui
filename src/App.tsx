@@ -505,6 +505,7 @@ export default function App() {
                     onEdit={handleEditTask}
                     onToggle={handleToggleTask}
                     onDelete={handleDeleteTask}
+                    onAdd={handleAddTask}
                   />
                 )
               )}

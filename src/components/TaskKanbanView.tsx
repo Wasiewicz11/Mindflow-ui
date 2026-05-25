@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { Task } from '../types';
 
 const STATUSES = [
@@ -62,32 +62,29 @@ function PlusIcon() {
 
 interface CardProps {
   task: Task;
-  onDragStart: (id: string) => void;
+  isDragging: boolean;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  onDragEnd: () => void;
 }
 
-function Card({ task, onDragStart }: CardProps) {
+function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
   const p = PRIORITY[task.priority] ?? PRIORITY.p4;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
     <article
       draggable
-      onDragStart={() => onDragStart(task.id)}
-      className="bg-white border rounded-xl transition-all duration-150 cursor-grab active:cursor-grabbing select-none"
+      onDragStart={e => onDragStart(e, task.id)}
+      onDragEnd={onDragEnd}
+      className={`border rounded-xl transition-all duration-150 select-none ${
+        isDragging
+          ? 'bg-gray-50 border-dashed border-gray-300 opacity-40 shadow-none scale-[0.98] cursor-grabbing'
+          : 'bg-white cursor-grab hover:shadow-md hover:-translate-y-0.5'
+      }`}
       style={{
-        borderColor: '#ececec',
+        borderColor: isDragging ? undefined : '#ececec',
         padding: '12px 13px 11px',
-        boxShadow: '0 1px 0 rgba(15,17,21,.02)',
-      }}
-      onMouseEnter={e => {
-        const el = e.currentTarget;
-        el.style.borderColor = '#dcdcd6';
-        el.style.boxShadow = '0 4px 14px -8px rgba(15,17,21,.18), 0 1px 0 rgba(15,17,21,.02)';
-      }}
-      onMouseLeave={e => {
-        const el = e.currentTarget;
-        el.style.borderColor = '#ececec';
-        el.style.boxShadow = '0 1px 0 rgba(15,17,21,.02)';
+        boxShadow: isDragging ? 'none' : '0 1px 0 rgba(15,17,21,.02)',
       }}
     >
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
@@ -121,29 +118,36 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
   const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
 
-  function handleDragStart(id: string) {
-    setDraggingId(id);
+  function handleDragStart(e: React.DragEvent, id: string) {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+    setTimeout(() => setDraggingId(id), 0);
   }
 
-  function handleDragOver(e: React.DragEvent, status: string) {
+  function handleDragEnd() {
+    setDraggingId(null);
+    setDragOverStatus(null);
+  }
+
+  function handleDragEnter(e: React.DragEvent, status: string) {
     e.preventDefault();
+    if (!draggingId) return;
     setDragOverStatus(status);
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
   }
 
   function handleDrop(e: React.DragEvent, status: 'NotStarted' | 'InProgress' | 'Completed') {
     e.preventDefault();
-    if (draggingId) {
-      const task = tasks.find(t => t.id === draggingId);
-      if (task && task.status !== status) {
-        onEdit(draggingId, { status });
-      }
+    setDragOverStatus(null);
+    if (!draggingId) return;
+    const task = tasks.find(t => t.id === draggingId);
+    if (task && task.status !== status) {
+      onEdit(draggingId, { status });
     }
-    setDragOverStatus(null);
-    setDraggingId(null);
-  }
-
-  function handleDragEnd() {
-    setDragOverStatus(null);
     setDraggingId(null);
   }
 
@@ -160,45 +164,36 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
           return (
             <section
               key={col.key}
-              className="group flex-none flex flex-col h-full min-h-0 relative"
+              className="flex-none flex flex-col h-full min-h-0 relative"
               style={{
                 width: 288,
                 padding: '0 18px',
                 borderLeft: i === 0 ? 'none' : '1px solid #ececec',
               }}
-              onDragOver={e => handleDragOver(e, col.key)}
-              onDragLeave={() => setDragOverStatus(null)}
+              onDragEnter={e => handleDragEnter(e, col.key)}
+              onDragOver={handleDragOver}
               onDrop={e => handleDrop(e, col.key)}
             >
               {/* color accent bar */}
               <span
-                className="absolute rounded-sm transition-all duration-150"
+                className="absolute rounded-sm transition-opacity duration-150"
                 style={{ top: 14, left: 18, right: 18, height: 2, background: col.accent, opacity: isOver ? 1 : 0.6 }}
               />
 
               {/* header */}
-              <div className="flex items-center justify-between" style={{ padding: '22px 0 8px' }}>
-                <div className="flex items-center gap-2">
-                  <span
-                    className="inline-flex items-center gap-[5px] text-[11px] font-semibold rounded-md"
-                    style={{ padding: '3px 8px 3px 7px', letterSpacing: '0.03em', color: col.fg, background: col.bg }}
-                  >
-                    <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: col.dot }} />
-                    {col.label}
-                  </span>
-                  <span className="text-[11px] text-[#9098a4]">{colTasks.length}</span>
-                </div>
+              <div className="flex items-center gap-2" style={{ padding: '22px 0 8px' }}>
+                <span
+                  className="inline-flex items-center gap-[5px] text-[11px] font-semibold rounded-md"
+                  style={{ padding: '3px 8px 3px 7px', letterSpacing: '0.03em', color: col.fg, background: col.bg }}
+                >
+                  <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: col.dot }} />
+                  {col.label}
+                </span>
+                <span className="text-[11px] text-[#9098a4]">{colTasks.length}</span>
               </div>
 
-              {/* drop zone + cards */}
-              <div
-                className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar rounded-xl transition-all duration-150"
-                style={{
-                  background: isOver ? 'oklch(0.97 0.005 230)' : 'transparent',
-                  outline: isOver ? '2px dashed oklch(0.75 0.08 230)' : '2px dashed transparent',
-                  padding: isOver ? '8px' : '0',
-                }}
-              >
+              {/* cards */}
+              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
                 {colTasks.length === 0 && !isOver && (
                   <div
                     className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
@@ -212,12 +207,20 @@ export function TaskKanbanView({ tasks, onEdit }: Props) {
                   <Card
                     key={task.id}
                     task={task}
+                    isDragging={draggingId === task.id}
                     onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
                   />
                 ))}
 
+                {isOver && draggingId && (
+                  <div className="p-4 h-[52px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 flex items-center justify-center animate-pulse">
+                    <span className="text-[11px] font-semibold text-gray-400">Upuść tutaj</span>
+                  </div>
+                )}
+
                 <button
-                  className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left mt-auto"
+                  className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
                   style={{ padding: '9px 12px' }}
                 >
                   <PlusIcon /> Dodaj zadanie

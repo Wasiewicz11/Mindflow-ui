@@ -37,6 +37,8 @@ export interface Note {
   project_id?: string | null;
 }
 
+export type TaskStatus = 'NotStarted' | 'InProgress' | 'Completed';
+
 export interface Subtask {
   id: string;
   content: string;
@@ -48,6 +50,7 @@ export interface Task {
   id: string;
   content: string;
   isCompleted: boolean;
+  status: TaskStatus;
   priority: 'p1' | 'p2' | 'p3' | 'p4';
   dueDate?: string;
   createdAt: Date;

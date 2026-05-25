@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Task, Project, Subtask } from '../types';
+import type { Task, Project, Subtask, TaskStatus } from '../types';
 
 interface Props {
   task: Task;
@@ -16,6 +16,12 @@ const PRIORITY: Record<string, { label: string; name: string; fg: string; bg: st
   p2: { label: 'P2', name: 'Wysokie',  fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
   p3: { label: 'P3', name: 'Średnie',  fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
   p4: { label: 'P4', name: 'Niskie',   fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+};
+
+const STATUS_OPTIONS: Record<TaskStatus, { name: string; fg: string; bg: string; dot: string }> = {
+  NotStarted: { name: 'Nie rozpoczęto', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)', dot: 'oklch(0.75 0.01 260)' },
+  InProgress:  { name: 'W trakcie',     fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)',  dot: 'oklch(0.60 0.18 230)' },
+  Completed:   { name: 'Ukończone',     fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)',  dot: 'oklch(0.55 0.18 145)' },
 };
 
 function CalIcon() {
@@ -52,9 +58,19 @@ function FlagSmall({ color }: { color: string }) {
   );
 }
 
+function StatusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 7v5l3 3" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
   const [content, setContent]       = useState(task.content);
   const [priority, setPriority]     = useState(task.priority);
+  const [status, setStatus]         = useState<TaskStatus>((task.status && task.status in STATUS_OPTIONS) ? task.status : 'NotStarted');
   const [dueDate, setDueDate]       = useState(task.dueDate ?? '');
   const [projectId, setProjectId]   = useState(task.project_id ?? '');
   const [description, setDescription] = useState(task.description ?? '');
@@ -63,6 +79,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [newTag, setNewTag]         = useState('');
   const [newSubtask, setNewSubtask] = useState('');
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const [showStatusPicker, setShowStatusPicker]     = useState(false);
   const [showProjectPicker, setShowProjectPicker]   = useState(false);
   const [showDatePicker, setShowDatePicker]         = useState(false);
 
@@ -78,6 +95,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   const activeProject = projects.find(p => p.id === projectId);
   const p = PRIORITY[priority] ?? PRIORITY.p4;
+  const s = STATUS_OPTIONS[status] ?? STATUS_OPTIONS.NotStarted;
 
   const completedSubtasks = subtasks.filter(s => s.isCompleted).length;
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
@@ -86,6 +104,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     onSave({
       content: content.trim() || task.content,
       priority,
+      status,
       dueDate: dueDate || undefined,
       project_id: projectId || null,
       description: description || undefined,
@@ -236,9 +255,43 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           {/* Properties */}
           <div style={{ marginTop: 12 }}>
 
+            {/* Status */}
+            <div className="relative">
+              <div className={ROW} onClick={() => { setShowStatusPicker(o => !o); setShowPriorityPicker(false); setShowProjectPicker(false); setShowDatePicker(false); }}>
+                <span className={LABEL}><StatusIcon /> Status</span>
+                <span className={VALUE}>
+                  <span
+                    className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold rounded-[5px]"
+                    style={{ padding: '2px 7px', color: s.fg, background: s.bg }}
+                  >
+                    <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: s.dot }} />
+                    {s.name}
+                  </span>
+                </span>
+              </div>
+              {showStatusPicker && (
+                <div
+                  className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                  style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170 }}
+                >
+                  {(Object.entries(STATUS_OPTIONS) as [TaskStatus, typeof STATUS_OPTIONS.NotStarted][]).map(([k, v]) => (
+                    <button
+                      key={k}
+                      className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]"
+                      style={{ padding: '9px 13px', color: k === status ? v.fg : '#0f1115' }}
+                      onClick={() => { setStatus(k); setShowStatusPicker(false); }}
+                    >
+                      <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: v.dot }} />
+                      {v.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Priority */}
             <div className="relative">
-              <div className={ROW} onClick={() => { setShowPriorityPicker(o => !o); setShowProjectPicker(false); setShowDatePicker(false); }}>
+              <div className={ROW} onClick={() => { setShowPriorityPicker(o => !o); setShowStatusPicker(false); setShowProjectPicker(false); setShowDatePicker(false); }}>
                 <span className={LABEL}><FlagSmall color={p.fg} /> Priorytet</span>
                 <span className={VALUE}>
                   <span
@@ -276,7 +329,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
             {/* Project */}
             <div className="relative">
-              <div className={ROW} onClick={() => { setShowProjectPicker(o => !o); setShowPriorityPicker(false); setShowDatePicker(false); }}>
+              <div className={ROW} onClick={() => { setShowProjectPicker(o => !o); setShowPriorityPicker(false); setShowStatusPicker(false); setShowDatePicker(false); }}>
                 <span className={LABEL}><FolderIcon /> Projekt</span>
                 <span className={VALUE}>
                   {activeProject ? (
@@ -318,7 +371,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
             {/* Due date */}
             <div className="relative">
-              <div className={ROW} onClick={() => { setShowDatePicker(o => !o); setShowPriorityPicker(false); setShowProjectPicker(false); }}>
+              <div className={ROW} onClick={() => { setShowDatePicker(o => !o); setShowPriorityPicker(false); setShowStatusPicker(false); setShowProjectPicker(false); }}>
                 <span className={LABEL}><CalIcon /> Termin</span>
                 <span className={VALUE} style={{ color: dueDate ? '#0f1115' : '#b0b5be' }}>
                   {dueDate

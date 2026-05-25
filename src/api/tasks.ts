@@ -4,6 +4,7 @@ export interface Task {
   id: string;
   content: string;
   priority?: number;
+  status?: string;
   dueDate?: string;
   projectId?: string;
 }
@@ -11,6 +12,7 @@ export interface Task {
 export interface CreateTaskDto {
   content: string;
   priority?: number;
+  status?: string;
   dueDate?: string;
   projectId?: string;
 }
@@ -18,6 +20,7 @@ export interface CreateTaskDto {
 export interface UpdateTaskDto {
   content?: string;
   priority?: number;
+  status?: string;
   dueDate?: string;
   projectId?: string;
 }

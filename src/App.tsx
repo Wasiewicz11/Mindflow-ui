@@ -63,10 +63,12 @@ export default function App() {
     setLocalTasks(prev => {
       return rawTasks.map(apiTask => {
         const existing = prev.find(t => t.id === apiTask.id);
+        const status = (apiTask.status as import('./types').TaskStatus | undefined) ?? existing?.status ?? 'NotStarted';
         return {
           id: apiTask.id,
           content: apiTask.content,
-          isCompleted: existing?.isCompleted ?? false,
+          status,
+          isCompleted: status === 'Completed',
           priority: existing?.priority ?? ({ 1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4' } as Record<number, Task['priority']>)[apiTask.priority ?? 4] ?? 'p4',
           dueDate: apiTask.dueDate,
           createdAt: existing?.createdAt ?? new Date(),
@@ -118,11 +120,14 @@ export default function App() {
   };
 
   const handleEditTask = async (id: string, updates: Partial<Task>) => {
-    setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    const withDerived = { ...updates };
+    if (updates.status !== undefined) withDerived.isCompleted = updates.status === 'Completed';
+    setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...withDerived } : t));
     const dto: import('./api/tasks').UpdateTaskDto = {};
-    if (updates.content   !== undefined) dto.content   = updates.content;
-    if (updates.priority  !== undefined) dto.priority  = { p1: 1, p2: 2, p3: 3, p4: 4 }[updates.priority];
-    if (updates.dueDate   !== undefined) dto.dueDate   = updates.dueDate;
+    if (updates.content    !== undefined) dto.content   = updates.content;
+    if (updates.priority   !== undefined) dto.priority  = { p1: 1, p2: 2, p3: 3, p4: 4 }[updates.priority];
+    if (updates.status     !== undefined) dto.status    = updates.status;
+    if (updates.dueDate    !== undefined) dto.dueDate   = updates.dueDate;
     if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
     if (Object.keys(dto).length > 0) await editTask(id, dto);
   };
@@ -132,8 +137,12 @@ export default function App() {
     await removeTask(id);
   };
 
-  const handleToggleTask = (id: string) => {
-    setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, isCompleted: !t.isCompleted } : t));
+  const handleToggleTask = async (id: string) => {
+    const task = localTasks.find(t => t.id === id);
+    if (!task) return;
+    const newStatus: import('./types').TaskStatus = task.status === 'Completed' ? 'NotStarted' : 'Completed';
+    setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus, isCompleted: newStatus === 'Completed' } : t));
+    await editTask(id, { status: newStatus });
   };
 
   const handleClearCompleted = () => {

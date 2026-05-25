@@ -56,7 +56,8 @@ export function useTasks(isLoggedIn: boolean) {
   }, []);
 
   const editTask = useCallback(async (id: string, dto: UpdateTaskDto) => {
-    await updateTask(id, dto);
+    const updated = await updateTask(id, dto);
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updated } : t));
   }, []);
 
   const removeTask = useCallback(async (id: string) => {

@@ -50,7 +50,13 @@ export function useAuth() {
 
     // Odświeżamy 1 minutę przed wygaśnięciem zamiast czekać na 401
     const msUntilRefresh = expiry - Date.now() - 60 * 1000;
-    if (msUntilRefresh <= 0) return;
+    if (msUntilRefresh <= 0) {
+      refreshAccessToken().then(newToken => {
+        if (newToken) scheduleRefresh(newToken);
+        else { removeToken(); setIsLoggedIn(false); }
+      });
+      return;
+    }
 
     if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
 

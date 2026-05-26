@@ -3,12 +3,14 @@
 
 import type { Space as ApiSpace } from './api/spaces';
 
-export enum TaskPriority {
-  P1 = 'P1',
-  P2 = 'P2',
-  P3 = 'P3',
-  P4 = 'P4',
-}
+export const TaskPriority = {
+  P1: 'P1',
+  P2: 'P2',
+  P3: 'P3',
+  P4: 'P4',
+} as const;
+
+export type TaskPriority = typeof TaskPriority[keyof typeof TaskPriority];
 
 export interface User {
   id: string;

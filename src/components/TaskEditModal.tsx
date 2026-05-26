@@ -309,7 +309,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                   className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                   style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160 }}
                 >
-                  {(Object.entries(PRIORITY) as [TaskPriority, typeof PRIORITY[TaskPriority.P1]][]).map(([k, v]) => (
+                  {(Object.entries(PRIORITY) as [TaskPriority, (typeof PRIORITY)[TaskPriority]][]).map(([k, v]) => (
                     <button
                       key={k}
                       className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]"

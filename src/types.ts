@@ -1,7 +1,14 @@
 // Typy lokalne — rozszerzają typy API o pola wizualne których nowy backend nie ma
-// (isCompleted, priority jako string p1-p4, project_id, createdAt)
+// (isCompleted, priority jako string P1-P4, project_id, createdAt)
 
 import type { Space as ApiSpace } from './api/spaces';
+
+export enum TaskPriority {
+  P1 = 'P1',
+  P2 = 'P2',
+  P3 = 'P3',
+  P4 = 'P4',
+}
 
 export interface User {
   id: string;
@@ -45,13 +52,13 @@ export interface Subtask {
   isCompleted: boolean;
 }
 
-// Task rozszerzone o pola wizualne (isCompleted, priority jako p1-p4, project_id)
+// Task rozszerzone o pola wizualne (isCompleted, priority jako P1-P4, project_id)
 export interface Task {
   id: string;
   content: string;
   isCompleted: boolean;
   status: TaskStatus;
-  priority: 'p1' | 'p2' | 'p3' | 'p4';
+  priority: TaskPriority;
   dueDate?: string;
   createdAt: Date;
   source?: 'app' | 'telegram';

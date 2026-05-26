@@ -1,10 +1,11 @@
 import { apiFetch } from './client';
+import { TaskPriority } from '../types';
 
 export interface Task {
   id: string;
   content: string;
   description?: string;
-  priority?: number;
+  priority?: TaskPriority;
   status?: string;
   dueDate?: string;
   projectId?: string;
@@ -13,7 +14,7 @@ export interface Task {
 export interface CreateTaskDto {
   content: string;
   description?: string;
-  priority?: number;
+  priority?: TaskPriority;
   status?: string;
   dueDate?: string;
   projectId?: string;
@@ -22,7 +23,7 @@ export interface CreateTaskDto {
 export interface UpdateTaskDto {
   content?: string;
   description?: string;
-  priority?: number;
+  priority?: TaskPriority;
   status?: string;
   dueDate?: string;
   projectId?: string;

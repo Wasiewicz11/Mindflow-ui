@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../types';
+import { TaskPriority } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
@@ -14,7 +15,7 @@ interface TaskWeekViewProps {
   projects?: Project[];
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onDelete?: (id: string) => void;
 }
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project, Subtask, TaskStatus } from '../types';
+import { TaskPriority } from '../types';
 
 interface Props {
   task: Task;
@@ -11,11 +12,11 @@ interface Props {
   onClose: () => void;
 }
 
-const PRIORITY: Record<string, { label: string; name: string; fg: string; bg: string }> = {
-  p1: { label: 'P1', name: 'Pilne',    fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  p2: { label: 'P2', name: 'Wysokie',  fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  p3: { label: 'P3', name: 'Średnie',  fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  p4: { label: 'P4', name: 'Niskie',   fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; name: string; fg: string; bg: string }> = {
+  [TaskPriority.P1]: { label: 'P1', name: 'Pilne',    fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  [TaskPriority.P2]: { label: 'P2', name: 'Wysokie',  fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  [TaskPriority.P3]: { label: 'P3', name: 'Średnie',  fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  [TaskPriority.P4]: { label: 'P4', name: 'Niskie',   fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
 const STATUS_OPTIONS: Record<TaskStatus, { name: string; fg: string; bg: string; dot: string }> = {
@@ -94,7 +95,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   }, [content]);
 
   const activeProject = projects.find(p => p.id === projectId);
-  const p = PRIORITY[priority] ?? PRIORITY.p4;
+  const p = PRIORITY[priority] ?? PRIORITY[TaskPriority.P4];
   const s = STATUS_OPTIONS[status] ?? STATUS_OPTIONS.NotStarted;
 
   const completedSubtasks = subtasks.filter(s => s.isCompleted).length;
@@ -308,12 +309,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                   className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                   style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160 }}
                 >
-                  {(Object.entries(PRIORITY) as [string, typeof PRIORITY.p1][]).map(([k, v]) => (
+                  {(Object.entries(PRIORITY) as [TaskPriority, typeof PRIORITY[TaskPriority.P1]][]).map(([k, v]) => (
                     <button
                       key={k}
                       className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]"
                       style={{ padding: '9px 13px', color: k === priority ? v.fg : '#0f1115' }}
-                      onClick={() => { setPriority(k as Task['priority']); setShowPriorityPicker(false); }}
+                      onClick={() => { setPriority(k); setShowPriorityPicker(false); }}
                     >
                       <span
                         className="inline-flex items-center gap-1 text-[10.5px] font-semibold rounded-[4px] flex-none"

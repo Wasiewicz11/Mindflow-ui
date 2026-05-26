@@ -2,6 +2,7 @@ import * as signalR from '@microsoft/signalr';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createTask, deleteTask, getTasks, updateTask } from '../api/tasks';
 import type { Task, UpdateTaskDto } from '../api/tasks';
+import { TaskPriority } from '../types';
 import { getToken } from '../api/client';
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
@@ -51,8 +52,8 @@ export function useTasks(isLoggedIn: boolean) {
     };
   }, [fetchTasks, isLoggedIn]);
 
-  const addTask = useCallback(async (content: string, projectId?: string, status?: string, description?: string) => {
-    await createTask({ content, projectId, status, description });
+  const addTask = useCallback(async (content: string, projectId?: string, status?: string, description?: string, priority?: TaskPriority) => {
+    await createTask({ content, projectId, status, description, priority });
   }, []);
 
   const editTask = useCallback(async (id: string, dto: UpdateTaskDto) => {

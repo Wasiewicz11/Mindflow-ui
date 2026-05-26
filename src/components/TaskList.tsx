@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project } from '../types';
+import { TaskPriority } from '../types';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -14,7 +15,7 @@ interface TaskListProps {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onClearCompleted?: () => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   compactMode?: boolean;
@@ -57,9 +58,9 @@ const TaskList: React.FC<TaskListProps> = ({
     return () => window.removeEventListener('keydown', prevent);
   }, []);
 
-  const [formData, setFormData] = useState<{ content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate: string, projectId: string }>({
+  const [formData, setFormData] = useState<{ content: string, priority: TaskPriority, dueDate: string, projectId: string }>({
     content: '',
-    priority: 'p4',
+    priority: TaskPriority.P4,
     dueDate: '',
     projectId: ''
   });
@@ -74,23 +75,21 @@ const TaskList: React.FC<TaskListProps> = ({
   const activeTasks = tasks.filter(t => !t.isCompleted);
   const completedTasks = tasks.filter(t => t.isCompleted);
 
-  const getPriorityColor = (p: string) => {
+  const getPriorityColor = (p: TaskPriority) => {
     switch (p) {
-      case 'p1': return 'text-red-500 fill-red-500';
-      case 'p2': return 'text-amber-500 fill-amber-500';
-      case 'p3': return 'text-blue-500 fill-blue-500';
-      case 'p4': return 'text-gray-400';
-      default: return 'text-gray-300';
+      case TaskPriority.P1: return 'text-red-500 fill-red-500';
+      case TaskPriority.P2: return 'text-amber-500 fill-amber-500';
+      case TaskPriority.P3: return 'text-blue-500 fill-blue-500';
+      case TaskPriority.P4: return 'text-gray-400';
     }
   };
 
-  const getPriorityLabel = (p: string) => {
+  const getPriorityLabel = (p: TaskPriority) => {
     switch (p) {
-      case 'p1': return 'Priorytet 1';
-      case 'p2': return 'Priorytet 2';
-      case 'p3': return 'Priorytet 3';
-      case 'p4': return 'Priorytet 4';
-      default: return 'Priorytet 4';
+      case TaskPriority.P1: return 'Priorytet 1';
+      case TaskPriority.P2: return 'Priorytet 2';
+      case TaskPriority.P3: return 'Priorytet 3';
+      case TaskPriority.P4: return 'Priorytet 4';
     }
   };
 
@@ -120,7 +119,7 @@ const TaskList: React.FC<TaskListProps> = ({
     setEditingTask(null);
     setFormData({
       content: '',
-      priority: 'p4',
+      priority: TaskPriority.P4,
       dueDate: '',
       projectId: activeProjectId || ''
     });
@@ -169,7 +168,7 @@ const TaskList: React.FC<TaskListProps> = ({
     lastSelectedIdRef.current = id;
   };
 
-  const applyBulkPriority = (p: 'p1' | 'p2' | 'p3' | 'p4') => {
+  const applyBulkPriority = (p: TaskPriority) => {
     if (onBulkEdit && selectedIds.length > 0) {
       onBulkEdit(selectedIds, { priority: p });
     }
@@ -340,7 +339,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
         <div className="col-span-1 lg:flex-none flex items-center justify-center gap-1 bg-gray-50 dark:bg-white/5 lg:bg-transparent py-2 px-1 lg:p-0 rounded-2xl lg:rounded-none border border-gray-100/80 dark:border-white/5 lg:border-none">
           <span className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-wider font-semibold mx-1 hidden sm:inline">Priorytet:</span>
-          {(['p1', 'p2', 'p3', 'p4'] as const).map(p => (
+          {(Object.values(TaskPriority)).map(p => (
             <button
               key={p}
               onClick={() => applyBulkPriority(p)}
@@ -548,7 +547,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
                   {isPriorityOpen && (
                     <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/10 rounded-xl shadow-lg z-20 overflow-hidden animate-fade-in">
-                      {(['p1', 'p2', 'p3', 'p4'] as const).map(p => (
+                      {(Object.values(TaskPriority)).map(p => (
                         <button
                           key={p}
                           type="button"

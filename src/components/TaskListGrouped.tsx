@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project } from '../types';
+import { TaskPriority } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
 
@@ -16,21 +17,26 @@ interface Props {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   onClearCompleted?: () => void;
   isLoading?: boolean;
   activeProjectId?: string | null;
 }
 
-const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
-  p1: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  p2: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  p3: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  p4: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
+  [TaskPriority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  [TaskPriority.P2]: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  [TaskPriority.P3]: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  [TaskPriority.P4]: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
-const PRIORITY_ORDER: Record<string, number> = { p1: 0, p2: 1, p3: 2, p4: 3 };
+const PRIORITY_ORDER: Record<TaskPriority, number> = {
+  [TaskPriority.P1]: 0,
+  [TaskPriority.P2]: 1,
+  [TaskPriority.P3]: 2,
+  [TaskPriority.P4]: 3,
+};
 
 interface Group {
   key: string;
@@ -120,7 +126,7 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
   isSelected?: boolean;
   onSelect?: () => void;
 }) {
-  const p = PRIORITY[task.priority] ?? PRIORITY.p4;
+  const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const dateLabel = task.dueDate ? getDateLabel(task.dueDate) : '';
   const overdue = task.dueDate
@@ -236,7 +242,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1'|'p2'|'p3'|'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
   isSelectionMode?: boolean;
   selectedIds?: string[];
   onSelect?: (id: string) => void;
@@ -564,7 +570,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
                       flexShrink: 0,
                     }}
                   >
-                    {(PRIORITY[task.priority] ?? PRIORITY.p4).label}
+                    {(PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4]).label}
                   </span>
 
                   {/* Title strikethrough */}

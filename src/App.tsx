@@ -16,6 +16,7 @@ import { getMe } from './api/users';
 import { getProjects, createProject, deleteProject } from './api/projects';
 import SpaceSettingsModal from './components/SpaceSettingsModal';
 import type { Task, Note, User, Space, Project } from './types';
+import { TaskPriority } from './types';
 
 type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'settings';
 
@@ -70,7 +71,7 @@ export default function App() {
           content: apiTask.content,
           status,
           isCompleted: status === 'Completed',
-          priority: existing?.priority ?? ({ 1: 'p1', 2: 'p2', 3: 'p3', 4: 'p4' } as Record<number, Task['priority']>)[apiTask.priority ?? 4] ?? 'p4',
+          priority: existing?.priority ?? apiTask.priority ?? TaskPriority.P4,
           dueDate: apiTask.dueDate,
           createdAt: existing?.createdAt ?? new Date(),
           project_id: existing?.project_id ?? apiTask.projectId ?? null,
@@ -109,9 +110,9 @@ export default function App() {
   }, [isLoggedIn, fetchSpaces]);
 
   // --- TASK HANDLERS ---
-  const handleAddTask = async (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('./types').TaskStatus, description?: string) => {
+  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('./types').TaskStatus, description?: string) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    await addTask(content, finalProjectId, status, description);
+    await addTask(content, finalProjectId, status, description, priority);
     setLocalTasks(prev => prev.map(t =>
       t.content === content && !t.dueDate
         ? { ...t, priority, dueDate, project_id: finalProjectId || null, description, ...(status ? { status, isCompleted: status === 'Completed' } : {}) }
@@ -125,7 +126,7 @@ export default function App() {
     setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...withDerived } : t));
     const dto: import('./api/tasks').UpdateTaskDto = {};
     if (updates.content    !== undefined) dto.content   = updates.content;
-    if (updates.priority   !== undefined) dto.priority  = { p1: 1, p2: 2, p3: 3, p4: 4 }[updates.priority];
+    if (updates.priority   !== undefined) dto.priority  = updates.priority;
     if (updates.status     !== undefined) dto.status    = updates.status;
     if (updates.dueDate    !== undefined) dto.dueDate   = updates.dueDate;
     if (updates.project_id  !== undefined) dto.projectId   = updates.project_id ?? undefined;
@@ -252,7 +253,7 @@ export default function App() {
   });
 
   const todayTasks = localTasks.filter(t => !t.isCompleted && t.dueDate && t.dueDate <= todayStr);
-  const importantTasks = localTasks.filter(t => !t.isCompleted && t.priority === 'p1' && (!t.dueDate || t.dueDate > todayStr));
+  const importantTasks = localTasks.filter(t => !t.isCompleted && t.priority === TaskPriority.P1 && (!t.dueDate || t.dueDate > todayStr));
   // completedCount available for future use
   void filteredTasks.filter(t => t.isCompleted).length;
 

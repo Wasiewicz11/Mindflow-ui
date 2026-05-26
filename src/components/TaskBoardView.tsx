@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Task, Project } from '../types';
+import { TaskPriority } from '../types';
 import { TaskAddModal } from './TaskAddModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
@@ -14,14 +15,14 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }
 
-const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
-  p1: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  p2: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  p3: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  p4: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
+  [TaskPriority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  [TaskPriority.P2]: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  [TaskPriority.P3]: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  [TaskPriority.P4]: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
 function formatDue(dateStr: string): string {
@@ -52,7 +53,7 @@ function MoreIcon() {
 }
 
 function Card({ task }: { task: Task }) {
-  const p = PRIORITY[task.priority] ?? PRIORITY.p4;
+  const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
@@ -112,7 +113,7 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
   tasks: Task[];
   isFirst: boolean;
   projects: Project[];
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }) {
   const [addingOpen, setAddingOpen] = useState(false);
   const open = tasks.filter(t => !t.isCompleted);

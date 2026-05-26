@@ -1,25 +1,26 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Project } from '../types';
+import { TaskPriority } from '../types';
 
 interface Props {
   activeProjectId: string | null;
   projects: Project[];
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../types').TaskStatus, description?: string) => void;
 }
 
-const PRIORITY_COLORS: Record<string, string> = {
-  p1: 'text-red-500',
-  p2: 'text-amber-500',
-  p3: 'text-blue-500',
-  p4: 'text-gray-300 dark:text-gray-500',
+const PRIORITY_COLORS: Record<TaskPriority, string> = {
+  [TaskPriority.P1]: 'text-red-500',
+  [TaskPriority.P2]: 'text-amber-500',
+  [TaskPriority.P3]: 'text-blue-500',
+  [TaskPriority.P4]: 'text-gray-300 dark:text-gray-500',
 };
 
-const PRIORITY_LABELS: Record<string, string> = {
-  p1: 'Priorytet 1',
-  p2: 'Priorytet 2',
-  p3: 'Priorytet 3',
-  p4: 'Priorytet 4',
+const PRIORITY_LABELS: Record<TaskPriority, string> = {
+  [TaskPriority.P1]: 'Priorytet 1',
+  [TaskPriority.P2]: 'Priorytet 2',
+  [TaskPriority.P3]: 'Priorytet 3',
+  [TaskPriority.P4]: 'Priorytet 4',
 };
 
 function FlagIcon({ className }: { className?: string }) {
@@ -32,7 +33,7 @@ function FlagIcon({ className }: { className?: string }) {
 
 export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
   const [value, setValue] = useState('');
-  const [priority, setPriority] = useState<'p1' | 'p2' | 'p3' | 'p4'>('p4');
+  const [priority, setPriority] = useState<TaskPriority>(TaskPriority.P4);
   const [showPicker, setShowPicker] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const pickerRef = useRef<HTMLDivElement>(null);
@@ -54,7 +55,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
     if (!value.trim()) return;
     onAdd(value.trim(), priority, undefined, activeProjectId ?? undefined);
     setValue('');
-    setPriority('p4');
+    setPriority(TaskPriority.P4);
     inputRef.current?.focus();
   };
 
@@ -100,7 +101,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
 
             {showPicker && (
               <div className="absolute bottom-full right-0 mb-1.5 bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/10 rounded-xl shadow-lg overflow-hidden z-50 w-36">
-                {(['p1', 'p2', 'p3', 'p4'] as const).map((p) => (
+                {(Object.values(TaskPriority)).map((p) => (
                   <button
                     key={p}
                     type="button"

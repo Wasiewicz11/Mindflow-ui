@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { Task, TaskStatus, Project } from '../types';
+import { TaskPriority } from '../types';
 import { TaskAddModal } from './TaskAddModal';
 
 const STATUSES = [
@@ -29,11 +30,11 @@ const STATUSES = [
   },
 ];
 
-const PRIORITY: Record<string, { label: string; fg: string; bg: string }> = {
-  p1: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  p2: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  p3: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  p4: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
+  [TaskPriority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  [TaskPriority.P2]: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  [TaskPriority.P3]: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  [TaskPriority.P4]: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
 function formatDue(dateStr: string): string {
@@ -69,7 +70,7 @@ interface CardProps {
 }
 
 function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
-  const p = PRIORITY[task.priority] ?? PRIORITY.p4;
+  const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
@@ -115,7 +116,7 @@ interface Props {
   projects: Project[];
   activeProjectId?: string | null;
   onEdit: (id: string, updates: Partial<Task>) => void;
-  onAdd: (content: string, priority: 'p1' | 'p2' | 'p3' | 'p4', dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
 }
 
 export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd }: Props) {

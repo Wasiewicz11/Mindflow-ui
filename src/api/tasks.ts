@@ -9,6 +9,7 @@ export interface Task {
   status?: string;
   dueDate?: string;
   projectId?: string;
+  createdAt?: string;
 }
 
 export interface CreateTaskDto {
@@ -31,6 +32,10 @@ export interface UpdateTaskDto {
 
 export function getTasks(): Promise<Task[]> {
   return apiFetch<Task[]>('/tasks');
+}
+
+export function getTasksForProject(projectId: string): Promise<Task[]> {
+  return apiFetch<Task[]>(`/tasks?projectId=${projectId}`);
 }
 
 export function createTask(dto: CreateTaskDto): Promise<Task> {

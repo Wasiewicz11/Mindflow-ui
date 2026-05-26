@@ -14,6 +14,7 @@ import { useTasks } from './hooks/useTasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from './api/spaces';
 import { getMe } from './api/users';
 import { getProjects, createProject, deleteProject } from './api/projects';
+import { getTasksForProject } from './api/tasks';
 import SpaceSettingsModal from './components/SpaceSettingsModal';
 import type { Task, Note, User, Space, Project } from './types';
 import { TaskPriority } from './types';
@@ -108,6 +109,33 @@ export default function App() {
   useEffect(() => {
     if (isLoggedIn) fetchSpaces();
   }, [isLoggedIn, fetchSpaces]);
+
+  useEffect(() => {
+    if (!activeProjectId || !isLoggedIn) return;
+    getTasksForProject(activeProjectId).then(apiTasks => {
+      setLocalTasks(prev => {
+        const other = prev.filter(t => t.project_id !== activeProjectId);
+        const fresh = apiTasks.map(t => {
+          const existing = prev.find(e => e.id === t.id);
+          const status = (t.status as import('./types').TaskStatus) ?? 'NotStarted';
+          return {
+            id: t.id,
+            content: t.content,
+            status,
+            isCompleted: status === 'Completed',
+            priority: t.priority ?? TaskPriority.P4,
+            dueDate: t.dueDate,
+            createdAt: t.createdAt ? new Date(t.createdAt) : (existing?.createdAt ?? new Date()),
+            project_id: t.projectId ?? null,
+            description: existing?.description,
+            tags: existing?.tags,
+            subtasks: existing?.subtasks,
+          };
+        });
+        return [...other, ...fresh];
+      });
+    }).catch(() => {});
+  }, [activeProjectId, isLoggedIn]);
 
   // --- TASK HANDLERS ---
   const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('./types').TaskStatus, description?: string) => {

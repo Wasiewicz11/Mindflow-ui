@@ -5,7 +5,6 @@ import TaskList from './components/TaskList';
 import { TaskListGrouped } from './components/TaskListGrouped';
 import TaskWeekView from './components/TaskWeekView';
 import { TaskBoardView } from './components/TaskBoardView';
-import { TaskKanbanView } from './components/TaskKanbanView';
 import { QuickAddTask } from './components/QuickAddTask';
 import NotesGrid from './components/NotesGrid';
 import { ThemeSelector } from './components/ThemeSelector';
@@ -14,8 +13,8 @@ import { useTasks } from './hooks/useTasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from './api/spaces';
 import { getMe } from './api/users';
 import { getProjects, createProject, deleteProject } from './api/projects';
-import { getTasksForProject } from './api/tasks';
 import SpaceSettingsModal from './components/SpaceSettingsModal';
+import { ProjectView } from './views/ProjectView';
 import type { Task, Note, User, Space, Project } from './types';
 import { TaskPriority } from './types';
 
@@ -26,62 +25,48 @@ export default function App() {
   const { tasks: rawTasks, addTask, editTask, removeTask } = useTasks(isLoggedIn);
 
   const [user, setUser] = useState<User | null>(null);
-
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
   const [isLoading, setIsLoading] = useState(true);
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
 
-  // Spaces & Projects (projects are local — new API has no projects)
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
-
-  // Notes (local state — new API has no notes endpoint)
   const [notes, setNotes] = useState<Note[]>([]);
-
-  // Local task state wrapping API tasks (adding isCompleted, priority as string, project_id)
   const [localTasks, setLocalTasks] = useState<Task[]>([]);
 
-  // Theme
   const [theme, setTheme] = useState<'light' | 'dark' | 'gray'>(() => {
     const stored = localStorage.getItem('mindflow_theme');
     if (stored === 'light' || stored === 'dark' || stored === 'gray') return stored;
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
 
-  // Sync theme to DOM
   useEffect(() => {
     document.documentElement.classList.remove('dark', 'theme-gray');
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-    } else if (theme === 'gray') {
-      document.documentElement.classList.add('dark', 'theme-gray');
-    }
+    if (theme === 'dark') document.documentElement.classList.add('dark');
+    else if (theme === 'gray') document.documentElement.classList.add('dark', 'theme-gray');
     localStorage.setItem('mindflow_theme', theme);
   }, [theme]);
 
-  // Sync rawTasks from API into localTasks (merge with local extra fields)
   useEffect(() => {
-    setLocalTasks(prev => {
-      return rawTasks.map(apiTask => {
-        const existing = prev.find(t => t.id === apiTask.id);
-        const status = (apiTask.status as import('./types').TaskStatus | undefined) ?? existing?.status ?? 'NotStarted';
-        return {
-          id: apiTask.id,
-          content: apiTask.content,
-          status,
-          isCompleted: status === 'Completed',
-          priority: existing?.priority ?? apiTask.priority ?? TaskPriority.P4,
-          dueDate: apiTask.dueDate,
-          createdAt: existing?.createdAt ?? new Date(),
-          project_id: existing?.project_id ?? apiTask.projectId ?? null,
-          description: apiTask.description ?? existing?.description,
-          tags: existing?.tags,
-          subtasks: existing?.subtasks,
-        };
-      });
-    });
+    setLocalTasks(prev => rawTasks.map(apiTask => {
+      const existing = prev.find(t => t.id === apiTask.id);
+      const status = (apiTask.status as import('./types').TaskStatus | undefined) ?? existing?.status ?? 'NotStarted';
+      return {
+        id: apiTask.id,
+        content: apiTask.content,
+        status,
+        isCompleted: status === 'Completed',
+        priority: existing?.priority ?? apiTask.priority ?? TaskPriority.P4,
+        dueDate: apiTask.dueDate,
+        createdAt: existing?.createdAt ?? new Date(),
+        project_id: existing?.project_id ?? apiTask.projectId ?? null,
+        description: apiTask.description ?? existing?.description,
+        tags: existing?.tags,
+        subtasks: existing?.subtasks,
+      };
+    }));
     if (rawTasks.length >= 0) setIsLoading(false);
   }, [rawTasks]);
 
@@ -90,13 +75,11 @@ export default function App() {
     getMe().then(setUser).catch(() => {});
   }, [isLoggedIn]);
 
-  // Fetch spaces + projects from API
   const fetchSpaces = useCallback(async () => {
     try {
       const apiSpaces = await getSpaces();
       const mappedSpaces = apiSpaces.map(s => ({ ...s, color: '#9CA3AF' }));
       setSpaces(mappedSpaces);
-
       const allProjects = await Promise.all(
         mappedSpaces.map(s => getProjects(s.id).then(ps => ps.map(p => ({ ...p, space_id: p.spaceId }))))
       );
@@ -110,34 +93,7 @@ export default function App() {
     if (isLoggedIn) fetchSpaces();
   }, [isLoggedIn, fetchSpaces]);
 
-  useEffect(() => {
-    if (!activeProjectId || !isLoggedIn) return;
-    getTasksForProject(activeProjectId).then(apiTasks => {
-      setLocalTasks(prev => {
-        const other = prev.filter(t => t.project_id !== activeProjectId);
-        const fresh = apiTasks.map(t => {
-          const existing = prev.find(e => e.id === t.id);
-          const status = (t.status as import('./types').TaskStatus) ?? 'NotStarted';
-          return {
-            id: t.id,
-            content: t.content,
-            status,
-            isCompleted: status === 'Completed',
-            priority: t.priority ?? TaskPriority.P4,
-            dueDate: t.dueDate,
-            createdAt: t.createdAt ? new Date(t.createdAt) : (existing?.createdAt ?? new Date()),
-            project_id: t.projectId ?? null,
-            description: existing?.description,
-            tags: existing?.tags,
-            subtasks: existing?.subtasks,
-          };
-        });
-        return [...other, ...fresh];
-      });
-    }).catch(() => {});
-  }, [activeProjectId, isLoggedIn]);
-
-  // --- TASK HANDLERS ---
+  // --- TASK HANDLERS (dla dashboardu i widoku "wszystkie zadania") ---
   const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('./types').TaskStatus, description?: string) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
     await addTask(content, finalProjectId, status, description, priority);
@@ -153,10 +109,10 @@ export default function App() {
     if (updates.status !== undefined) withDerived.isCompleted = updates.status === 'Completed';
     setLocalTasks(prev => prev.map(t => t.id === id ? { ...t, ...withDerived } : t));
     const dto: import('./api/tasks').UpdateTaskDto = {};
-    if (updates.content    !== undefined) dto.content   = updates.content;
-    if (updates.priority   !== undefined) dto.priority  = updates.priority;
-    if (updates.status     !== undefined) dto.status    = updates.status;
-    if (updates.dueDate    !== undefined) dto.dueDate   = updates.dueDate;
+    if (updates.content     !== undefined) dto.content     = updates.content;
+    if (updates.priority    !== undefined) dto.priority    = updates.priority;
+    if (updates.status      !== undefined) dto.status      = updates.status;
+    if (updates.dueDate     !== undefined) dto.dueDate     = updates.dueDate;
     if (updates.project_id  !== undefined) dto.projectId   = updates.project_id ?? undefined;
     if (updates.description !== undefined) dto.description = updates.description;
     if (Object.keys(dto).length > 0) await editTask(id, dto);
@@ -175,14 +131,12 @@ export default function App() {
     await editTask(id, { status: newStatus });
   };
 
-  const handleBulkEdit = (ids: string[], updates: Partial<import('./types').Task>) => {
+  const handleBulkEdit = (ids: string[], updates: Partial<Task>) => {
     ids.forEach(id => handleEditTask(id, updates));
   };
 
   const handleClearCompleted = () => {
-    const toDelete = localTasks.filter(t =>
-      t.isCompleted && (activeProjectId ? t.project_id === activeProjectId : true)
-    );
+    const toDelete = localTasks.filter(t => t.isCompleted);
     if (toDelete.length === 0) return;
     if (!window.confirm(`Czy na pewno chcesz usunąć ${toDelete.length} wykonanych zadań?`)) return;
     toDelete.forEach(t => removeTask(t.id));
@@ -245,7 +199,7 @@ export default function App() {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, space_id: newSpaceId } : p));
   };
 
-  // --- NOTE HANDLERS (local only) ---
+  // --- NOTE HANDLERS ---
   const handleAddNote = (title: string, content: string, tags: string[]) => {
     setNotes(prev => [{ id: Date.now().toString(), title, content, tags, createdAt: new Date() }, ...prev]);
   };
@@ -269,27 +223,22 @@ export default function App() {
 
   // --- DATA PREP ---
   const todayStr = new Date().toISOString().split('T')[0];
-
-  const filteredTasks = (activeProjectId
-    ? localTasks.filter(t => t.project_id === activeProjectId)
-    : localTasks
-  ).sort((a, b) => {
+  const sortedAllTasks = [...localTasks].sort((a, b) => {
     if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
     if (a.dueDate) return -1;
     if (b.dueDate) return 1;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
-
   const todayTasks = localTasks.filter(t => !t.isCompleted && t.dueDate && t.dueDate <= todayStr);
   const importantTasks = localTasks.filter(t => !t.isCompleted && t.priority === TaskPriority.P1 && (!t.dueDate || t.dueDate > todayStr));
-  // completedCount available for future use
-  void filteredTasks.filter(t => t.isCompleted).length;
 
   if (!isLoggedIn) {
     return <LoginScreen initGoogleButton={initGoogleButton} />;
   }
 
-  // Mobile Bottom Nav
+  const activeProject = projects.find(p => p.id === activeProjectId);
+  const showProjectView = activeTab === 'tasks' && !!activeProjectId && !!activeProject;
+
   const MobileBottomNav = () => (
     <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-black/90 backdrop-blur-xl border-t border-gray-100/50 dark:border-white/5 z-50 px-6 pt-3 pb-8 flex justify-between items-center shadow-lg shadow-gray-200/50 dark:shadow-none transition-colors duration-300">
       <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'dashboard' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
@@ -333,276 +282,228 @@ export default function App() {
       />
 
       <main className="flex-1 overflow-hidden relative flex flex-col">
-        {/* Header */}
-        <header className="flex-none px-6 pt-8 pb-4 lg:py-8 flex flex-col lg:flex-row lg:items-end justify-between animate-fade-in gap-4">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-              {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
-              {activeTab === 'notes' && 'Twoja baza wiedzy.'}
-              {activeTab === 'tasks' && (activeProjectId ? projects.find(p => p.id === activeProjectId)?.name ?? 'Wszystkie zadania.' : 'Wszystkie zadania.')}
-              {activeTab === 'settings' && 'Ustawienia.'}
-            </h1>
-            <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
-              {activeTab === 'dashboard' && `Masz ${localTasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
-              {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
-              {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
-            </p>
-          </div>
 
-          {/* Task view mode toggle */}
-          {activeTab === 'tasks' && (
-            <div className="flex items-center gap-2">
-              <div
-                className="flex dark:bg-white/5"
-                style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
-              >
-                {(['list', 'week', 'board'] as const).map(mode => (
-                  <button
-                    key={mode}
-                    onClick={() => setTaskViewMode(mode)}
-                    className="transition-all duration-150"
-                    style={{
-                      padding: '4px 11px',
-                      borderRadius: 5,
-                      fontSize: 12.5,
-                      fontWeight: 500,
-                      background: taskViewMode === mode ? '#0f1115' : 'transparent',
-                      color: taskViewMode === mode ? '#fff' : '#5a606b',
-                    }}
-                  >
-                    {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </header>
+        {/* Widok projektu — sam zarządza headerem, scrollem i widokami */}
+        {showProjectView && (
+          <ProjectView
+            projectId={activeProjectId}
+            project={activeProject}
+            projects={projects}
+          />
+        )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
-
-          {/* DASHBOARD */}
-          {activeTab === 'dashboard' && (
-            <div className="space-y-8 animate-fade-in max-w-5xl">
-              {/* Stats row */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  { label: 'Wszystkie zadania', value: localTasks.filter(t => !t.isCompleted).length, color: 'text-gray-900 dark:text-white' },
-                  { label: 'Na dziś / zaległe', value: todayTasks.length, color: 'text-red-500' },
-                  { label: 'Priorytet P1', value: importantTasks.length, color: 'text-red-500' },
-                  { label: 'Ukończone', value: localTasks.filter(t => t.isCompleted).length, color: 'text-emerald-500' },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
-                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">{stat.label}</p>
-                    <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
-                  </div>
-                ))}
+        {/* Pozostałe widoki: dashboard, wszystkie zadania, notatki, ustawienia */}
+        {!showProjectView && (
+          <>
+            <header className="flex-none px-6 pt-8 pb-4 lg:py-8 flex flex-col lg:flex-row lg:items-end justify-between animate-fade-in gap-4">
+              <div>
+                <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
+                  {activeTab === 'notes' && 'Twoja baza wiedzy.'}
+                  {activeTab === 'tasks' && 'Wszystkie zadania.'}
+                  {activeTab === 'settings' && 'Ustawienia.'}
+                </h1>
+                <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
+                  {activeTab === 'dashboard' && `Masz ${localTasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
+                  {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
+                  {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
+                </p>
               </div>
 
-              {/* Today's tasks */}
-              {todayTasks.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Na dziś / Zaległe</h2>
-                  <TaskList
-                    tasks={todayTasks}
-                    projects={projects}
-                    onToggle={handleToggleTask}
-                    onEdit={handleEditTask}
-                    onDelete={handleDeleteTask}
-                    onAdd={handleAddTask}
-                    compactMode
-                    isLoading={isLoading}
-                  />
-                </div>
-              )}
-
-              {/* Important tasks */}
-              {importantTasks.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ważne (P1)</h2>
-                  <TaskList
-                    tasks={importantTasks}
-                    projects={projects}
-                    onToggle={handleToggleTask}
-                    onEdit={handleEditTask}
-                    onDelete={handleDeleteTask}
-                    onAdd={handleAddTask}
-                    compactMode
-                    isLoading={isLoading}
-                  />
-                </div>
-              )}
-
-              {/* Recent notes */}
-              {notes.length > 0 && (
-                <div>
-                  <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ostatnie notatki</h2>
-                  <NotesGrid
-                    notes={notes.slice(0, 4)}
-                    onAdd={handleAddNote}
-                    onEdit={handleEditNote}
-                    onDelete={handleDeleteNote}
-                    compactMode
-                    isLoading={false}
-                  />
-                </div>
-              )}
-
-              {todayTasks.length === 0 && importantTasks.length === 0 && notes.length === 0 && !isLoading && (
-                <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
-                  <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-4">
-                    <svg className="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                  </div>
-                  <p className="text-gray-400 dark:text-gray-500 font-medium">Wszystko gotowe. Dodaj pierwsze zadanie!</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* TASKS */}
-          {activeTab === 'tasks' && projects.length > 0 && (
-            <div className="lg:hidden -mx-6 px-4 mb-4 overflow-x-auto flex gap-2 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-              <button
-                onClick={() => setActiveProjectId(null)}
-                className="flex-none text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-                style={{
-                  background: activeProjectId === null ? '#0f1115' : '#f1f0ed',
-                  color: activeProjectId === null ? '#fff' : '#5a606b',
-                }}
-              >
-                Wszystkie
-              </button>
-              {projects.map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => setActiveProjectId(activeProjectId === p.id ? null : p.id)}
-                  className="flex-none flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-                  style={{
-                    background: activeProjectId === p.id ? '#0f1115' : '#f1f0ed',
-                    color: activeProjectId === p.id ? '#fff' : '#5a606b',
-                  }}
+              {activeTab === 'tasks' && (
+                <div
+                  className="flex dark:bg-white/5"
+                  style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
                 >
-                  <span
-                    className="rounded-full flex-none"
-                    style={{ width: 6, height: 6, background: activeProjectId === p.id ? '#fff' : (p.color || '#9aa0aa') }}
-                  />
-                  {p.name}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {activeTab === 'tasks' && (
-            <div key={activeProjectId ?? 'all'} className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
-              {taskViewMode === 'list' && (
-                <TaskListGrouped
-                  tasks={filteredTasks}
-                  projects={projects}
-                  onToggle={handleToggleTask}
-                  onEdit={handleEditTask}
-                  onDelete={handleDeleteTask}
-                  onAdd={handleAddTask}
-                  onBulkEdit={handleBulkEdit}
-                  onClearCompleted={handleClearCompleted}
-                  isLoading={isLoading}
-                  activeProjectId={activeProjectId}
-                />
-              )}
-              {taskViewMode === 'week' && (
-                <div className="h-[calc(100vh-200px)]">
-                  <TaskWeekView
-                    tasks={filteredTasks}
-                    projects={projects}
-                    onEdit={handleEditTask}
-                    onToggle={handleToggleTask}
-                    onAdd={handleAddTask}
-                    onDelete={handleDeleteTask}
-                  />
+                  {(['list', 'week', 'board'] as const).map(mode => (
+                    <button
+                      key={mode}
+                      onClick={() => setTaskViewMode(mode)}
+                      className="transition-all duration-150"
+                      style={{
+                        padding: '4px 11px',
+                        borderRadius: 5,
+                        fontSize: 12.5,
+                        fontWeight: 500,
+                        background: taskViewMode === mode ? '#0f1115' : 'transparent',
+                        color: taskViewMode === mode ? '#fff' : '#5a606b',
+                      }}
+                    >
+                      {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
+                    </button>
+                  ))}
                 </div>
               )}
-              {taskViewMode === 'board' && (
-                activeProjectId ? (
-                  <TaskKanbanView
-                    tasks={filteredTasks}
-                    projects={projects}
-                    activeProjectId={activeProjectId}
-                    onEdit={handleEditTask}
-                    onAdd={handleAddTask}
-                  />
-                ) : (
-                  <TaskBoardView
-                    tasks={localTasks}
-                    projects={projects}
-                    onEdit={handleEditTask}
-                    onToggle={handleToggleTask}
-                    onDelete={handleDeleteTask}
-                    onAdd={handleAddTask}
-                  />
-                )
-              )}
-            </div>
-          )}
+            </header>
 
-          {activeTab === 'tasks' && (
-            <QuickAddTask
-              activeProjectId={activeProjectId}
-              projects={projects}
-              onAdd={handleAddTask}
-            />
-          )}
+            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
 
-          {/* NOTES */}
-          {activeTab === 'notes' && (
-            <div className="animate-fade-in">
-              <NotesGrid
-                notes={notes}
-                onAdd={handleAddNote}
-                onEdit={handleEditNote}
-                onDelete={handleDeleteNote}
-                isLoading={false}
-              />
-            </div>
-          )}
+              {/* DASHBOARD */}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-8 animate-fade-in max-w-5xl">
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                      { label: 'Wszystkie zadania', value: localTasks.filter(t => !t.isCompleted).length, color: 'text-gray-900 dark:text-white' },
+                      { label: 'Na dziś / zaległe', value: todayTasks.length, color: 'text-red-500' },
+                      { label: 'Priorytet P1', value: importantTasks.length, color: 'text-red-500' },
+                      { label: 'Ukończone', value: localTasks.filter(t => t.isCompleted).length, color: 'text-emerald-500' },
+                    ].map((stat) => (
+                      <div key={stat.label} className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-5 shadow-sm">
+                        <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mb-2">{stat.label}</p>
+                        <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                      </div>
+                    ))}
+                  </div>
 
-          {/* SETTINGS */}
-          {activeTab === 'settings' && (
-            <div className="max-w-xl space-y-6 animate-fade-in">
-              {/* Profile */}
-              <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Profil</h2>
-                <div className="flex items-center gap-4">
-                  {user?.avatarUrl && (
-                    <img src={user.avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
+                  {todayTasks.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Na dziś / Zaległe</h2>
+                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} />
+                    </div>
                   )}
-                  <div>
-                    <p className="font-semibold text-gray-900 dark:text-white">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">{user?.email}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleLogout}
-                  className="mt-4 w-full px-4 py-2 text-sm font-medium text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors"
-                >
-                  Wyloguj się
-                </button>
-              </div>
 
-              {/* Theme */}
-              <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
-                <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Wygląd</h2>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">Motyw</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wybierz styl interfejsu</p>
-                  </div>
-                  <ThemeSelector theme={theme} setTheme={setTheme} />
+                  {importantTasks.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ważne (P1)</h2>
+                      <TaskList tasks={importantTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} />
+                    </div>
+                  )}
+
+                  {notes.length > 0 && (
+                    <div>
+                      <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ostatnie notatki</h2>
+                      <NotesGrid notes={notes.slice(0, 4)} onAdd={handleAddNote} onEdit={handleEditNote} onDelete={handleDeleteNote} compactMode isLoading={false} />
+                    </div>
+                  )}
+
+                  {todayTasks.length === 0 && importantTasks.length === 0 && notes.length === 0 && !isLoading && (
+                    <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
+                      <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-4">
+                        <svg className="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      </div>
+                      <p className="text-gray-400 dark:text-gray-500 font-medium">Wszystko gotowe. Dodaj pierwsze zadanie!</p>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
+
+              {/* WSZYSTKIE ZADANIA (bez aktywnego projektu) */}
+              {activeTab === 'tasks' && (
+                <>
+                  {projects.length > 0 && (
+                    <div className="lg:hidden -mx-6 px-4 mb-4 overflow-x-auto flex gap-2 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
+                      <button
+                        onClick={() => setActiveProjectId(null)}
+                        className="flex-none text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                        style={{ background: '#0f1115', color: '#fff' }}
+                      >
+                        Wszystkie
+                      </button>
+                      {projects.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => setActiveProjectId(p.id)}
+                          className="flex-none flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
+                          style={{ background: '#f1f0ed', color: '#5a606b' }}
+                        >
+                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: p.color || '#9aa0aa' }} />
+                          {p.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
+                    {taskViewMode === 'list' && (
+                      <TaskListGrouped
+                        tasks={sortedAllTasks}
+                        projects={projects}
+                        onToggle={handleToggleTask}
+                        onEdit={handleEditTask}
+                        onDelete={handleDeleteTask}
+                        onAdd={handleAddTask}
+                        onBulkEdit={handleBulkEdit}
+                        onClearCompleted={handleClearCompleted}
+                        isLoading={isLoading}
+                        activeProjectId={null}
+                      />
+                    )}
+                    {taskViewMode === 'week' && (
+                      <div className="h-[calc(100vh-200px)]">
+                        <TaskWeekView
+                          tasks={sortedAllTasks}
+                          projects={projects}
+                          onEdit={handleEditTask}
+                          onToggle={handleToggleTask}
+                          onAdd={handleAddTask}
+                          onDelete={handleDeleteTask}
+                        />
+                      </div>
+                    )}
+                    {taskViewMode === 'board' && (
+                      <TaskBoardView
+                        tasks={localTasks}
+                        projects={projects}
+                        onEdit={handleEditTask}
+                        onToggle={handleToggleTask}
+                        onDelete={handleDeleteTask}
+                        onAdd={handleAddTask}
+                      />
+                    )}
+                  </div>
+
+                  <QuickAddTask activeProjectId={null} projects={projects} onAdd={handleAddTask} />
+                </>
+              )}
+
+              {/* NOTES */}
+              {activeTab === 'notes' && (
+                <div className="animate-fade-in">
+                  <NotesGrid notes={notes} onAdd={handleAddNote} onEdit={handleEditNote} onDelete={handleDeleteNote} isLoading={false} />
+                </div>
+              )}
+
+              {/* SETTINGS */}
+              {activeTab === 'settings' && (
+                <div className="max-w-xl space-y-6 animate-fade-in">
+                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Profil</h2>
+                    <div className="flex items-center gap-4">
+                      {user?.avatarUrl && (
+                        <img src={user.avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
+                      )}
+                      <div>
+                        <p className="font-semibold text-gray-900 dark:text-white">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
+                        <p className="text-sm text-gray-500 dark:text-gray:400">{user?.email}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="mt-4 w-full px-4 py-2 text-sm font-medium text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors"
+                    >
+                      Wyloguj się
+                    </button>
+                  </div>
+
+                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
+                    <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Wygląd</h2>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">Motyw</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wybierz styl interfejsu</p>
+                      </div>
+                      <ThemeSelector theme={theme} setTheme={setTheme} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
-          )}
-        </div>
 
-        <MobileBottomNav />
+            <MobileBottomNav />
+          </>
+        )}
+
       </main>
 
       {spaceSettingsId && (() => {

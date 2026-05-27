@@ -43,6 +43,7 @@ interface Group {
   label: string;
   sublabel?: string;
   tasks: Task[];
+  variant?: 'overdue';
 }
 
 function parseLocalDate(dateStr: string): Date {
@@ -68,22 +69,24 @@ function groupTasks(tasks: Task[]): Group[] {
   endOfWeek.setDate(today.getDate() + (6 - today.getDay() + 7) % 7 + 1);
 
   const buckets: Group[] = [
-    { key: 'today',    label: 'Dzisiaj',       sublabel: 'Zaplanowane na dziś', tasks: [] },
-    { key: 'tomorrow', label: 'Jutro',          tasks: [] },
-    { key: 'week',     label: 'W tym tygodniu', tasks: [] },
-    { key: 'later',    label: 'Później',        tasks: [] },
-    { key: 'none',     label: 'Bez terminu',    tasks: [] },
+    { key: 'overdue',  label: 'Zaległe',          variant: 'overdue', tasks: [] },
+    { key: 'today',    label: 'Dzisiaj',           sublabel: 'Zaplanowane na dziś', tasks: [] },
+    { key: 'tomorrow', label: 'Jutro',             tasks: [] },
+    { key: 'week',     label: 'W tym tygodniu',    tasks: [] },
+    { key: 'later',    label: 'Później',           tasks: [] },
+    { key: 'none',     label: 'Bez terminu',       tasks: [] },
   ];
 
   const open = tasks.filter(t => !t.isCompleted);
 
   open.forEach(t => {
-    if (!t.dueDate) { buckets[4].tasks.push(t); return; }
+    if (!t.dueDate) { buckets[5].tasks.push(t); return; }
     const d = parseLocalDate(t.dueDate);
-    if (d <= today)                               buckets[0].tasks.push(t);
-    else if (d.getTime() === tomorrow.getTime())  buckets[1].tasks.push(t);
-    else if (d < endOfWeek)                       buckets[2].tasks.push(t);
-    else                                          buckets[3].tasks.push(t);
+    if (d < today)                                buckets[0].tasks.push(t);
+    else if (d.getTime() === today.getTime())     buckets[1].tasks.push(t);
+    else if (d.getTime() === tomorrow.getTime())  buckets[2].tasks.push(t);
+    else if (d < endOfWeek)                       buckets[3].tasks.push(t);
+    else                                          buckets[4].tasks.push(t);
   });
 
   buckets.forEach(b => b.tasks.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)));
@@ -252,6 +255,8 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingOpen, setAddingOpen] = useState(false);
 
+  const isOverdue = group.variant === 'overdue';
+
   return (
     <div className="mb-8">
       {/* Group header */}
@@ -260,9 +265,24 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
         onClick={() => setOpen(o => !o)}
         style={{ padding: '4px 0 6px' }}
       >
-        <span className="text-[#9098a4] flex-none"><ChevronIcon open={open} /></span>
-        <span className="text-[15px] font-semibold text-[#0f1115]">{group.label}</span>
-        <span className="text-[13px] text-[#9098a4]">{group.tasks.length}</span>
+        <span style={{ color: isOverdue ? '#e05050' : '#9098a4' }} className="flex-none">
+          <ChevronIcon open={open} />
+        </span>
+        <span
+          className="text-[15px] font-semibold"
+          style={{ color: isOverdue ? '#e05050' : '#0f1115' }}
+        >
+          {group.label}
+        </span>
+        <span
+          className="text-[13px] font-semibold rounded-full px-1.5"
+          style={isOverdue
+            ? { color: '#fff', background: '#e05050', fontSize: 11, padding: '1px 7px' }
+            : { color: '#9098a4' }
+          }
+        >
+          {group.tasks.length}
+        </span>
         {group.sublabel && (
           <span className="ml-auto text-[12.5px] text-[#b0b5be]">{group.sublabel}</span>
         )}

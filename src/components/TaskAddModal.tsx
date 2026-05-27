@@ -140,16 +140,23 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDu
                   </span>
                 </span>
               </div>
-              {showStatusPicker && (
-                <div className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170 }}>
-                  {(Object.entries(STATUS_OPTIONS) as [TaskStatus, typeof STATUS_OPTIONS.NotStarted][]).map(([k, v]) => (
-                    <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === status ? v.fg : '#0f1115' }} onClick={() => { setStatus(k); setShowStatusPicker(false); }}>
-                      <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: v.dot }} />
-                      {v.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170,
+                  opacity: showStatusPicker ? 1 : 0,
+                  transform: showStatusPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showStatusPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                {(Object.entries(STATUS_OPTIONS) as [TaskStatus, typeof STATUS_OPTIONS.NotStarted][]).map(([k, v]) => (
+                  <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === status ? v.fg : '#0f1115' }} onClick={() => { setStatus(k); setShowStatusPicker(false); }}>
+                    <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: v.dot }} />
+                    {v.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Priority */}
@@ -162,16 +169,23 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDu
                   </span>
                 </span>
               </div>
-              {showPriorityPicker && (
-                <div className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160 }}>
-                  {(Object.entries(PRIORITY) as [TaskPriority, (typeof PRIORITY)[TaskPriority]][]).map(([k, v]) => (
-                    <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === priority ? v.fg : '#0f1115' }} onClick={() => { setPriority(k); setShowPriorityPicker(false); }}>
-                      <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold rounded-[4px] flex-none" style={{ padding: '1px 5px', color: v.fg, background: v.bg }}>{v.label}</span>
-                      {v.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160,
+                  opacity: showPriorityPicker ? 1 : 0,
+                  transform: showPriorityPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showPriorityPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                {(Object.entries(PRIORITY) as [TaskPriority, (typeof PRIORITY)[TaskPriority]][]).map(([k, v]) => (
+                  <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === priority ? v.fg : '#0f1115' }} onClick={() => { setPriority(k); setShowPriorityPicker(false); }}>
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold rounded-[4px] flex-none" style={{ padding: '1px 5px', color: v.fg, background: v.bg }}>{v.label}</span>
+                    {v.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Project */}
@@ -189,17 +203,24 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDu
                   )}
                 </span>
               </div>
-              {showProjectPicker && (
-                <div className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden" style={{ background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 180 }}>
-                  <button className="w-full flex items-center gap-2.5 text-[13px] text-[#9098a4] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px' }} onClick={() => { setProjectId(''); setShowProjectPicker(false); }}>Bez projektu</button>
-                  {projects.map(proj => (
-                    <button key={proj.id} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: proj.id === projectId ? '#0f1115' : '#3a3f47', fontWeight: proj.id === projectId ? 600 : 400 }} onClick={() => { setProjectId(proj.id); setShowProjectPicker(false); }}>
-                      <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: proj.color || '#9aa0aa' }} />
-                      {proj.name}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 180,
+                  opacity: showProjectPicker ? 1 : 0,
+                  transform: showProjectPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showProjectPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                <button className="w-full flex items-center gap-2.5 text-[13px] text-[#9098a4] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px' }} onClick={() => { setProjectId(''); setShowProjectPicker(false); }}>Bez projektu</button>
+                {projects.map(proj => (
+                  <button key={proj.id} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: proj.id === projectId ? '#0f1115' : '#3a3f47', fontWeight: proj.id === projectId ? 600 : 400 }} onClick={() => { setProjectId(proj.id); setShowProjectPicker(false); }}>
+                    <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: proj.color || '#9aa0aa' }} />
+                    {proj.name}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Due date */}

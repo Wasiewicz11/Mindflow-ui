@@ -15,6 +15,7 @@ import { getMe } from './api/users';
 import { getProjects, createProject, deleteProject } from './api/projects';
 import SpaceSettingsModal from './components/SpaceSettingsModal';
 import { ProjectView } from './views/ProjectView';
+import { DesignBook } from './views/DesignBook';
 import type { Task, Note, User, Space, Project } from './types';
 import { TaskPriority } from './types';
 
@@ -261,6 +262,10 @@ export default function App() {
       </button>
     </nav>
   );
+
+  if (window.location.search.includes('design')) {
+    return <DesignBook />;
+  }
 
   return (
     <div className="flex h-screen bg-[#FDFDFD] dark:bg-[#000000] font-sans text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300">

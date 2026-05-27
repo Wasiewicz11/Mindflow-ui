@@ -548,9 +548,16 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [bulkDueDate, setBulkDueDate] = useState('');
+  const [bulkPicker, setBulkPicker] = useState<{ type: 'priority' | 'status' | 'date'; rect: DOMRect } | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
+
+  const openBulkPicker = (type: 'priority' | 'status' | 'date', e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    setBulkPicker(prev => prev?.type === type ? null : { type, rect });
+  };
+  const closeBulkPicker = () => setBulkPicker(null);
 
   const activeTasks = tasks.filter(t => !t.isCompleted);
 
@@ -589,13 +596,34 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           </button>
           <div className="hidden lg:block h-5 w-px bg-gray-200"></div>
 
-          {/* Ukończ */}
+          {/* Status */}
           <button
-            onClick={() => { onBulkEdit?.(selectedIds, { status: 'Completed' }); exitSelection(); }}
-            className="col-span-1 flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200/60 lg:border-none lg:bg-transparent lg:hover:bg-emerald-50 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold"
+            onClick={e => openBulkPicker('status', e)}
+            className="col-span-1 flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-100/80 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold text-gray-600"
+            style={{ background: bulkPicker?.type === 'status' ? '#f1f0ed' : undefined }}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" /></svg>
-            <span>Ukończ</span>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" strokeWidth="1.8"/><path d="M12 7v5l3 3" strokeLinecap="round" strokeWidth="1.8"/></svg>
+            <span>Status</span>
+          </button>
+
+          {/* Priorytet */}
+          <button
+            onClick={e => openBulkPicker('priority', e)}
+            className="col-span-1 flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-100/80 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold text-gray-600"
+            style={{ background: bulkPicker?.type === 'priority' ? '#f1f0ed' : undefined }}
+          >
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.158l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3A.75.75 0 013 2.25z" clipRule="evenodd"/></svg>
+            <span>Priorytet</span>
+          </button>
+
+          {/* Termin */}
+          <button
+            onClick={e => openBulkPicker('date', e)}
+            className="col-span-1 flex items-center justify-center gap-1.5 bg-gray-50 hover:bg-gray-100 border border-gray-100/80 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold text-gray-600"
+            style={{ background: bulkPicker?.type === 'date' ? '#f1f0ed' : undefined }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+            <span>Termin</span>
           </button>
 
           {/* Usuń */}
@@ -611,23 +639,6 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
             <span>Usuń</span>
           </button>
 
-          {/* Termin */}
-          <div className="col-span-1 relative flex items-center justify-center bg-gray-50 hover:bg-gray-100 border border-gray-100/80 lg:border-none lg:bg-transparent lg:hover:bg-gray-100/80 py-2 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors">
-            <svg className="w-4 h-4 text-gray-400 flex-shrink-0 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-            <input
-              type="date"
-              value={bulkDueDate}
-              onChange={e => {
-                const chosen = e.target.value;
-                setBulkDueDate(chosen);
-                if (selectedIds.length > 0) onBulkEdit?.(selectedIds, { dueDate: chosen || undefined });
-                exitSelection();
-                setBulkDueDate('');
-              }}
-              className="bg-transparent text-xs font-semibold text-gray-700 outline-none cursor-pointer w-28 lg:w-24"
-            />
-          </div>
-
           <div className="hidden lg:block h-5 w-px bg-gray-200"></div>
           <button onClick={exitSelection} className="hidden lg:flex p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100/80 rounded-full transition-colors items-center justify-center">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -637,6 +648,86 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       document.body
     )
     : null;
+
+  const bulkPickerPortal = bulkPicker && typeof document !== 'undefined' ? createPortal(
+    <>
+      <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={closeBulkPicker} />
+      <div
+        className="animate-calendar-reveal"
+        style={{
+          position: 'fixed',
+          bottom: window.innerHeight - bulkPicker.rect.top + 8,
+          left: bulkPicker.type === 'date'
+            ? Math.max(8, bulkPicker.rect.right - 240)
+            : Math.max(8, bulkPicker.rect.left),
+          zIndex: 9999,
+          ...(bulkPicker.type === 'date' ? { width: 240 } : { minWidth: bulkPicker.type === 'status' ? 190 : 158 }),
+          background: bulkPicker.type === 'date' ? undefined : '#fff',
+          border: bulkPicker.type === 'date' ? undefined : '1px solid #e8e8e4',
+          borderRadius: bulkPicker.type === 'date' ? 16 : 10,
+          boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+          padding: bulkPicker.type === 'date' ? 0 : 4,
+          overflow: bulkPicker.type === 'date' ? 'hidden' : undefined,
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        {bulkPicker.type === 'status' && (Object.keys(STATUS_META) as TaskStatus[]).map(s => {
+          const sm = STATUS_META[s];
+          return (
+            <button
+              key={s}
+              onClick={e => { e.stopPropagation(); onBulkEdit?.(selectedIds, { status: s }); closeBulkPicker(); exitSelection(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '5px 8px', borderRadius: 7,
+                background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f7f7f4'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px] flex-none"
+                style={{ padding: '2px 7px', color: sm.fg, background: sm.bg, letterSpacing: '0.02em' }}>
+                <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: sm.dot }} />
+                {sm.label}
+              </span>
+            </button>
+          );
+        })}
+
+        {bulkPicker.type === 'priority' && ([TaskPriority.P1, TaskPriority.P2, TaskPriority.P3, TaskPriority.P4] as TaskPriority[]).map(priority => {
+          const pr = PRIORITY[priority];
+          return (
+            <button
+              key={priority}
+              onClick={e => { e.stopPropagation(); onBulkEdit?.(selectedIds, { priority }); closeBulkPicker(); exitSelection(); }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                width: '100%', padding: '5px 8px', borderRadius: 7,
+                background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#f7f7f4'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+            >
+              <span style={{
+                padding: '2px 6px', borderRadius: 5, fontSize: 10.5, fontWeight: 600,
+                color: pr.fg, background: pr.bg, letterSpacing: '0.03em', minWidth: 26, textAlign: 'center',
+              }}>{pr.label}</span>
+              <span style={{ fontSize: 13, color: '#3a3f47' }}>{pr.name}</span>
+            </button>
+          );
+        })}
+
+        {bulkPicker.type === 'date' && (
+          <CalendarDatePicker
+            value=""
+            onChange={date => { if (date) { onBulkEdit?.(selectedIds, { dueDate: date }); } closeBulkPicker(); exitSelection(); }}
+            onClose={closeBulkPicker}
+          />
+        )}
+      </div>
+    </>,
+    document.body
+  ) : null;
 
   if (isLoading) {
     return (
@@ -683,6 +774,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   return (
     <div className="pt-2">
       {floatingToolbar}
+      {bulkPickerPortal}
 
       {/* Top-level add button + Wybierz wiele */}
       <div className="mb-4 flex items-center justify-between">

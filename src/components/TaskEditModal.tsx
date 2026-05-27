@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project, Subtask, TaskStatus } from '../types';
 import { TaskPriority } from '../types';
+import { CalendarDatePicker } from './CalendarDatePicker';
 
 interface Props {
   task: Task;
@@ -372,8 +373,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             </div>
 
             {/* Due date */}
-            <div className="relative">
-              <div className={ROW} onClick={() => { setShowDatePicker(o => !o); setShowPriorityPicker(false); setShowStatusPicker(false); setShowProjectPicker(false); }}>
+            <div>
+              <div
+                className={ROW}
+                style={{ borderBottom: showDatePicker ? 'none' : undefined }}
+                onClick={() => { setShowDatePicker(o => !o); setShowPriorityPicker(false); setShowStatusPicker(false); setShowProjectPicker(false); }}
+              >
                 <span className={LABEL}><CalIcon /> Termin</span>
                 <span className={VALUE} style={{ color: dueDate ? '#0f1115' : '#b0b5be' }}>
                   {dueDate
@@ -381,18 +386,30 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                     : 'Brak terminu'}
                 </span>
               </div>
-              {showDatePicker && (
-                <div className="absolute left-[88px] top-full mt-1 z-20">
-                  <input
-                    type="date"
-                    value={dueDate}
-                    autoFocus
-                    onChange={e => { setDueDate(e.target.value); setShowDatePicker(false); }}
-                    className="outline-none text-[13px] rounded-xl"
-                    style={{ background: '#fff', border: '1px solid #e8e8e4', padding: '8px 12px', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)' }}
-                  />
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateRows: showDatePicker ? '1fr' : '0fr',
+                  transition: 'grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+                }}
+              >
+                <div style={{ overflow: 'hidden' }}>
+                  <div
+                    className="pb-2"
+                    style={{
+                      opacity: showDatePicker ? 1 : 0,
+                      transform: showDatePicker ? 'translateY(0)' : 'translateY(-4px)',
+                      transition: 'opacity 0.22s ease, transform 0.22s ease',
+                    }}
+                  >
+                    <CalendarDatePicker
+                      value={dueDate}
+                      onChange={val => setDueDate(val)}
+                      onClose={() => setShowDatePicker(false)}
+                    />
+                  </div>
                 </div>
-              )}
+              </div>
             </div>
 
             {/* Tags */}

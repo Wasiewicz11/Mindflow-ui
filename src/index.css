@@ -101,6 +101,16 @@
   animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes calendarReveal {
+  from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);    }
+}
+
+.animate-calendar-reveal {
+  animation: calendarReveal 0.18s cubic-bezier(0.34, 1.2, 0.64, 1) forwards;
+  opacity: 0;
+}
+
 .delay-0 { animation-delay: 0ms; }
 .delay-75 { animation-delay: 75ms; }
 .delay-100 { animation-delay: 100ms; }

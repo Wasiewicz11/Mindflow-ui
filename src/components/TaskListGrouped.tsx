@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Task, Project } from '../types';
+import type { Task, Project, TaskStatus } from '../types';
 import { TaskPriority } from '../types';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
+import { CalendarDatePicker } from './CalendarDatePicker';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -24,11 +25,11 @@ interface Props {
   activeProjectId?: string | null;
 }
 
-const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
-  [TaskPriority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  [TaskPriority.P2]: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  [TaskPriority.P3]: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  [TaskPriority.P4]: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; name: string; fg: string; bg: string }> = {
+  [TaskPriority.P1]: { label: 'P1', name: 'Pilne',   fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  [TaskPriority.P2]: { label: 'P2', name: 'Wysokie', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  [TaskPriority.P3]: { label: 'P3', name: 'Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  [TaskPriority.P4]: { label: 'P4', name: 'Niskie',  fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
@@ -120,11 +121,12 @@ function PlusIcon() {
   );
 }
 
-function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected, onSelect }: {
+function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, isSelected, onSelect }: {
   task: Task;
   project?: Project;
   onToggle: () => void;
   onClick: () => void;
+  onEdit?: (updates: Partial<Task>) => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
@@ -136,12 +138,46 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
 
+  const [priorityOpen, setPriorityOpen] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [dateOpen, setDateOpen] = useState(false);
+  const [priorityRect, setPriorityRect] = useState<DOMRect | null>(null);
+  const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
+  const [dateRect, setDateRect] = useState<DOMRect | null>(null);
+
+  const closeAll = () => { setPriorityOpen(false); setStatusOpen(false); setDateOpen(false); };
+
   const handleRowClick = () => {
     if (isSelectionMode) { onSelect?.(); return; }
     onClick();
   };
 
+  const handlePriorityClick = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    if (isSelectionMode || !onEdit) return;
+    setPriorityRect(e.currentTarget.getBoundingClientRect());
+    setStatusOpen(false); setDateOpen(false);
+    setPriorityOpen(o => !o);
+  };
+
+  const handleStatusClick = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    if (isSelectionMode || !onEdit) return;
+    setStatusRect(e.currentTarget.getBoundingClientRect());
+    setPriorityOpen(false); setDateOpen(false);
+    setStatusOpen(o => !o);
+  };
+
+  const handleDateClick = (e: React.MouseEvent<HTMLElement>) => {
+    e.stopPropagation();
+    if (isSelectionMode || !onEdit) return;
+    setDateRect(e.currentTarget.getBoundingClientRect());
+    setPriorityOpen(false); setStatusOpen(false);
+    setDateOpen(o => !o);
+  };
+
   return (
+    <>
     <div
       onClick={handleRowClick}
       className="flex items-center cursor-pointer group select-none transition-opacity"
@@ -181,9 +217,10 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
         />
       )}
 
-      {/* Priority badge */}
-      <span
-        className="flex-none text-[10.5px] font-semibold rounded-[5px]"
+      {/* Priority badge — clickable */}
+      <button
+        onClick={handlePriorityClick}
+        className="flex-none text-[10.5px] font-semibold rounded-[5px] transition-opacity"
         style={{
           padding: '2px 6px',
           color: p.fg,
@@ -192,20 +229,27 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
           minWidth: 26,
           textAlign: 'center',
           flexShrink: 0,
+          cursor: onEdit && !isSelectionMode ? 'pointer' : 'default',
+          border: 'none',
         }}
+        title={onEdit && !isSelectionMode ? 'Zmień priorytet' : undefined}
       >
         {p.label}
-      </span>
+      </button>
 
-      {/* Status badge */}
-      <span
+      {/* Status badge — clickable */}
+      <button
+        onClick={handleStatusClick}
         className="flex-none inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px]"
-        title={st.label}
-        style={{ padding: '2px 7px', color: st.fg, background: st.bg, letterSpacing: '0.02em', flexShrink: 0 }}
+        title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
+        style={{
+          padding: '2px 7px', color: st.fg, background: st.bg, letterSpacing: '0.02em', flexShrink: 0,
+          border: 'none', cursor: onEdit && !isSelectionMode ? 'pointer' : 'default',
+        }}
       >
         <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: st.dot }} />
         {st.label}
-      </span>
+      </button>
 
       {/* Title */}
       <span
@@ -227,15 +271,175 @@ function TaskRow({ task, project, onToggle, onClick, isSelectionMode, isSelected
           </div>
         )}
 
-        <div
-          className={`flex items-center gap-1.5 text-[13px] ${overdue ? 'text-red-400' : ''}`}
-          style={{ minWidth: 76, color: task.dueDate ? undefined : '#d4d4d0' }}
+        {/* Date — clickable */}
+        <button
+          onClick={handleDateClick}
+          className={`flex items-center gap-1.5 text-[13px] transition-opacity ${overdue ? 'text-red-400' : ''}`}
+          style={{
+            minWidth: 76,
+            color: task.dueDate ? (overdue ? undefined : '#9098a4') : '#d4d4d0',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            cursor: onEdit && !isSelectionMode ? 'pointer' : 'default',
+            fontFamily: 'inherit',
+          }}
+          title={onEdit && !isSelectionMode ? 'Zmień termin' : undefined}
         >
           <CalIcon />
           <span>{task.dueDate ? dateLabel : '—'}</span>
-        </div>
+        </button>
       </div>
     </div>
+
+    {/* Priority picker portal */}
+    {priorityOpen && priorityRect && typeof document !== 'undefined' && createPortal(
+      <>
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+          onClick={() => setPriorityOpen(false)}
+        />
+        <div
+          className="animate-calendar-reveal"
+          style={{
+            position: 'fixed',
+            top: priorityRect.bottom + 4,
+            left: priorityRect.left,
+            zIndex: 9999,
+            background: '#fff',
+            border: '1px solid #e8e8e4',
+            borderRadius: 10,
+            boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+            padding: 4,
+            minWidth: 158,
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {([TaskPriority.P1, TaskPriority.P2, TaskPriority.P3, TaskPriority.P4] as TaskPriority[]).map(priority => {
+            const pr = PRIORITY[priority];
+            const isActive = task.priority === priority;
+            return (
+              <button
+                key={priority}
+                onClick={e => { e.stopPropagation(); onEdit?.({ priority }); setPriorityOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '5px 8px', borderRadius: 7,
+                  background: isActive ? '#f7f7f4' : 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '#f7f7f4'; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <span style={{
+                  padding: '2px 6px', borderRadius: 5, fontSize: 10.5, fontWeight: 600,
+                  color: pr.fg, background: pr.bg, letterSpacing: '0.03em',
+                  minWidth: 26, textAlign: 'center', flexShrink: 0,
+                }}>{pr.label}</span>
+                <span style={{ fontSize: 13, color: '#3a3f47', fontWeight: isActive ? 600 : 400 }}>{pr.name}</span>
+                {isActive && (
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#0f1115" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: 'auto' }}>
+                    <path d="M5 13l4 4L19 7"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>,
+      document.body
+    )}
+
+    {/* Status picker portal */}
+    {statusOpen && statusRect && typeof document !== 'undefined' && createPortal(
+      <>
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+          onClick={() => setStatusOpen(false)}
+        />
+        <div
+          className="animate-calendar-reveal"
+          style={{
+            position: 'fixed',
+            top: statusRect.bottom + 4,
+            left: statusRect.left,
+            zIndex: 9999,
+            background: '#fff',
+            border: '1px solid #e8e8e4',
+            borderRadius: 10,
+            boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+            padding: 4,
+            minWidth: 178,
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          {(Object.keys(STATUS_META) as TaskStatus[]).map(s => {
+            const sm = STATUS_META[s];
+            const isActive = (task.status ?? 'NotStarted') === s;
+            return (
+              <button
+                key={s}
+                onClick={e => { e.stopPropagation(); onEdit?.({ status: s }); setStatusOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  width: '100%', padding: '5px 8px', borderRadius: 7,
+                  background: isActive ? '#f7f7f4' : 'transparent',
+                  border: 'none', cursor: 'pointer', textAlign: 'left',
+                }}
+                onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = '#f7f7f4'; }}
+                onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              >
+                <span
+                  className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px] flex-none"
+                  style={{ padding: '2px 7px', color: sm.fg, background: sm.bg, letterSpacing: '0.02em' }}
+                >
+                  <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: sm.dot }} />
+                  {sm.label}
+                </span>
+                {isActive && (
+                  <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#0f1115" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: 'auto' }}>
+                    <path d="M5 13l4 4L19 7"/>
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </>,
+      document.body
+    )}
+
+    {/* Date picker portal */}
+    {dateOpen && dateRect && typeof document !== 'undefined' && createPortal(
+      <>
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+          onClick={() => setDateOpen(false)}
+        />
+        <div
+          className="animate-calendar-reveal"
+          style={{
+            position: 'fixed',
+            top: dateRect.bottom + 4,
+            left: Math.max(8, dateRect.right - 240),
+            zIndex: 9999,
+            width: 240,
+            boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+            borderRadius: 16,
+            overflow: 'hidden',
+          }}
+          onClick={e => e.stopPropagation()}
+        >
+          <CalendarDatePicker
+            value={task.dueDate ?? ''}
+            onChange={date => { onEdit?.({ dueDate: date || undefined }); setDateOpen(false); }}
+            onClose={() => setDateOpen(false)}
+          />
+        </div>
+      </>,
+      document.body
+    )}
+    </>
   );
 }
 
@@ -297,6 +501,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
               project={projects.find(p => p.id === task.project_id)}
               onToggle={() => onToggle(task.id)}
               onClick={() => { if (!isSelectionMode) setEditingTask(task); }}
+              onEdit={updates => onEdit(task.id, updates)}
               isSelectionMode={isSelectionMode}
               isSelected={selectedIds?.includes(task.id)}
               onSelect={() => onSelect?.(task.id)}

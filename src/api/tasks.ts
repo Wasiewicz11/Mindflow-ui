@@ -35,7 +35,7 @@ export function getTasks(): Promise<Task[]> {
 }
 
 export function getTasksForProject(projectId: string): Promise<Task[]> {
-  return apiFetch<Task[]>(`/tasks?projectId=${projectId}`);
+  return apiFetch<Task[]>(`/projects/${projectId}/tasks`);
 }
 
 export function createTask(dto: CreateTaskDto): Promise<Task> {

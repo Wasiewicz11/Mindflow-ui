@@ -52,6 +52,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     },
   ];
 
+  const isNavActive = (id: string) => activeTab === id && !(id === 'tasks' && activeProjectId !== null);
+
   const getInitials = (name: string) => {
     return name ? name.charAt(0).toUpperCase() : 'U';
   };
@@ -197,19 +199,19 @@ const Sidebar: React.FC<SidebarProps> = ({
             key={item.id}
             onClick={() => { setActiveTab(item.id as any); if (item.id === 'tasks') onSelectProject(null); }}
             className={`w-full flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
-              activeTab === item.id
+              isNavActive(item.id)
                 ? 'font-semibold text-[#0f1115] dark:text-white'
                 : 'font-medium text-[#5a606b] dark:text-gray-400 hover:text-[#0f1115] dark:hover:text-white'
             }`}
             style={{ padding: '7px 10px', gap: 9 }}
-            onMouseEnter={e => { if (activeTab !== item.id) e.currentTarget.style.background = 'rgba(15,17,21,.035)'; }}
+            onMouseEnter={e => { if (!isNavActive(item.id)) e.currentTarget.style.background = 'rgba(15,17,21,.035)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
           >
-            <span className={`flex-none flex ${activeTab === item.id ? 'text-[#0f1115] dark:text-white' : 'text-[#8a909a] dark:text-gray-500'}`}>
+            <span className={`flex-none flex ${isNavActive(item.id) ? 'text-[#0f1115] dark:text-white' : 'text-[#8a909a] dark:text-gray-500'}`}>
               {item.icon}
             </span>
             <span style={{ flex: 1, textAlign: 'left' }}>{item.label}</span>
-            {activeTab === item.id && (
+            {isNavActive(item.id) && (
               <span className="flex-none w-1 h-1 rounded-full bg-[#0f1115] dark:bg-white" />
             )}
           </button>

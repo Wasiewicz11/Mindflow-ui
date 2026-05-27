@@ -145,8 +145,6 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
   const [statusRect, setStatusRect] = useState<DOMRect | null>(null);
   const [dateRect, setDateRect] = useState<DOMRect | null>(null);
 
-  const closeAll = () => { setPriorityOpen(false); setStatusOpen(false); setDateOpen(false); };
-
   const handleRowClick = () => {
     if (isSelectionMode) { onSelect?.(); return; }
     onClick();

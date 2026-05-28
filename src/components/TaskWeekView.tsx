@@ -226,13 +226,13 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
       <div className="h-full flex flex-col">
         <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar pb-4 snap-x snap-mandatory lg:snap-none">
           <div className="flex gap-4 lg:gap-8 h-full min-w-max px-4 lg:px-2">
+            {renderColumn("Bez terminu", "Inbox", noDateTasks, 'nodate')}
             {overdueTasks.length > 0 && renderColumn("Zaległe", null, overdueTasks, 'overdue', true)}
             {days.map(date => {
               const { main, sub } = formatDateLabel(date);
               const dStr = date.toISOString().split('T')[0];
               return renderColumn(main, sub, getTasksForDate(dStr), dStr);
             })}
-            {renderColumn("Bez terminu", "Inbox", noDateTasks, 'nodate')}
           </div>
         </div>
       </div>

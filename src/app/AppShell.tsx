@@ -454,9 +454,10 @@ export function AppShell() {
               )}
             </div>
 
-            <MobileBottomNav />
           </>
         )}
+
+        <MobileBottomNav />
       </main>
 
       {spaceSettingsId && (() => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../types';
 import { TaskPriority } from '../types';
@@ -24,6 +24,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingForDate, setAddingForDate] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   const getDaysArray = () => {
     const days = [];
@@ -39,7 +40,16 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   const days = getDaysArray();
   const todayStr = new Date().toISOString().split('T')[0];
 
-  const activeTasks = tasks.filter(t => !t.isCompleted);
+  const activeTasks = useMemo(() => {
+    const open = tasks.filter(t => !t.isCompleted);
+    if (!search.trim()) return open;
+    const q = search.toLowerCase();
+    return open.filter(t =>
+      t.content.toLowerCase().includes(q) ||
+      t.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }, [tasks, search]);
+
   const overdueTasks = activeTasks.filter(t => t.dueDate && t.dueDate < todayStr);
   const noDateTasks = activeTasks.filter(t => !t.dueDate);
 
@@ -224,6 +234,43 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   return (
     <>
       <div className="h-full flex flex-col">
+        {/* Search bar */}
+        <div className="flex-none flex items-center gap-2 px-4 pb-3">
+          <div
+            className="flex items-center gap-2 transition-all"
+            style={{
+              padding: '5px 10px',
+              background: '#fff',
+              border: `1px solid ${search ? '#9098a4' : '#ececec'}`,
+              borderRadius: 7,
+              minWidth: 200,
+              maxWidth: 300,
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#9098a4" strokeWidth="1.8" strokeLinecap="round">
+              <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Szukaj…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="bg-transparent outline-none w-full"
+              style={{ fontSize: 12.5, color: '#0f1115' }}
+            />
+            {search && (
+              <button onClick={() => setSearch('')} style={{ color: '#9098a4', lineHeight: 1 }}>
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            )}
+          </div>
+          {search && (
+            <span style={{ fontSize: 12, color: '#9098a4' }}>
+              {activeTasks.length} {activeTasks.length === 1 ? 'zadanie' : activeTasks.length < 5 ? 'zadania' : 'zadań'}
+            </span>
+          )}
+        </div>
+
         <div className="flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar pb-4 snap-x snap-mandatory lg:snap-none">
           <div className="flex gap-4 lg:gap-8 h-full min-w-max px-4 lg:px-2">
             {renderColumn("Bez terminu", "Inbox", noDateTasks, 'nodate')}

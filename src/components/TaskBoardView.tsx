@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Task, Project } from '../types';
 import { TaskPriority } from '../types';
 import { TaskAddModal } from './TaskAddModal';
@@ -193,7 +193,18 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
 }
 
 export function TaskBoardView({ tasks, projects, onAdd }: Props) {
-  const openTasks = tasks.filter(t => !t.isCompleted);
+  const [search, setSearch] = useState('');
+
+  const openTasks = useMemo(() => {
+    const open = tasks.filter(t => !t.isCompleted);
+    if (!search.trim()) return open;
+    const q = search.toLowerCase();
+    return open.filter(t =>
+      t.content.toLowerCase().includes(q) ||
+      t.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }, [tasks, search]);
+
   const noProjectTasks = openTasks.filter(t => !t.project_id);
 
   const columns = [
@@ -210,21 +221,60 @@ export function TaskBoardView({ tasks, projects, onAdd }: Props) {
   }
 
   return (
-    <div
-      className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
-      style={{ paddingBottom: 220 }}
-    >
-      <div className="flex h-full min-w-min mx-auto">
-        {columns.map((col, i) => (
-          <Column
-            key={col.id}
-            project={col as Project & { id: string }}
-            tasks={tasks.filter(t => col.id === '__none__' ? !t.project_id : t.project_id === col.id)}
-            isFirst={i === 0}
-            projects={projects}
-            onAdd={onAdd}
+    <div className="flex flex-col h-full min-h-0">
+      {/* Search bar */}
+      <div className="flex-none flex items-center gap-2 px-[18px] pb-3">
+        <div
+          className="flex items-center gap-2 transition-all"
+          style={{
+            padding: '5px 10px',
+            background: '#fff',
+            border: `1px solid ${search ? '#9098a4' : '#ececec'}`,
+            borderRadius: 7,
+            minWidth: 200,
+            maxWidth: 300,
+          }}
+        >
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="#9098a4" strokeWidth="1.8" strokeLinecap="round">
+            <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+          <input
+            type="text"
+            placeholder="Szukaj…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="bg-transparent outline-none w-full"
+            style={{ fontSize: 12.5, color: '#0f1115' }}
           />
-        ))}
+          {search && (
+            <button onClick={() => setSearch('')} style={{ color: '#9098a4', lineHeight: 1 }}>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          )}
+        </div>
+        {search && (
+          <span style={{ fontSize: 12, color: '#9098a4' }}>
+            {openTasks.length} {openTasks.length === 1 ? 'zadanie' : openTasks.length < 5 ? 'zadania' : 'zadań'}
+          </span>
+        )}
+      </div>
+
+      <div
+        className="flex flex-1 min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
+        style={{ paddingBottom: 220 }}
+      >
+        <div className="flex h-full min-w-min mx-auto">
+          {columns.map((col, i) => (
+            <Column
+              key={col.id}
+              project={col as Project & { id: string }}
+              tasks={openTasks.filter(t => col.id === '__none__' ? !t.project_id : t.project_id === col.id)}
+              isFirst={i === 0}
+              projects={projects}
+              onAdd={onAdd}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

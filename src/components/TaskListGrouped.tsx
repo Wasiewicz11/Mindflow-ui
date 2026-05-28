@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project, TaskStatus } from '../types';
 import { TaskPriority } from '../types';
@@ -93,6 +93,114 @@ function groupTasks(tasks: Task[]): Group[] {
   buckets.forEach(b => b.tasks.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)));
 
   return buckets.filter(b => b.tasks.length > 0);
+}
+
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  );
+}
+
+interface FilterOption { value: string; label: string; fg?: string; bg?: string; dot?: string }
+
+function FilterSelect({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: FilterOption[];
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const isActive = value !== 'all';
+  const active = options.find(o => o.value === value);
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          padding: '5px 10px',
+          borderRadius: 7,
+          fontSize: 12,
+          fontWeight: 500,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 5,
+          whiteSpace: 'nowrap',
+          cursor: 'pointer',
+          background: isActive ? (active?.bg ?? '#f1f0ed') : '#fff',
+          color: isActive ? (active?.fg ?? '#0f1115') : '#5a606b',
+          border: `1px solid ${isActive ? 'transparent' : '#ececec'}`,
+          transition: 'all 0.15s',
+        }}
+      >
+        {isActive && active?.dot && (
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: active.dot, flexShrink: 0 }} />
+        )}
+        {isActive ? (active?.label ?? label) : label}
+        <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <path d="m6 9 6 6 6-6"/>
+        </svg>
+      </button>
+
+      {open && (
+        <>
+          <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setOpen(false)} />
+          <div
+            className="animate-calendar-reveal"
+            style={{
+              position: 'absolute',
+              top: '100%',
+              left: 0,
+              marginTop: 4,
+              zIndex: 99,
+              background: '#fff',
+              border: '1px solid #e8e8e4',
+              borderRadius: 10,
+              boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+              padding: 4,
+              minWidth: 170,
+            }}
+          >
+            {options.map(opt => {
+              const sel = value === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => { onChange(opt.value); setOpen(false); }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 8,
+                    width: '100%', padding: '5px 8px', borderRadius: 7,
+                    background: sel ? '#f7f7f4' : 'transparent',
+                    border: 'none', cursor: 'pointer', textAlign: 'left',
+                  }}
+                  onMouseEnter={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = '#f7f7f4'; }}
+                  onMouseLeave={e => { if (!sel) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+                >
+                  {opt.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: opt.dot, flexShrink: 0 }} />}
+                  {opt.bg && opt.fg && opt.value !== 'all' ? (
+                    <span style={{ padding: '2px 6px', borderRadius: 5, fontSize: 10.5, fontWeight: 600, color: opt.fg, background: opt.bg, letterSpacing: '0.03em' }}>
+                      {opt.label}
+                    </span>
+                  ) : (
+                    <span style={{ fontSize: 13, color: sel ? '#0f1115' : '#3a3f47', fontWeight: sel ? 600 : 400 }}>
+                      {opt.label}
+                    </span>
+                  )}
+                  {sel && (
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#0f1115" strokeWidth="2.5" strokeLinecap="round" style={{ marginLeft: 'auto' }}>
+                      <path d="M5 13l4 4L19 7"/>
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
 
 function CalIcon() {
@@ -550,6 +658,33 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   const [completedOpen, setCompletedOpen] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
 
+  const [filterSearch, setFilterSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterPriority, setFilterPriority] = useState('all');
+  const [filterProjectId, setFilterProjectId] = useState('all');
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(t => {
+      if (filterSearch.trim()) {
+        const q = filterSearch.toLowerCase();
+        if (!t.content.toLowerCase().includes(q) && !t.tags?.some(tag => tag.toLowerCase().includes(q))) return false;
+      }
+      if (filterStatus !== 'all') {
+        const eff = t.isCompleted ? 'Completed' : (t.status ?? 'NotStarted');
+        if (eff !== filterStatus) return false;
+      }
+      if (filterPriority !== 'all' && t.priority !== filterPriority) return false;
+      if (filterProjectId !== 'all') {
+        if (filterProjectId === '__none__') { if (t.project_id != null) return false; }
+        else { if (t.project_id !== filterProjectId) return false; }
+      }
+      return true;
+    });
+  }, [tasks, filterSearch, filterStatus, filterPriority, filterProjectId]);
+
+  const hasActiveFilter = filterSearch || filterStatus !== 'all' || filterPriority !== 'all' || filterProjectId !== 'all';
+  const clearFilters = () => { setFilterSearch(''); setFilterStatus('all'); setFilterPriority('all'); setFilterProjectId('all'); };
+
   const openBulkPicker = (type: 'priority' | 'status' | 'date', e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -557,7 +692,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   };
   const closeBulkPicker = () => setBulkPicker(null);
 
-  const activeTasks = tasks.filter(t => !t.isCompleted);
+  const activeTasks = filteredTasks.filter(t => !t.isCompleted);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -741,8 +876,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
     );
   }
 
-  const groups = groupTasks(tasks);
-  const completedTasks = tasks.filter(t => t.isCompleted);
+  const groups = groupTasks(filteredTasks);
+  const completedTasks = filteredTasks.filter(t => t.isCompleted);
 
   if (groups.length === 0 && completedTasks.length === 0) {
     return (
@@ -807,6 +942,86 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           onClose={() => setAddModalOpen(false)}
         />
       )}
+
+      {/* Filter bar */}
+      <div className="flex items-center gap-2 flex-wrap mb-4">
+        <div
+          className="flex items-center gap-2 transition-all"
+          style={{
+            padding: '5px 10px',
+            background: '#fff',
+            border: `1px solid ${filterSearch ? '#9098a4' : '#ececec'}`,
+            borderRadius: 7,
+            flex: 1,
+            minWidth: 160,
+            maxWidth: 280,
+          }}
+        >
+          <span style={{ color: '#9098a4', flexShrink: 0 }}><SearchIcon /></span>
+          <input
+            type="text"
+            placeholder="Szukaj…"
+            value={filterSearch}
+            onChange={e => setFilterSearch(e.target.value)}
+            className="bg-transparent outline-none w-full"
+            style={{ fontSize: 12.5, color: '#0f1115', caretColor: '#0f1115' }}
+          />
+          {filterSearch && (
+            <button onClick={() => setFilterSearch('')} style={{ color: '#9098a4', lineHeight: 1, flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          )}
+        </div>
+
+        <FilterSelect
+          label="Status"
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={[
+            { value: 'all', label: 'Wszystkie statusy' },
+            { value: 'NotStarted', label: 'Nie rozpoczęto', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)', dot: 'oklch(0.75 0.01 260)' },
+            { value: 'InProgress',  label: 'W trakcie',     fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)',  dot: 'oklch(0.60 0.18 230)' },
+            { value: 'Completed',   label: 'Ukończone',     fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)',  dot: 'oklch(0.55 0.18 145)' },
+          ]}
+        />
+
+        <FilterSelect
+          label="Priorytet"
+          value={filterPriority}
+          onChange={setFilterPriority}
+          options={[
+            { value: 'all', label: 'Wszystkie priorytety' },
+            { value: 'P1', label: 'P1 — Pilne',   fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+            { value: 'P2', label: 'P2 — Wysokie', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+            { value: 'P3', label: 'P3 — Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+            { value: 'P4', label: 'P4 — Niskie',  fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+          ]}
+        />
+
+        {!activeProjectId && projects.length > 0 && (
+          <FilterSelect
+            label="Projekt"
+            value={filterProjectId}
+            onChange={setFilterProjectId}
+            options={[
+              { value: 'all', label: 'Wszystkie projekty' },
+              ...projects.map(p => ({ value: p.id, label: p.name, dot: p.color || '#9aa0aa' })),
+              { value: '__none__', label: 'Bez projektu' },
+            ]}
+          />
+        )}
+
+        {hasActiveFilter && (
+          <button
+            onClick={clearFilters}
+            style={{ fontSize: 12, color: '#9098a4', padding: '5px 8px', borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#3a3f47')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#9098a4')}
+          >
+            Wyczyść
+          </button>
+        )}
+      </div>
 
       {groups.map(group => (
         <GroupBlock

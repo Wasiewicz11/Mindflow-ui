@@ -198,7 +198,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             key={item.id}
             onClick={() => { setActiveTab(item.id as any); if (item.id === 'tasks') onSelectProject(null); }}
-            className={`w-full flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
+            className={`w-full cursor-pointer flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
               isNavActive(item.id)
                 ? 'font-semibold text-[#0f1115] dark:text-white'
                 : 'font-medium text-[#5a606b] dark:text-gray-400 hover:text-[#0f1115] dark:hover:text-white'

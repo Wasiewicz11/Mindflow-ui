@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDatePicker } from '../components/CalendarDatePicker';
+import { CalendarDatePicker } from '../shared/ui/CalendarDatePicker';
 
 // ─── Sekcja wrapper ───────────────────────────────────────────────────────────
 function Section({ id, title, subtitle, children }: { id: string; title: string; subtitle?: string; children: React.ReactNode }) {

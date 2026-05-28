@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { useProjectTasks } from '../hooks/useProjectTasks';
-import { TaskListGrouped } from '../components/TaskListGrouped';
-import { TaskKanbanView } from '../components/TaskKanbanView';
-import TaskWeekView from '../components/TaskWeekView';
-import { QuickAddTask } from '../components/QuickAddTask';
-import type { Project, Task, TaskPriority, TaskStatus } from '../types';
+import { useProjectTasks } from '../features/tasks';
+import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask } from '../features/tasks/ui';
+import type { Project, Task, TaskPriority, TaskStatus } from '../shared/types';
 
 type ViewMode = 'list' | 'week' | 'board';
 

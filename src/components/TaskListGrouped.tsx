@@ -879,7 +879,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   const groups = groupTasks(filteredTasks);
   const completedTasks = filteredTasks.filter(t => t.isCompleted);
 
-  if (groups.length === 0 && completedTasks.length === 0) {
+  if (groups.length === 0 && completedTasks.length === 0 && !hasActiveFilter) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-[14px] text-[#9098a4]">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</p>
@@ -1022,6 +1022,21 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           </button>
         )}
       </div>
+
+      {groups.length === 0 && completedTasks.length === 0 && hasActiveFilter && (
+        <div className="flex flex-col items-center justify-center py-16 gap-3">
+          <p className="text-[14px] text-[#9098a4]">Brak zadań pasujących do filtrów.</p>
+          <button
+            onClick={clearFilters}
+            className="text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
+            style={{ color: '#9098a4', background: '#f5f4f1' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+          >
+            Wyczyść filtry
+          </button>
+        </div>
+      )}
 
       {groups.map(group => (
         <GroupBlock

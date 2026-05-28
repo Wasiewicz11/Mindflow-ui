@@ -20,6 +20,7 @@ dist-ssr
 # Claude
 CLAUDE.md
 .claude/
+AGENTS.md
 
 # Editor directories and files
 .vscode/*

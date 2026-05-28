@@ -274,9 +274,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className={`group relative flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-150 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 ${
                   isDropTarget(space.id) ? 'bg-gray-100 dark:bg-white/10 ring-1 ring-gray-300 dark:ring-white/20' : ''
                 }`}>
-                  <button onClick={() => toggleSpace(space.id)} className="flex items-center flex-1 text-left font-medium">
+                  <button onClick={() => toggleSpace(space.id)} className="flex items-center flex-1 text-left font-medium cursor-pointer">
                     <svg className={`w-4 h-4 mr-2 transition-transform ${expandedSpaces[space.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    <span className="truncate max-w-[120px]">{space.name}</span>
+                    <span
+                      className="mr-2 h-2 w-2 rounded-full transition-transform duration-200 group-hover:scale-110"
+                      style={{ backgroundColor: space.color || '#9098a4' }}
+                    />
+                    <span
+                      className="truncate rounded-full px-2 py-0.5 transition-colors duration-200"
+                      style={{
+                        maxWidth: 120,
+                        color: space.color || '#5a606b',
+                        backgroundColor: `${space.color || '#9098a4'}12`,
+                      }}
+                    >
+                      {space.name}
+                    </span>
                   </button>
                   <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <button

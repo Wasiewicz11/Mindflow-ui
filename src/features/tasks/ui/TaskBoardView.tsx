@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskAddModal } from './TaskAddModal';
+import { TaskEditModal } from './TaskEditModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -52,13 +53,14 @@ function MoreIcon() {
   return <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>;
 }
 
-function Card({ task }: { task: Task }) {
+function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
   const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
     <article
+      onClick={() => onOpen(task)}
       className="bg-white border rounded-xl transition-all duration-150 cursor-pointer"
       style={{
         borderColor: '#ececec',
@@ -108,12 +110,13 @@ function Card({ task }: { task: Task }) {
   );
 }
 
-function Column({ project, tasks, isFirst, projects, onAdd }: {
+function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
   project: Project & { id: string };
   tasks: Task[];
   isFirst: boolean;
   projects: Project[];
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onOpen: (task: Task) => void;
 }) {
   const [addingOpen, setAddingOpen] = useState(false);
   const open = tasks.filter(t => !t.isCompleted);
@@ -169,7 +172,7 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
           </div>
         )}
 
-        {open.map(task => <Card key={task.id} task={task} />)}
+        {open.map(task => <Card key={task.id} task={task} onOpen={onOpen} />)}
 
         <button
           onClick={() => setAddingOpen(true)}
@@ -192,8 +195,9 @@ function Column({ project, tasks, isFirst, projects, onAdd }: {
   );
 }
 
-export function TaskBoardView({ tasks, projects, onAdd }: Props) {
+export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onAdd }: Props) {
   const [search, setSearch] = useState('');
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const openTasks = useMemo(() => {
     const open = tasks.filter(t => !t.isCompleted);
@@ -272,10 +276,22 @@ export function TaskBoardView({ tasks, projects, onAdd }: Props) {
               isFirst={i === 0}
               projects={projects}
               onAdd={onAdd}
+              onOpen={setEditingTask}
             />
           ))}
         </div>
       </div>
+
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          projects={projects}
+          onSave={(updates) => { onEdit(editingTask.id, updates); setEditingTask(null); }}
+          onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
+          onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onClose={() => setEditingTask(null)}
+        />
+      )}
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { CalendarDatePicker } from './CalendarDatePicker';
 interface Props {
   projects: Project[];
   initialStatus?: TaskStatus;
+  initialPriority?: TaskPriority;
   initialDueDate?: string;
   initialProjectId?: string;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
@@ -39,10 +40,10 @@ function StatusIcon() {
   return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" strokeLinecap="round"/></svg>;
 }
 
-export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialDueDate = '', initialProjectId = '', onAdd, onClose }: Props) {
+export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPriority = TaskPriority.P4, initialDueDate = '', initialProjectId = '', onAdd, onClose }: Props) {
   const [content, setContent]         = useState('');
   const [description, setDescription] = useState('');
-  const [priority, setPriority]       = useState<TaskPriority>(TaskPriority.P4);
+  const [priority, setPriority]       = useState<TaskPriority>(initialPriority);
   const [status, setStatus]           = useState<TaskStatus>(initialStatus);
   const [dueDate, setDueDate]         = useState(initialDueDate);
   const [projectId, setProjectId]     = useState(initialProjectId);

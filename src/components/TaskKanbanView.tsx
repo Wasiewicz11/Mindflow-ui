@@ -1,45 +1,36 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import type { Task, TaskStatus, Project } from '../types';
 import { TaskPriority } from '../types';
 import { TaskAddModal } from './TaskAddModal';
 
 const STATUSES = [
-  {
-    key: 'NotStarted' as const,
-    label: 'Nie rozpoczęto',
-    accent: 'oklch(0.75 0.01 260)',
-    dot: 'oklch(0.75 0.01 260)',
-    fg: 'oklch(0.55 0.01 260)',
-    bg: 'oklch(0.96 0.005 260)',
-  },
-  {
-    key: 'InProgress' as const,
-    label: 'W trakcie',
-    accent: 'oklch(0.60 0.18 230)',
-    dot: 'oklch(0.60 0.18 230)',
-    fg: 'oklch(0.55 0.15 230)',
-    bg: 'oklch(0.96 0.03 230)',
-  },
-  {
-    key: 'Completed' as const,
-    label: 'Ukończone',
-    accent: 'oklch(0.55 0.18 145)',
-    dot: 'oklch(0.55 0.18 145)',
-    fg: 'oklch(0.50 0.15 145)',
-    bg: 'oklch(0.96 0.03 145)',
-  },
+  { key: 'NotStarted' as const, label: 'Nie rozpoczęto', accent: 'oklch(0.75 0.01 260)', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
+  { key: 'InProgress'  as const, label: 'W trakcie',     accent: 'oklch(0.60 0.18 230)', dot: 'oklch(0.60 0.18 230)', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)'  },
+  { key: 'Completed'   as const, label: 'Ukończone',     accent: 'oklch(0.55 0.18 145)', dot: 'oklch(0.55 0.18 145)', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)'  },
 ];
 
-const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
+const PRIORITIES = [
+  { key: TaskPriority.P1, label: 'P1 — Pilne',   accent: 'oklch(0.62 0.18 25)',  dot: 'oklch(0.62 0.18 25)',  fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
+  { key: TaskPriority.P2, label: 'P2 — Wysokie',  accent: 'oklch(0.70 0.16 55)',  dot: 'oklch(0.70 0.16 55)',  fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
+  { key: TaskPriority.P3, label: 'P3 — Średnie',  accent: 'oklch(0.70 0.13 230)', dot: 'oklch(0.70 0.13 230)', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
+  { key: TaskPriority.P4, label: 'P4 — Niskie',   accent: 'oklch(0.65 0.01 260)', dot: 'oklch(0.65 0.01 260)', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+];
+
+const PRIORITY_SHORT: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
   [TaskPriority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
   [TaskPriority.P2]: { label: 'P2', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
   [TaskPriority.P3]: { label: 'P3', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
   [TaskPriority.P4]: { label: 'P4', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
 };
 
+const STATUS_SHORT: Record<string, { label: string; fg: string; bg: string; dot: string }> = {
+  NotStarted: { label: 'Nie rozpoczęto', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)', dot: 'oklch(0.75 0.01 260)' },
+  InProgress:  { label: 'W trakcie',     fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)',  dot: 'oklch(0.60 0.18 230)' },
+  Completed:   { label: 'Ukończone',     fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)',  dot: 'oklch(0.55 0.18 145)' },
+};
+
 function formatDue(dateStr: string): string {
-  const d = new Date(dateStr);
-  d.setHours(0, 0, 0, 0);
+  const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const diff = Math.round((d.getTime() - today.getTime()) / 86400000);
   if (diff < 0)   return `${Math.abs(diff)}d temu`;
@@ -62,15 +53,25 @@ function PlusIcon() {
   return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14"/></svg>;
 }
 
+function SearchIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+  );
+}
+
 interface CardProps {
   task: Task;
+  groupBy: 'status' | 'priority';
   isDragging: boolean;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDragEnd: () => void;
 }
 
-function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
-  const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
+function Card({ task, groupBy, isDragging, onDragStart, onDragEnd }: CardProps) {
+  const p = PRIORITY_SHORT[task.priority] ?? PRIORITY_SHORT[TaskPriority.P4];
+  const s = STATUS_SHORT[task.status ?? 'NotStarted'] ?? STATUS_SHORT.NotStarted;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
 
   return (
@@ -90,13 +91,35 @@ function Card({ task, isDragging, onDragStart, onDragEnd }: CardProps) {
       }}
     >
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-        <span
-          className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
-          style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
-        >
-          <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: p.fg }} />
-          {p.label}
-        </span>
+        {/* When grouped by priority, show status badge — and vice versa */}
+        {groupBy === 'status' ? (
+          <span
+            className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
+            style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
+          >
+            <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: p.fg }} />
+            {p.label}
+          </span>
+        ) : (
+          <span
+            className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-md"
+            style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.03em', color: s.fg, background: s.bg }}
+          >
+            <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: s.dot }} />
+            {s.label}
+          </span>
+        )}
+
+        {/* Tags */}
+        {task.tags?.slice(0, 2).map(tag => (
+          <span
+            key={tag}
+            className="inline-flex text-[10px] font-medium rounded-md"
+            style={{ padding: '2px 6px', color: '#5a606b', background: '#f1f0ed', letterSpacing: '0.02em' }}
+          >
+            {tag}
+          </span>
+        ))}
       </div>
 
       <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115]">{task.content}</p>
@@ -120,9 +143,20 @@ interface Props {
 }
 
 export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd }: Props) {
-  const [dragOverStatus, setDragOverStatus] = useState<string | null>(null);
+  const [groupBy, setGroupBy] = useState<'status' | 'priority'>('status');
+  const [search, setSearch] = useState('');
+  const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [addingInStatus, setAddingInStatus] = useState<TaskStatus | null>(null);
+  const [addingInKey, setAddingInKey] = useState<string | null>(null);
+
+  const filteredTasks = useMemo(() => {
+    if (!search.trim()) return tasks;
+    const q = search.toLowerCase();
+    return tasks.filter(t =>
+      t.content.toLowerCase().includes(q) ||
+      t.tags?.some(tag => tag.toLowerCase().includes(q))
+    );
+  }, [tasks, search]);
 
   function handleDragStart(e: React.DragEvent, id: string) {
     e.dataTransfer.effectAllowed = 'move';
@@ -132,13 +166,13 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd
 
   function handleDragEnd() {
     setDraggingId(null);
-    setDragOverStatus(null);
+    setDragOverKey(null);
   }
 
-  function handleDragEnter(e: React.DragEvent, status: string) {
+  function handleDragEnter(e: React.DragEvent, key: string) {
     e.preventDefault();
     if (!draggingId) return;
-    setDragOverStatus(status);
+    setDragOverKey(key);
   }
 
   function handleDragOver(e: React.DragEvent) {
@@ -146,109 +180,191 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd
     e.dataTransfer.dropEffect = 'move';
   }
 
-  function handleDrop(e: React.DragEvent, status: 'NotStarted' | 'InProgress' | 'Completed') {
+  function handleDrop(e: React.DragEvent, key: string) {
     e.preventDefault();
-    setDragOverStatus(null);
+    setDragOverKey(null);
     if (!draggingId) return;
     const task = tasks.find(t => t.id === draggingId);
-    if (task && task.status !== status) {
-      onEdit(draggingId, { status });
+    if (!task) { setDraggingId(null); return; }
+
+    if (groupBy === 'status') {
+      const status = key as TaskStatus;
+      if (task.status !== status) onEdit(draggingId, { status });
+    } else {
+      const priority = key as TaskPriority;
+      if (task.priority !== priority) onEdit(draggingId, { priority });
     }
     setDraggingId(null);
   }
 
+  const columns = groupBy === 'status' ? STATUSES : PRIORITIES;
+
   return (
     <>
-    <div
-      className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
-      style={{ paddingBottom: 220 }}
-    >
-      <div className="flex h-full min-w-min mx-auto">
-        {STATUSES.map((col, i) => {
-          const colTasks = tasks.filter(t => (t.status ?? 'NotStarted') === col.key);
-          const isOver = dragOverStatus === col.key;
-
-          return (
-            <section
-              key={col.key}
-              className="flex-none flex flex-col h-full min-h-0 relative"
+      {/* Toolbar */}
+      <div
+        className="flex items-center gap-3 flex-wrap"
+        style={{ padding: '0 18px 14px', marginBottom: 2 }}
+      >
+        {/* Group by toggle */}
+        <div
+          className="flex items-center gap-0.5"
+          style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
+        >
+          {(['status', 'priority'] as const).map(mode => (
+            <button
+              key={mode}
+              onClick={() => setGroupBy(mode)}
+              className="transition-all duration-150"
               style={{
-                width: 288,
-                padding: '0 18px',
-                borderLeft: i === 0 ? 'none' : '1px solid #ececec',
+                padding: '4px 10px',
+                borderRadius: 5,
+                fontSize: 12,
+                fontWeight: 500,
+                background: groupBy === mode ? '#0f1115' : 'transparent',
+                color: groupBy === mode ? '#fff' : '#5a606b',
               }}
-              onDragEnter={e => handleDragEnter(e, col.key)}
-              onDragOver={handleDragOver}
-              onDrop={e => handleDrop(e, col.key)}
             >
-              {/* color accent bar */}
-              <span
-                className="absolute rounded-sm transition-opacity duration-150"
-                style={{ top: 14, left: 18, right: 18, height: 2, background: col.accent, opacity: isOver ? 1 : 0.6 }}
-              />
+              {{ status: 'Statusy', priority: 'Priorytety' }[mode]}
+            </button>
+          ))}
+        </div>
 
-              {/* header */}
-              <div className="flex items-center gap-2" style={{ padding: '22px 0 8px' }}>
-                <span
-                  className="inline-flex items-center gap-[5px] text-[11px] font-semibold rounded-md"
-                  style={{ padding: '3px 8px 3px 7px', letterSpacing: '0.03em', color: col.fg, background: col.bg }}
-                >
-                  <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: col.dot }} />
-                  {col.label}
-                </span>
-                <span className="text-[11px] text-[#9098a4]">{colTasks.length}</span>
-              </div>
+        {/* Search */}
+        <div
+          className="flex items-center gap-2 transition-all duration-150"
+          style={{
+            padding: '5px 10px',
+            background: '#fff',
+            border: `1px solid ${search ? '#9098a4' : '#ececec'}`,
+            borderRadius: 7,
+            minWidth: 180,
+          }}
+        >
+          <span style={{ color: '#9098a4', flexShrink: 0 }}><SearchIcon /></span>
+          <input
+            type="text"
+            placeholder="Szukaj po nazwie lub etykiecie…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="bg-transparent outline-none w-full"
+            style={{ fontSize: 12.5, color: '#0f1115', caretColor: '#0f1115' }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              style={{ color: '#9098a4', flexShrink: 0, lineHeight: 1 }}
+              className="hover:text-[#3a3f47] transition-colors"
+            >
+              <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          )}
+        </div>
 
-              {/* cards */}
-              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
-                {colTasks.length === 0 && !isOver && (
-                  <div
-                    className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
-                    style={{ border: '1.5px dashed #e3e3df' }}
-                  >
-                    Brak zadań
-                  </div>
-                )}
-
-                {colTasks.map(task => (
-                  <Card
-                    key={task.id}
-                    task={task}
-                    isDragging={draggingId === task.id}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  />
-                ))}
-
-                {isOver && draggingId && (
-                  <div className="p-4 h-[52px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 flex items-center justify-center animate-pulse">
-                    <span className="text-[11px] font-semibold text-gray-400">Upuść tutaj</span>
-                  </div>
-                )}
-
-                <button
-                  onClick={() => setAddingInStatus(col.key)}
-                  className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
-                  style={{ padding: '9px 12px' }}
-                >
-                  <PlusIcon /> Dodaj zadanie
-                </button>
-              </div>
-            </section>
-          );
-        })}
+        {search && (
+          <span style={{ fontSize: 12, color: '#9098a4' }}>
+            {filteredTasks.length} {filteredTasks.length === 1 ? 'zadanie' : filteredTasks.length < 5 ? 'zadania' : 'zadań'}
+          </span>
+        )}
       </div>
-    </div>
 
-    {addingInStatus && (
-      <TaskAddModal
-        projects={projects}
-        initialStatus={addingInStatus}
-        initialProjectId={activeProjectId ?? undefined}
-        onAdd={onAdd}
-        onClose={() => setAddingInStatus(null)}
-      />
-    )}
+      {/* Columns */}
+      <div
+        className="flex h-full min-h-0 overflow-x-auto overflow-y-hidden custom-scrollbar"
+        style={{ paddingBottom: 220 }}
+      >
+        <div className="flex h-full min-w-min mx-auto">
+          {columns.map((col, i) => {
+            const colTasks = filteredTasks.filter(t =>
+              groupBy === 'status'
+                ? (t.status ?? 'NotStarted') === col.key
+                : t.priority === col.key
+            );
+            const isOver = dragOverKey === col.key;
+
+            return (
+              <section
+                key={col.key}
+                className="flex-none flex flex-col h-full min-h-0 relative"
+                style={{
+                  width: 288,
+                  padding: '0 18px',
+                  borderLeft: i === 0 ? 'none' : '1px solid #ececec',
+                }}
+                onDragEnter={e => handleDragEnter(e, col.key)}
+                onDragOver={handleDragOver}
+                onDrop={e => handleDrop(e, col.key)}
+              >
+                {/* accent bar */}
+                <span
+                  className="absolute rounded-sm transition-opacity duration-150"
+                  style={{ top: 2, left: 18, right: 18, height: 2, background: col.accent, opacity: isOver ? 1 : 0.6 }}
+                />
+
+                {/* header */}
+                <div className="flex items-center gap-2" style={{ padding: '14px 0 8px' }}>
+                  <span
+                    className="inline-flex items-center gap-[5px] text-[11px] font-semibold rounded-md"
+                    style={{ padding: '3px 8px 3px 7px', letterSpacing: '0.03em', color: col.fg, background: col.bg }}
+                  >
+                    <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: col.dot }} />
+                    {col.label}
+                  </span>
+                  <span className="text-[11px] text-[#9098a4]">{colTasks.length}</span>
+                </div>
+
+                {/* cards */}
+                <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
+                  {colTasks.length === 0 && !isOver && (
+                    <div
+                      className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
+                      style={{ border: '1.5px dashed #e3e3df' }}
+                    >
+                      Brak zadań
+                    </div>
+                  )}
+
+                  {colTasks.map(task => (
+                    <Card
+                      key={task.id}
+                      task={task}
+                      groupBy={groupBy}
+                      isDragging={draggingId === task.id}
+                      onDragStart={handleDragStart}
+                      onDragEnd={handleDragEnd}
+                    />
+                  ))}
+
+                  {isOver && draggingId && (
+                    <div className="p-4 h-[52px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 flex items-center justify-center animate-pulse">
+                      <span className="text-[11px] font-semibold text-gray-400">Upuść tutaj</span>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => setAddingInKey(col.key)}
+                    className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
+                    style={{ padding: '9px 12px' }}
+                  >
+                    <PlusIcon /> Dodaj zadanie
+                  </button>
+                </div>
+              </section>
+            );
+          })}
+        </div>
+      </div>
+
+      {addingInKey && (
+        <TaskAddModal
+          projects={projects}
+          initialStatus={groupBy === 'status' ? (addingInKey as TaskStatus) : undefined}
+          initialPriority={groupBy === 'priority' ? (addingInKey as TaskPriority) : undefined}
+          initialProjectId={activeProjectId ?? undefined}
+          onAdd={onAdd}
+          onClose={() => setAddingInKey(null)}
+        />
+      )}
     </>
   );
 }

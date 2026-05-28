@@ -7,6 +7,7 @@ interface SidebarProps {
   user: User | null;
   spaces: Space[];
   projects: Project[];
+  activeTaskCountByProjectId: Record<string, number>;
   activeProjectId: string | null;
   onSelectProject: (id: string | null) => void;
   onCreateProject: (name: string, color: string, spaceId: string | null) => void;
@@ -22,7 +23,7 @@ const PROJECT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab, setActiveTab, user,
-  spaces, projects, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
+  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
 }) => {
   const [imgError, setImgError] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState<string | null>(null);
@@ -168,6 +169,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         <span className="w-2 h-2 rounded-full mr-2 transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }}></span>
         <span className="truncate max-w-[120px] text-left">{project.name}</span>
+        <span className="ml-auto flex-none rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] dark:bg-white/8 dark:text-gray-400">
+          {activeTaskCountByProjectId[project.id] ?? 0}
+        </span>
       </button>
       <button
         onClick={() => onDeleteProject(project.id)}

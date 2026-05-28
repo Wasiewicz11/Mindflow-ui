@@ -177,6 +177,11 @@ export function AppShell() {
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
+  const activeTaskCountByProjectId = tasks.reduce<Record<string, number>>((acc, task) => {
+    if (task.isCompleted || !task.project_id) return acc;
+    acc[task.project_id] = (acc[task.project_id] ?? 0) + 1;
+    return acc;
+  }, {});
   const sortedAllTasks = [...tasks].sort((a, b) => {
     if (a.dueDate && b.dueDate) return a.dueDate.localeCompare(b.dueDate);
     if (a.dueDate) return -1;
@@ -224,6 +229,7 @@ export function AppShell() {
         user={user}
         spaces={spaces}
         projects={projects}
+        activeTaskCountByProjectId={activeTaskCountByProjectId}
         activeProjectId={activeProjectId}
         onSelectProject={setActiveProjectId}
         onCreateProject={handleCreateProject}
@@ -289,7 +295,7 @@ export function AppShell() {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
               {activeTab === 'dashboard' && (
-                <div className="space-y-8 animate-fade-in max-w-5xl">
+                <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label: 'Wszystkie zadania', value: tasks.filter(t => !t.isCompleted).length, color: 'text-gray-900 dark:text-white' },
@@ -356,6 +362,9 @@ export function AppShell() {
                         >
                           <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: p.color || '#9aa0aa' }} />
                           {p.name}
+                          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4]">
+                            {activeTaskCountByProjectId[p.id] ?? 0}
+                          </span>
                         </button>
                       ))}
                     </div>
@@ -445,9 +454,10 @@ export function AppShell() {
               )}
             </div>
 
-            <MobileBottomNav />
           </>
         )}
+
+        <MobileBottomNav />
       </main>
 
       {spaceSettingsId && (() => {

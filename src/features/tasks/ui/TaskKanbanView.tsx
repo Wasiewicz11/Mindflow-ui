@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { Task, TaskStatus, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskAddModal } from './TaskAddModal';
+import { TaskEditModal } from './TaskEditModal';
 
 const STATUSES = [
   { key: 'NotStarted' as const, label: 'Nie rozpoczęto', accent: 'oklch(0.75 0.01 260)', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -65,24 +66,90 @@ interface CardProps {
   task: Task;
   groupBy: 'status' | 'priority';
   isDragging: boolean;
+  onOpen: (task: Task) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDragEnd: () => void;
 }
 
-function Card({ task, groupBy, isDragging, onDragStart, onDragEnd }: CardProps) {
+function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: CardProps) {
   const p = PRIORITY_SHORT[task.priority] ?? PRIORITY_SHORT[TaskPriority.P4];
   const s = STATUS_SHORT[task.status ?? 'NotStarted'] ?? STATUS_SHORT.NotStarted;
   const overdue = task.dueDate ? isOverdue(task.dueDate) : false;
+  const [dragReady, setDragReady] = useState(false);
+  const pressTimerRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
+
+  useEffect(() => {
+    return () => {
+      if (pressTimerRef.current !== null) {
+        window.clearTimeout(pressTimerRef.current);
+      }
+    };
+  }, []);
+
+  function clearPressTimer() {
+    if (pressTimerRef.current !== null) {
+      window.clearTimeout(pressTimerRef.current);
+      pressTimerRef.current = null;
+    }
+  }
+
+  function handlePointerDown(e: React.PointerEvent<HTMLElement>) {
+    if (e.button !== 0) return;
+    suppressClickRef.current = false;
+    clearPressTimer();
+    pressTimerRef.current = window.setTimeout(() => {
+      setDragReady(true);
+    }, 180);
+  }
+
+  function handlePointerRelease() {
+    clearPressTimer();
+    if (!isDragging) {
+      setDragReady(false);
+    }
+  }
+
+  function handleClick() {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    onOpen(task);
+  }
+
+  function handleDragStartInternal(e: React.DragEvent<HTMLElement>) {
+    if (!dragReady) {
+      e.preventDefault();
+      return;
+    }
+    suppressClickRef.current = true;
+    onDragStart(e, task.id);
+  }
+
+  function handleDragEndInternal() {
+    clearPressTimer();
+    setDragReady(false);
+    suppressClickRef.current = true;
+    onDragEnd();
+  }
 
   return (
     <article
-      draggable
-      onDragStart={e => onDragStart(e, task.id)}
-      onDragEnd={onDragEnd}
+      draggable={dragReady}
+      onClick={handleClick}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerRelease}
+      onPointerLeave={handlePointerRelease}
+      onPointerCancel={handlePointerRelease}
+      onDragStart={handleDragStartInternal}
+      onDragEnd={handleDragEndInternal}
       className={`border rounded-xl transition-all duration-150 select-none ${
         isDragging
           ? 'bg-gray-50 border-dashed border-gray-300 opacity-40 shadow-none scale-[0.98] cursor-grabbing'
-          : 'bg-white cursor-grab hover:shadow-md hover:-translate-y-0.5'
+          : dragReady
+            ? 'bg-white cursor-grab hover:shadow-md hover:-translate-y-0.5'
+            : 'bg-white cursor-pointer hover:shadow-md hover:-translate-y-0.5'
       }`}
       style={{
         borderColor: isDragging ? undefined : '#ececec',
@@ -139,15 +206,18 @@ interface Props {
   projects: Project[];
   activeProjectId?: string | null;
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onToggle: (id: string) => void;
+  onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
 }
 
-export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd }: Props) {
+export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onToggle, onDelete, onAdd }: Props) {
   const [groupBy, setGroupBy] = useState<'status' | 'priority'>('status');
   const [search, setSearch] = useState('');
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [addingInKey, setAddingInKey] = useState<string | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const filteredTasks = useMemo(() => {
     if (!search.trim()) return tasks;
@@ -330,6 +400,7 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd
                       task={task}
                       groupBy={groupBy}
                       isDragging={draggingId === task.id}
+                      onOpen={setEditingTask}
                       onDragStart={handleDragStart}
                       onDragEnd={handleDragEnd}
                     />
@@ -363,6 +434,17 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onAdd
           initialProjectId={activeProjectId ?? undefined}
           onAdd={onAdd}
           onClose={() => setAddingInKey(null)}
+        />
+      )}
+
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          projects={projects}
+          onSave={(updates) => { onEdit(editingTask.id, updates); setEditingTask(null); }}
+          onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
+          onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onClose={() => setEditingTask(null)}
         />
       )}
     </>

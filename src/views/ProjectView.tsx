@@ -119,6 +119,8 @@ export function ProjectView({ projectId, project, projects }: Props) {
             projects={projects}
             activeProjectId={projectId}
             onEdit={editTask}
+            onToggle={toggleTask}
+            onDelete={removeTask}
             onAdd={handleAdd}
           />
         )}

@@ -7,6 +7,7 @@ interface SidebarProps {
   user: User | null;
   spaces: Space[];
   projects: Project[];
+  activeTaskCountByProjectId: Record<string, number>;
   activeProjectId: string | null;
   onSelectProject: (id: string | null) => void;
   onCreateProject: (name: string, color: string, spaceId: string | null) => void;
@@ -22,7 +23,7 @@ const PROJECT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab, setActiveTab, user,
-  spaces, projects, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
+  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
 }) => {
   const [imgError, setImgError] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState<string | null>(null);
@@ -168,6 +169,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       >
         <span className="w-2 h-2 rounded-full mr-2 transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }}></span>
         <span className="truncate max-w-[120px] text-left">{project.name}</span>
+        <span className="ml-auto flex-none rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] dark:bg-white/8 dark:text-gray-400">
+          {activeTaskCountByProjectId[project.id] ?? 0}
+        </span>
       </button>
       <button
         onClick={() => onDeleteProject(project.id)}
@@ -198,7 +202,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           <button
             key={item.id}
             onClick={() => { setActiveTab(item.id as any); if (item.id === 'tasks') onSelectProject(null); }}
-            className={`w-full flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
+            className={`w-full cursor-pointer flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
               isNavActive(item.id)
                 ? 'font-semibold text-[#0f1115] dark:text-white'
                 : 'font-medium text-[#5a606b] dark:text-gray-400 hover:text-[#0f1115] dark:hover:text-white'
@@ -270,9 +274,22 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <div className={`group relative flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-all duration-150 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-white/5 ${
                   isDropTarget(space.id) ? 'bg-gray-100 dark:bg-white/10 ring-1 ring-gray-300 dark:ring-white/20' : ''
                 }`}>
-                  <button onClick={() => toggleSpace(space.id)} className="flex items-center flex-1 text-left font-medium">
+                  <button onClick={() => toggleSpace(space.id)} className="flex items-center flex-1 text-left font-medium cursor-pointer">
                     <svg className={`w-4 h-4 mr-2 transition-transform ${expandedSpaces[space.id] ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
-                    <span className="truncate max-w-[120px]">{space.name}</span>
+                    <span
+                      className="mr-2 h-2 w-2 rounded-full transition-transform duration-200 group-hover:scale-110"
+                      style={{ backgroundColor: space.color || '#9098a4' }}
+                    />
+                    <span
+                      className="truncate rounded-full px-2 py-0.5 transition-colors duration-200"
+                      style={{
+                        maxWidth: 120,
+                        color: space.color || '#5a606b',
+                        backgroundColor: `${space.color || '#9098a4'}12`,
+                      }}
+                    >
+                      {space.name}
+                    </span>
                   </button>
                   <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     <button

@@ -289,7 +289,7 @@ export function AppShell() {
 
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
               {activeTab === 'dashboard' && (
-                <div className="space-y-8 animate-fade-in max-w-5xl">
+                <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label: 'Wszystkie zadania', value: tasks.filter(t => !t.isCompleted).length, color: 'text-gray-900 dark:text-white' },

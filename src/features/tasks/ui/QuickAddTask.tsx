@@ -60,8 +60,8 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
   };
 
   return createPortal(
-    <div className="fixed bottom-[90px] lg:bottom-4 left-0 lg:left-[220px] right-0 px-4 lg:px-6 z-40 pointer-events-none">
-      <div className="max-w-3xl pointer-events-auto">
+    <div className="fixed bottom-[90px] left-0 right-0 z-40 px-4 pointer-events-none lg:bottom-4 lg:left-[220px] lg:px-6">
+      <div className="mx-auto max-w-3xl pointer-events-auto">
         <div className="relative flex items-center bg-white/95 dark:bg-[#1C1C1E]/95 backdrop-blur-xl border border-gray-200 dark:border-white/10 rounded-xl shadow-sm px-3 py-2 gap-2">
           <input
             ref={inputRef}

@@ -3,6 +3,7 @@ export { TaskListGrouped } from './TaskListGrouped';
 export { default as TaskWeekView } from './TaskWeekView';
 export { TaskBoardView } from './TaskBoardView';
 export { TaskKanbanView } from './TaskKanbanView';
+export { CalendarView } from './CalendarView';
 export { QuickAddTask } from './QuickAddTask';
 export { TaskAddModal } from './TaskAddModal';
 export { TaskEditModal } from './TaskEditModal';

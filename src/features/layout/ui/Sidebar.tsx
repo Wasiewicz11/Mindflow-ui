@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import type { User, Space, Project } from '../../../shared/types';
 
 interface SidebarProps {
-  activeTab: 'dashboard' | 'notes' | 'tasks' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'settings') => void;
+  activeTab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
+  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings') => void;
   user: User | null;
   spaces: Space[];
   projects: Project[];
@@ -49,6 +49,11 @@ const Sidebar: React.FC<SidebarProps> = ({
     {
       id: 'tasks', label: 'Zadania', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      )
+    },
+    {
+      id: 'calendar', label: 'Kalendarz', icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 2v4M8 2v4M3 10h18" /></svg>
       )
     },
   ];

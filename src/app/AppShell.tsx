@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { LoginScreen } from '../features/auth/ui';
 import { Sidebar, ThemeSelector } from '../features/layout/ui';
-import { TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
+import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 
 import { useAuth } from '../features/auth';
@@ -14,7 +14,7 @@ import { ProjectView } from '../views/ProjectView';
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
-type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'settings';
+type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
 
 export function AppShell() {
   const { isLoggedIn, logout, initGoogleButton } = useAuth();
@@ -208,6 +208,10 @@ export function AppShell() {
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span className="text-[10px] font-medium">Zadania</span>
       </button>
+      <button onClick={() => { setActiveTab('calendar'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'calendar' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 2v4M8 2v4M3 10h18" /></svg>
+        <span className="text-[10px] font-medium">Kalendarz</span>
+      </button>
       <button onClick={() => setActiveTab('notes')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'notes' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
         <span className="text-[10px] font-medium">Wiedza</span>
@@ -258,11 +262,13 @@ export function AppShell() {
                   {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
                   {activeTab === 'notes' && 'Twoja baza wiedzy.'}
                   {activeTab === 'tasks' && 'Wszystkie zadania.'}
+                  {activeTab === 'calendar' && 'Kalendarz.'}
                   {activeTab === 'settings' && 'Ustawienia.'}
                 </h1>
                 <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
                   {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
                   {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
+                  {activeTab === 'calendar' && 'Planuj dzień, tydzień i miesiąc z timeblockingiem.'}
                   {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
                 </p>
               </div>
@@ -411,6 +417,18 @@ export function AppShell() {
 
                   <QuickAddTask activeProjectId={null} projects={projects} onAdd={handleAddTask} />
                 </>
+              )}
+
+              {activeTab === 'calendar' && (
+                <div className="h-[calc(100vh-190px)] animate-fade-in">
+                  <CalendarView
+                    tasks={sortedAllTasks}
+                    projects={projects}
+                    onEdit={handleEditTask}
+                    onToggle={handleToggleTask}
+                    onDelete={handleDeleteTask}
+                  />
+                </div>
               )}
 
               {activeTab === 'notes' && (

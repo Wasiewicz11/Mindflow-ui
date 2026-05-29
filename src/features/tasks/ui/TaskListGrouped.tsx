@@ -286,7 +286,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     <>
     <div
       onClick={handleRowClick}
-      className="flex items-center cursor-pointer group select-none transition-opacity"
+      className="flex items-start sm:items-center cursor-pointer group select-none transition-opacity"
       style={{
         padding: '9px 0',
         borderBottom: '1px solid #f1f0ed',
@@ -323,10 +323,71 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         />
       )}
 
+      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
+        <span
+          className="min-w-0 text-[15px] font-medium leading-5 text-[#0f1115]"
+        >
+          {task.content}
+        </span>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[#9098a4]">
+          <button
+            onClick={handleDateClick}
+            className={`inline-flex items-center gap-1.5 rounded-lg border-0 bg-transparent px-0 py-0.5 font-[inherit] transition-colors hover:text-[#5a606b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${overdue ? 'text-red-400' : ''} ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
+            style={{
+              color: task.dueDate ? (overdue ? undefined : '#9098a4') : '#b0b5be',
+            }}
+            title={onEdit && !isSelectionMode ? 'Zmień termin' : undefined}
+          >
+            <CalIcon />
+            <span>{task.dueDate ? dateLabel : 'Bez terminu'}</span>
+          </button>
+
+          {project && (
+            <div className="flex min-w-0 items-center gap-1.5">
+              <span
+                className="flex-none rounded-full"
+                style={{ width: 6, height: 6, background: project.color || '#9aa0aa' }}
+              />
+              <span className="truncate">{project.name}</span>
+            </div>
+          )}
+        </div>
+
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          <button
+            onClick={handlePriorityClick}
+            className={`min-w-7 flex-none rounded-lg border-0 px-[7px] py-0.5 text-center text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
+            style={{
+              color: p.fg,
+              background: p.bg,
+              letterSpacing: '0.03em',
+            }}
+            title={onEdit && !isSelectionMode ? 'Zmień priorytet' : undefined}
+          >
+            {p.label}
+          </button>
+
+          <button
+            onClick={handleStatusClick}
+            className={`inline-flex flex-none items-center gap-[4px] rounded-lg border-0 px-[7px] py-0.5 text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
+            title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
+            style={{
+              color: st.fg,
+              background: st.bg,
+              letterSpacing: '0.02em',
+            }}
+          >
+            <span className="flex-none rounded-full" style={{ width: 5, height: 5, background: st.dot }} />
+            {st.label}
+          </button>
+        </div>
+      </div>
+
       {/* Priority badge — clickable */}
       <button
         onClick={handlePriorityClick}
-        className="flex-none text-[10.5px] font-semibold rounded-[5px] transition-opacity"
+        className="hidden sm:block flex-none text-[10.5px] font-semibold rounded-[5px] transition-opacity"
         style={{
           padding: '2px 6px',
           color: p.fg,
@@ -346,7 +407,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       {/* Status badge — clickable */}
       <button
         onClick={handleStatusClick}
-        className="flex-none inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px]"
+        className="hidden sm:inline-flex flex-none items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px]"
         title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
         style={{
           padding: '2px 7px', color: st.fg, background: st.bg, letterSpacing: '0.02em', flexShrink: 0,
@@ -359,14 +420,14 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Title */}
       <span
-        className="flex-1 text-[14px] text-[#0f1115] truncate min-w-0"
+        className="hidden sm:block flex-1 text-[14px] text-[#0f1115] truncate min-w-0"
         style={{ fontWeight: 450 }}
       >
         {task.content}
       </span>
 
       {/* Right meta — project + date */}
-      <div className="flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
+      <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
         {project && (
           <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 88 }}>
             <span
@@ -1085,7 +1146,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
               {completedTasks.map(task => (
                 <div
                   key={task.id}
-                  className="flex items-center cursor-pointer"
+                  className="flex items-start sm:items-center cursor-pointer"
                   style={{ padding: '9px 0', borderBottom: '1px solid #f1f0ed', gap: 10, opacity: 0.6 }}
                   onClick={() => setEditingCompleted(task)}
                   onMouseEnter={e => (e.currentTarget.style.background = '#faf9f7')}
@@ -1102,9 +1163,48 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
                     </svg>
                   </button>
 
+                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
+                    <span
+                      className="min-w-0 text-[15px] font-medium leading-5 text-[#9098a4] line-through"
+                    >
+                      {task.content}
+                    </span>
+
+                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[#b0b5be]">
+                      <div className="inline-flex items-center gap-1.5">
+                        <CalIcon />
+                        <span>{task.dueDate ? getDateLabel(task.dueDate) : 'Bez terminu'}</span>
+                      </div>
+                      {projects.find(p => p.id === task.project_id) && (
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span
+                            className="flex-none rounded-full"
+                            style={{
+                              width: 6,
+                              height: 6,
+                              background: projects.find(p => p.id === task.project_id)?.color || '#9aa0aa',
+                            }}
+                          />
+                          <span className="truncate">{projects.find(p => p.id === task.project_id)?.name}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <span
+                      className="min-w-7 w-fit flex-none rounded-lg px-[7px] py-0.5 text-center text-[10.5px] font-semibold"
+                      style={{
+                        color: '#b0b5be',
+                        background: '#f1f0ed',
+                        letterSpacing: '0.03em',
+                      }}
+                    >
+                      {(PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4]).label}
+                    </span>
+                  </div>
+
                   {/* Priority badge — dimmed */}
                   <span
-                    className="flex-none text-[10.5px] font-semibold rounded-[5px]"
+                    className="hidden sm:block flex-none text-[10.5px] font-semibold rounded-[5px]"
                     style={{
                       padding: '2px 6px',
                       color: '#b0b5be',
@@ -1120,14 +1220,14 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
 
                   {/* Title strikethrough */}
                   <span
-                    className="flex-1 text-[14px] text-[#9098a4] truncate min-w-0"
+                    className="hidden sm:block flex-1 text-[14px] text-[#9098a4] truncate min-w-0"
                     style={{ fontWeight: 450, textDecoration: 'line-through' }}
                   >
                     {task.content}
                   </span>
 
                   {/* Date placeholder to keep alignment */}
-                  <div className="flex items-center gap-5 flex-none" style={{ color: '#d4d4d0' }}>
+                  <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#d4d4d0' }}>
                     <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 76 }}>
                       <CalIcon />
                       <span>{task.dueDate ? getDateLabel(task.dueDate) : '—'}</span>

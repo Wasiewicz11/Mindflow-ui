@@ -2,6 +2,7 @@ import * as signalR from '@microsoft/signalr';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarDays,
+  Check,
   ChevronLeft,
   ChevronRight,
   Filter,
@@ -25,6 +26,7 @@ import {
 import { TaskEditModal } from './TaskEditModal';
 
 type CalendarMode = 'day' | 'week' | 'month';
+type FilterMenu = 'projects' | 'priorities' | 'statuses' | null;
 
 type CalendarBlock = {
   id: string;
@@ -166,9 +168,10 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
   const [dragState, setDragState] = useState<DragState>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [query, setQuery] = useState('');
-  const [projectFilter, setProjectFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState<TaskStatus | 'all'>('all');
-  const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all');
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([]);
+  const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
+  const [openFilterMenu, setOpenFilterMenu] = useState<FilterMenu>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [dropPreview, setDropPreview] = useState<{ date: string; startMinutes: number; durationMinutes: number } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
@@ -247,9 +250,9 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
     const q = query.trim().toLowerCase();
     return activeTasks
       .filter(task => (q ? task.content.toLowerCase().includes(q) || task.description?.toLowerCase().includes(q) : true))
-      .filter(task => (projectFilter === 'all' ? true : (task.project_id ?? 'none') === projectFilter))
-      .filter(task => (statusFilter === 'all' ? true : task.status === statusFilter))
-      .filter(task => (priorityFilter === 'all' ? true : task.priority === priorityFilter))
+      .filter(task => selectedProjectIds.length === 0 || selectedProjectIds.includes(task.project_id ?? 'none'))
+      .filter(task => selectedStatuses.length === 0 || selectedStatuses.includes(task.status))
+      .filter(task => selectedPriorities.length === 0 || selectedPriorities.includes(task.priority))
       .sort((a, b) => {
         const byPriority = getPriorityMeta(a.priority).rank - getPriorityMeta(b.priority).rank;
         if (byPriority !== 0) return byPriority;
@@ -258,7 +261,7 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
         if (b.dueDate) return 1;
         return b.createdAt.getTime() - a.createdAt.getTime();
       });
-  }, [activeTasks, priorityFilter, projectFilter, query, statusFilter]);
+  }, [activeTasks, query, selectedPriorities, selectedProjectIds, selectedStatuses]);
 
   const visibleBlocks = useMemo(() => {
     const dayKeys = new Set(days.map(toDateKey));
@@ -389,6 +392,102 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
     : mode === 'week'
       ? `${days[0].toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })} - ${days[6].toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
       : anchorDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+  function toggleArrayValue<T extends string>(values: T[], value: T, setter: (next: T[]) => void) {
+    setter(values.includes(value) ? values.filter(item => item !== value) : [...values, value]);
+  }
+
+  function renderFilterMenu<T extends string>({
+    id,
+    label,
+    summary,
+    options,
+    values,
+    onToggle,
+    onClear,
+    className = '',
+  }: {
+    id: Exclude<FilterMenu, null>;
+    label: string;
+    summary: string;
+    options: { id: T; label: string; color?: string }[];
+    values: T[];
+    onToggle: (value: T) => void;
+    onClear: () => void;
+    className?: string;
+  }) {
+    const isOpen = openFilterMenu === id;
+
+    return (
+      <div className={`relative ${className}`}>
+        <button
+          type="button"
+          onClick={() => setOpenFilterMenu(isOpen ? null : id)}
+          className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#e8e8e4] bg-white px-2.5 py-2 text-left transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+        >
+          <span className="min-w-0">
+            <span className="block text-[10px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">{label}</span>
+            <span className="block truncate text-[12px] font-medium text-[#5a606b]">{summary}</span>
+          </span>
+          <span className="text-[12px] font-semibold text-[#9098a4]">{values.length || 'all'}</span>
+        </button>
+        <div
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-[#e8e8e4] bg-white p-1.5 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-[opacity,transform] duration-200 ease custom-scrollbar"
+          style={{
+            opacity: isOpen ? 1 : 0,
+            transform: isOpen ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+            pointerEvents: isOpen ? 'auto' : 'none',
+          }}
+        >
+          <button
+            type="button"
+            onClick={onClear}
+            className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+          >
+            Wszystkie
+            {values.length === 0 && <Check size={13} />}
+          </button>
+          {options.map(option => {
+            const active = values.includes(option.id);
+            return (
+              <button
+                type="button"
+                key={option.id}
+                onClick={() => onToggle(option.id)}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+              >
+                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors duration-200 ease ${active ? 'border-[#0f1115] bg-[#0f1115] text-white' : 'border-[#c0c5cc] bg-white text-transparent'}`}>
+                  <Check size={11} />
+                </span>
+                {option.color && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: option.color }} />}
+                <span className="truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  const projectOptions = [
+    { id: 'none', label: 'Bez projektu', color: '#c0c5cc' },
+    ...projects.map(project => ({ id: project.id, label: project.name, color: project.color || '#9098a4' })),
+  ];
+  const selectedProjectSummary = selectedProjectIds.length === 0
+    ? 'Wszystkie projekty'
+    : selectedProjectIds.length === 1
+      ? projectOptions.find(option => option.id === selectedProjectIds[0])?.label ?? '1 projekt'
+      : `${selectedProjectIds.length} projekty`;
+  const selectedPrioritySummary = selectedPriorities.length === 0
+    ? 'Wszystkie'
+    : selectedPriorities.length === 1
+      ? selectedPriorities[0]
+      : `${selectedPriorities.length} priorytety`;
+  const selectedStatusSummary = selectedStatuses.length === 0
+    ? 'Wszystkie'
+    : selectedStatuses.length === 1
+      ? getStatusLabel(selectedStatuses[0])
+      : `${selectedStatuses.length} statusy`;
 
   const renderBlock = (block: CalendarBlock) => {
     const task = taskById.get(block.taskId);
@@ -640,7 +739,7 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
             transform: drawerOpen ? 'translateX(0) scale(1)' : 'translateX(12px) scale(0.97)',
             pointerEvents: drawerOpen ? 'auto' : 'none',
             width: drawerOpen ? 330 : 0,
-            overflow: 'hidden',
+            overflow: drawerOpen ? 'visible' : 'hidden',
           }}
         >
           <div className="border-b border-[#f1f0ed] p-4">
@@ -655,19 +754,41 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
               <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Szukaj zadań..." className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0f1115] outline-none placeholder:text-[#b0b5be]" />
             </label>
             <div className="mt-3 grid grid-cols-2 gap-2">
-              <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} className="rounded-lg border border-[#e8e8e4] bg-white px-2 py-2 text-[12px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:ring-2 focus:ring-[#0f1115]/20">
-                <option value="all">Wszystkie projekty</option>
-                <option value="none">Bez projektu</option>
-                {projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}
-              </select>
-              <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value as TaskPriority | 'all')} className="rounded-lg border border-[#e8e8e4] bg-white px-2 py-2 text-[12px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:ring-2 focus:ring-[#0f1115]/20">
-                <option value="all">Priorytety</option>
-                {(Object.keys(PRIORITY_META) as TaskPriority[]).map(priority => <option key={priority} value={priority}>{priority}</option>)}
-              </select>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as TaskStatus | 'all')} className="col-span-2 rounded-lg border border-[#e8e8e4] bg-white px-2 py-2 text-[12px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:ring-2 focus:ring-[#0f1115]/20">
-                <option value="all">Wszystkie statusy</option>
-                {(Object.keys(STATUS_LABEL) as TaskStatus[]).map(status => <option key={status} value={status}>{STATUS_LABEL[status]}</option>)}
-              </select>
+              {renderFilterMenu({
+                id: 'projects',
+                label: 'Projekty',
+                summary: selectedProjectSummary,
+                options: projectOptions,
+                values: selectedProjectIds,
+                onToggle: value => toggleArrayValue(selectedProjectIds, value, setSelectedProjectIds),
+                onClear: () => setSelectedProjectIds([]),
+                className: 'col-span-2',
+              })}
+              {renderFilterMenu({
+                id: 'priorities',
+                label: 'Priorytet',
+                summary: selectedPrioritySummary,
+                options: (Object.keys(PRIORITY_META) as TaskPriority[]).map(priority => ({
+                  id: priority,
+                  label: priority,
+                  color: getPriorityMeta(priority).fg,
+                })),
+                values: selectedPriorities,
+                onToggle: value => toggleArrayValue(selectedPriorities, value, setSelectedPriorities),
+                onClear: () => setSelectedPriorities([]),
+              })}
+              {renderFilterMenu({
+                id: 'statuses',
+                label: 'Status',
+                summary: selectedStatusSummary,
+                options: (Object.keys(STATUS_LABEL) as TaskStatus[]).map(status => ({
+                  id: status,
+                  label: getStatusLabel(status),
+                })),
+                values: selectedStatuses,
+                onToggle: value => toggleArrayValue(selectedStatuses, value, setSelectedStatuses),
+                onClear: () => setSelectedStatuses([]),
+              })}
             </div>
           </div>
 

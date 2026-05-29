@@ -101,7 +101,7 @@ export function useAuth() {
       theme: 'filled_black',
       size: 'large',
       shape: 'rectangular',
-      width: 280,
+      width: 320,
     });
   }
 

@@ -68,6 +68,12 @@ type CalendarAddSlot = {
   durationMinutes: number;
 };
 
+type SlotSelection = {
+  date: string;
+  anchorMinutes: number;
+  currentMinutes: number;
+};
+
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 const DAY_START = 6 * 60;
 const DAY_END = 23 * 60;
@@ -670,6 +676,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingSlot, setAddingSlot] = useState<CalendarAddSlot | null>(null);
   const [dropPreview, setDropPreview] = useState<{ date: string; startMinutes: number; durationMinutes: number } | null>(null);
+  const [slotSelection, setSlotSelection] = useState<SlotSelection | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const suppressBlockClickUntilRef = useRef(0);
@@ -887,14 +894,49 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     return DAY_START + (y / HOUR_HEIGHT) * 60;
   }
 
-  function handleGridClick(e: React.MouseEvent<HTMLDivElement>, date: string) {
-    if ((e.target as HTMLElement).closest('[data-calendar-block="true"]')) return;
-    const startMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END - MIN_BLOCK);
-    setAddingSlot({
-      date,
+  function getSelectionSlot(selection: SlotSelection): CalendarAddSlot {
+    const distance = Math.abs(selection.currentMinutes - selection.anchorMinutes);
+    if (distance < 15) {
+      const startMinutes = clamp(roundToQuarter(selection.anchorMinutes), DAY_START, DAY_END - MIN_BLOCK);
+      return {
+        date: selection.date,
+        startMinutes,
+        durationMinutes: Math.min(DEFAULT_BLOCK, DAY_END - startMinutes),
+      };
+    }
+
+    const startMinutes = clamp(roundToQuarter(Math.min(selection.anchorMinutes, selection.currentMinutes)), DAY_START, DAY_END - MIN_BLOCK);
+    const endMinutes = clamp(roundToQuarter(Math.max(selection.anchorMinutes, selection.currentMinutes)), startMinutes + MIN_BLOCK, DAY_END);
+
+    return {
+      date: selection.date,
       startMinutes,
-      durationMinutes: DEFAULT_BLOCK,
-    });
+      durationMinutes: Math.max(MIN_BLOCK, endMinutes - startMinutes),
+    };
+  }
+
+  function handleGridMouseDown(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    if (e.button !== 0 || dragState) return;
+    if ((e.target as HTMLElement).closest('[data-calendar-block="true"]')) return;
+    const anchorMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END - MIN_BLOCK);
+    setSlotSelection({ date, anchorMinutes, currentMinutes: anchorMinutes });
+  }
+
+  function handleGridMouseMove(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    if (!slotSelection || slotSelection.date !== date) return;
+    const currentMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END);
+    setSlotSelection(selection => selection ? { ...selection, currentMinutes } : selection);
+  }
+
+  function handleGridMouseUp(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    if (!slotSelection || slotSelection.date !== date) return;
+    e.preventDefault();
+    const finalSelection = {
+      ...slotSelection,
+      currentMinutes: clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END),
+    };
+    setAddingSlot(getSelectionSlot(finalSelection));
+    setSlotSelection(null);
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
@@ -1151,10 +1193,11 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         <div className={`grid ${mode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`} style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_HEIGHT }}>
           {days.map(day => {
             const key = toDateKey(day);
+            const selectionSlot = slotSelection?.date === key ? getSelectionSlot(slotSelection) : null;
             return (
               <div
                 key={key}
-                className="relative border-r border-[#f1f0ed] bg-white last:border-r-0"
+                className="relative cursor-crosshair select-none border-r border-[#f1f0ed] bg-white last:border-r-0"
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = 'move';
@@ -1164,11 +1207,28 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropPreview(null);
                 }}
                 onDrop={(e) => handleDrop(e, key)}
-                onClick={(e) => handleGridClick(e, key)}
+                onMouseDown={(e) => handleGridMouseDown(e, key)}
+                onMouseMove={(e) => handleGridMouseMove(e, key)}
+                onMouseUp={(e) => handleGridMouseUp(e, key)}
               >
                 {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, index) => (
                   <div key={index} className="h-[72px] border-b border-[#f1f0ed]" />
                 ))}
+                {selectionSlot && (
+                  <div
+                    className="pointer-events-none absolute left-1 right-1 rounded-lg border border-[#0f1115] bg-[#f7f7f4]/90 px-2 py-1.5 text-left shadow-sm transition-[top,height,opacity] duration-200 ease"
+                    style={{
+                      top: ((selectionSlot.startMinutes - DAY_START) / 60) * HOUR_HEIGHT,
+                      height: Math.max(42, (selectionSlot.durationMinutes / 60) * HOUR_HEIGHT),
+                    }}
+                  >
+                    <span className="block text-[11px] font-semibold tracking-[-0.01em] text-[#0f1115]">Nowe zadanie</span>
+                    <span className="mt-0.5 block text-[10.5px] font-medium leading-snug text-[#5a606b]">
+                      {formatMinutes(selectionSlot.startMinutes)}-{formatMinutes(selectionSlot.startMinutes + selectionSlot.durationMinutes)}
+                      <span className="block">{durationLabel(selectionSlot.durationMinutes)}</span>
+                    </span>
+                  </div>
+                )}
                 {dropPreview?.date === key && (
                   <div
                     className="pointer-events-none absolute left-1 right-1 rounded-lg border border-dashed border-[#9098a4] bg-[#f7f7f4]/85 px-2 py-1.5 text-left shadow-sm transition-[top,height,opacity] duration-200 ease"

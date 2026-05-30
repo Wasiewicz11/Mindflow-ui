@@ -18,7 +18,8 @@ export interface UpdateTaskDto {
   description?: string;
   priority?: TaskPriority;
   status?: string;
-  dueDate?: string;
+  dueDate?: string | null;
+  clearDueDate?: boolean;
   projectId?: string;
   tags?: string[];
   subtasks?: Subtask[];

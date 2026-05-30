@@ -60,7 +60,15 @@ export function toUpdateTaskDto(updates: Partial<Task>): UpdateTaskDto {
   if (updates.content !== undefined) dto.content = updates.content;
   if (updates.priority !== undefined) dto.priority = updates.priority;
   if (updates.status !== undefined) dto.status = updates.status;
-  if (updates.dueDate !== undefined) dto.dueDate = updates.dueDate;
+  if (Object.prototype.hasOwnProperty.call(updates, 'dueDate')) {
+    if (updates.dueDate) {
+      dto.dueDate = updates.dueDate;
+      dto.clearDueDate = false;
+    } else {
+      dto.clearDueDate = true;
+    }
+  }
+  if (updates.clearDueDate !== undefined) dto.clearDueDate = updates.clearDueDate;
   if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
   if (updates.description !== undefined) dto.description = updates.description;
   if (updates.tags !== undefined) dto.tags = updates.tags;

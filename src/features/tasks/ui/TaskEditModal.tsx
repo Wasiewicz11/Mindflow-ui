@@ -103,16 +103,22 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
 
   function save() {
-    onSave({
+    const updates: Partial<Task> = {
       content: content.trim() || task.content,
       priority,
       status,
-      dueDate: dueDate || undefined,
       project_id: projectId || null,
       description: description || undefined,
       tags: tags.length > 0 ? tags : undefined,
       subtasks: subtasks.length > 0 ? subtasks : undefined,
-    });
+    };
+
+    if (dueDate !== (task.dueDate ?? '')) {
+      if (dueDate) updates.dueDate = dueDate;
+      else updates.clearDueDate = true;
+    }
+
+    onSave(updates);
   }
 
   function addTag() {

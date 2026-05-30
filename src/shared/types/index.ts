@@ -62,6 +62,7 @@ export interface Task {
   status: TaskStatus;
   priority: TaskPriority;
   dueDate?: string;
+  clearDueDate?: boolean;
   createdAt: Date;
   source?: 'app' | 'telegram';
   project_id?: string | null;

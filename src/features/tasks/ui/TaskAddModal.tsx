@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
+import { DescriptionField } from './DescriptionField';
 
 interface Props {
   projects: Project[];
@@ -267,18 +268,11 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
           <div style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
 
           {/* Description */}
-          <div>
-            <p className="text-[11.5px] font-medium text-[#b0b5be] mb-1.5 uppercase tracking-wider">Opis</p>
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              rows={3}
-              placeholder="Dodaj kontekst, linki, kroki..."
-              maxLength={500}
-              className="w-full resize-none outline-none text-[13.5px] text-[#0f1115] rounded-xl leading-relaxed"
-              style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px', minHeight: 80 }}
-            />
-          </div>
+          <DescriptionField
+            value={description}
+            onChange={setDescription}
+            title={content.trim() || undefined}
+          />
         </div>
 
         {/* Footer */}

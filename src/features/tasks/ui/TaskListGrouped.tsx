@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { CalendarDays, ChevronDown, CircleDot, Flag } from 'lucide-react';
 import type { Task, Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskEditModal } from './TaskEditModal';
@@ -47,6 +48,14 @@ interface Group {
   variant?: 'overdue';
 }
 
+type GroupMode = 'dueDate' | 'priority' | 'status';
+
+const GROUP_MODE_OPTIONS: Array<{ value: GroupMode; label: string; icon: typeof CalendarDays }> = [
+  { value: 'dueDate', label: 'Terminy', icon: CalendarDays },
+  { value: 'priority', label: 'Priorytety', icon: Flag },
+  { value: 'status', label: 'Statusy', icon: CircleDot },
+];
+
 function parseLocalDate(dateStr: string): Date {
   // "2026-05-21" → local midnight (avoids UTC offset shifting the day)
   const [y, m, d] = dateStr.split('-').map(Number);
@@ -63,7 +72,20 @@ function getDateLabel(dateStr: string): string {
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
 }
 
-function groupTasks(tasks: Task[]): Group[] {
+function getDueRank(task: Task): number {
+  if (!task.dueDate) return Number.MAX_SAFE_INTEGER;
+  return parseLocalDate(task.dueDate).getTime();
+}
+
+function sortByDueThenPriority(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    const dueDiff = getDueRank(a) - getDueRank(b);
+    if (dueDiff !== 0) return dueDiff;
+    return (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3);
+  });
+}
+
+function groupTasksByDueDate(tasks: Task[]): Group[] {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
   const endOfWeek = new Date(today);
@@ -93,6 +115,40 @@ function groupTasks(tasks: Task[]): Group[] {
   buckets.forEach(b => b.tasks.sort((a, b) => (PRIORITY_ORDER[a.priority] ?? 3) - (PRIORITY_ORDER[b.priority] ?? 3)));
 
   return buckets.filter(b => b.tasks.length > 0);
+}
+
+function groupTasksByPriority(tasks: Task[]): Group[] {
+  const open = tasks.filter(t => !t.isCompleted);
+  return ([TaskPriority.P1, TaskPriority.P2, TaskPriority.P3, TaskPriority.P4] as TaskPriority[])
+    .map(priority => {
+      const meta = PRIORITY[priority];
+      return {
+        key: `priority-${priority}`,
+        label: `${meta.label} ${meta.name}`,
+        tasks: sortByDueThenPriority(open.filter(t => t.priority === priority)),
+      };
+    })
+    .filter(group => group.tasks.length > 0);
+}
+
+function groupTasksByStatus(tasks: Task[]): Group[] {
+  const open = tasks.filter(t => !t.isCompleted);
+  return (['NotStarted', 'InProgress'] as TaskStatus[])
+    .map(status => {
+      const meta = STATUS_META[status];
+      return {
+        key: `status-${status}`,
+        label: meta.label,
+        tasks: sortByDueThenPriority(open.filter(t => (t.status ?? 'NotStarted') === status)),
+      };
+    })
+    .filter(group => group.tasks.length > 0);
+}
+
+function groupTasks(tasks: Task[], mode: GroupMode): Group[] {
+  if (mode === 'priority') return groupTasksByPriority(tasks);
+  if (mode === 'status') return groupTasksByStatus(tasks);
+  return groupTasksByDueDate(tasks);
 }
 
 function SearchIcon() {
@@ -198,6 +254,60 @@ function FilterSelect({ label, value, options, onChange }: {
             })}
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+function GroupModeSelect({ value, onChange }: {
+  value: GroupMode;
+  onChange: (value: GroupMode) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const active = GROUP_MODE_OPTIONS.find(option => option.value === value) ?? GROUP_MODE_OPTIONS[0];
+  const ActiveIcon = active.icon;
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen(isOpen => !isOpen)}
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e8e8e4] bg-white px-3 text-[12px] font-medium text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <ActiveIcon size={13} strokeWidth={2} />
+        <span>Grupuj: {active.label}</span>
+        <ChevronDown size={13} strokeWidth={2} className={`transition-transform duration-200 ease ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      <div className={`absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-all duration-200 ease ${open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}>
+        {GROUP_MODE_OPTIONS.map(option => {
+          const Icon = option.icon;
+          const selected = option.value === value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => { onChange(option.value); setOpen(false); }}
+              className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${
+                selected
+                  ? 'bg-[#f7f7f4] font-medium text-[#0f1115]'
+                  : 'font-normal text-[#5a606b] hover:bg-[#f1f0ed] hover:text-[#0f1115]'
+              }`}
+            >
+              <Icon size={13} strokeWidth={2} />
+              <span>{option.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => setOpen(false)}
+        />
       )}
     </div>
   );
@@ -742,6 +852,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
   const [bulkPicker, setBulkPicker] = useState<{ type: 'priority' | 'status' | 'date'; rect: DOMRect } | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
+  const [groupMode, setGroupMode] = useState<GroupMode>('dueDate');
 
   const [filterSearch, setFilterSearch] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -961,7 +1072,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
     );
   }
 
-  const groups = groupTasks(filteredTasks);
+  const groups = groupTasks(filteredTasks, groupMode);
   const completedTasks = filteredTasks.filter(t => t.isCompleted);
 
   if (groups.length === 0 && completedTasks.length === 0 && !hasActiveFilter) {
@@ -995,7 +1106,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       {bulkPickerPortal}
 
       {/* Top-level add button + Wybierz wiele */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <button
           className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
           style={{ color: '#9098a4', background: '#f5f4f1' }}
@@ -1005,18 +1116,23 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         >
           <PlusIcon /> Nowe zadanie
         </button>
-        {activeTasks.length > 0 && (
-          <button
-            onClick={() => { setIsSelectionMode(m => !m); setSelectedIds([]); }}
-            className="text-[12px] font-semibold transition-colors rounded-lg px-3 py-1.5"
-            style={{
-              background: isSelectionMode ? '#0f1115' : '#f5f4f1',
-              color: isSelectionMode ? '#fff' : '#9098a4',
-            }}
-          >
-            {isSelectionMode ? 'Gotowe' : 'Wybierz'}
-          </button>
-        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          <GroupModeSelect value={groupMode} onChange={setGroupMode} />
+
+          {activeTasks.length > 0 && (
+            <button
+              onClick={() => { setIsSelectionMode(m => !m); setSelectedIds([]); }}
+              className={`h-9 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${
+                isSelectionMode
+                  ? 'bg-[#0f1115] text-white'
+                  : 'bg-[#f5f4f1] text-[#9098a4] hover:bg-[#f1f0ed] hover:text-[#3a3f47]'
+              }`}
+            >
+              {isSelectionMode ? 'Gotowe' : 'Wybierz'}
+            </button>
+          )}
+        </div>
       </div>
 
       {addModalOpen && (

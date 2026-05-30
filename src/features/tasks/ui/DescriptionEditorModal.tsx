@@ -5,6 +5,7 @@ import { TaskList } from '@tiptap/extension-task-list';
 import { TaskItem } from '@tiptap/extension-task-item';
 import { Placeholder } from '@tiptap/extensions';
 import { Markdown } from 'tiptap-markdown';
+import { SlashCommand } from './slashCommand';
 
 interface Props {
   /** Aktualny opis w formacie markdown. */
@@ -35,7 +36,8 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
       StarterKit,
       TaskList,
       TaskItem.configure({ nested: true }),
-      Placeholder.configure({ placeholder: 'Pisz… Użyj # dla nagłówka, - dla listy, [ ] dla checkboxa.' }),
+      SlashCommand,
+      Placeholder.configure({ placeholder: "Pisz… Wpisz '/' aby wybrać blok." }),
       Markdown.configure({ html: false, breaks: true }),
     ],
     content: value,
@@ -57,7 +59,14 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
   // Trzymamy zdarzenia w obrębie tego okna, żeby Esc/klik nie zamknął modala zadania pod spodem.
   function handleKeyDown(e: React.KeyboardEvent) {
     e.stopPropagation();
+    // Klawisz obsłużony już przez edytor (np. slash menu, nowa linia) — nie zamykaj.
+    if (e.defaultPrevented) return;
     if (e.key === 'Escape') {
+      e.preventDefault();
+      handleClose();
+    }
+    // Cmd/Ctrl+Enter — szybki zapis, jak przy zapisywaniu zadania.
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
       e.preventDefault();
       handleClose();
     }
@@ -116,7 +125,7 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
 
         {/* Footer */}
         <div className="flex-none flex items-center justify-between px-7 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
-          <p className="text-[11.5px] text-[#c0c5cc]"># nagłówek · - lista · [ ] checkbox · ``` kod · Esc aby zamknąć</p>
+          <p className="text-[11.5px] text-[#c0c5cc]">/ menu bloków · # nagłówek · [ ] checkbox · ⌘+Enter zapisz · Esc zamknij</p>
           <button
             onClick={handleClose}
             className="text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80"

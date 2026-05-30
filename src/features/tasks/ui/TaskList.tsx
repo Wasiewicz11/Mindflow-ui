@@ -40,6 +40,7 @@ const TaskList: React.FC<TaskListProps> = ({
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
+  const [closingTasks, setClosingTasks] = useState<Record<string, 'fading' | 'collapsing'>>({});
 
   // Selection Mode State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -74,6 +75,18 @@ const TaskList: React.FC<TaskListProps> = ({
 
   const activeTasks = tasks.filter(t => !t.isCompleted);
   const completedTasks = tasks.filter(t => t.isCompleted);
+  const completeTaskWithAnimation = (task: Task) => {
+    if (task.isCompleted) {
+      onToggle(task.id);
+      return;
+    }
+    if (closingTasks[task.id]) return;
+    setClosingTasks(prev => ({ ...prev, [task.id]: 'fading' }));
+    window.setTimeout(() => {
+      setClosingTasks(prev => ({ ...prev, [task.id]: 'collapsing' }));
+      onToggle(task.id);
+    }, 120);
+  };
 
   const getPriorityColor = (p: TaskPriority) => {
     switch (p) {
@@ -208,6 +221,8 @@ const TaskList: React.FC<TaskListProps> = ({
     const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
     const staggerClass = index < 5 ? `delay-${index * 75}` : 'delay-0';
     const isSelected = selectedIds.includes(task.id);
+    const closingPhase = task.isCompleted ? undefined : closingTasks[task.id];
+    const isClosing = !!closingPhase;
 
     return (
       <div
@@ -216,11 +231,11 @@ const TaskList: React.FC<TaskListProps> = ({
           if (isSelectionMode || e.shiftKey) { e.stopPropagation(); if (e.shiftKey) window.getSelection()?.removeAllRanges(); if (!isSelectionMode) setIsSelectionMode(true); toggleSelection(task.id, e.shiftKey); }
           else { openEditModal(task); }
         }}
-        className={`group relative flex items-center justify-between rounded-xl border transition-all duration-300 cursor-pointer animate-fade-in-up ${staggerClass} ${compactMode ? 'py-1.5 px-3' : 'p-4'} ${isSelectionMode ? 'select-none' : ''} ${
+        className={`task-complete-collapse group relative flex items-center justify-between rounded-xl border transition-all duration-300 cursor-pointer animate-fade-in-up ${staggerClass} ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''} ${compactMode ? 'py-1.5 px-3' : 'p-4'} ${isSelectionMode ? 'select-none' : ''} ${
           isSelectionMode && isSelected
             ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-800 shadow-sm'
-            : task.isCompleted
-              ? 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-white/5 opacity-70 hover:opacity-100'
+            : task.isCompleted || isClosing
+              ? 'bg-[#f1f0ed] dark:bg-white/5 border-[#e8e8e4] dark:border-white/5 opacity-70 hover:opacity-100'
               : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5'
         }`}
       >
@@ -232,9 +247,9 @@ const TaskList: React.FC<TaskListProps> = ({
             </div>
           ) : (
             <button
-              onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
-              className={`flex-shrink-0 rounded-md border flex items-center justify-center transition-all duration-200 ${compactMode ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${
-                task.isCompleted
+              onClick={(e) => { e.stopPropagation(); completeTaskWithAnimation(task); }}
+              className={`flex-shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200 ease ${compactMode ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${
+                task.isCompleted || isClosing
                   ? 'bg-emerald-500 border-emerald-500 text-white scale-100'
                   : 'bg-white dark:bg-white/5 border-gray-300 dark:border-white/20 text-transparent hover:border-emerald-500 dark:hover:border-emerald-500 hover:scale-110'
               }`}
@@ -244,7 +259,7 @@ const TaskList: React.FC<TaskListProps> = ({
           )}
 
           <div className="flex flex-col truncate pr-2">
-            <span className={`font-medium truncate transition-all ${compactMode ? 'text-xs' : 'text-sm'} ${task.isCompleted ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200'}`}>
+            <span className={`font-medium truncate transition-all duration-200 ease ${compactMode ? 'text-xs' : 'text-sm'} ${task.isCompleted || isClosing ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200'}`}>
               {task.content}
             </span>
 

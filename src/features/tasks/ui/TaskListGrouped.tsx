@@ -229,7 +229,7 @@ function PlusIcon() {
   );
 }
 
-function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, isSelected, onSelect }: {
+function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, isSelected, onSelect, closingPhase }: {
   task: Task;
   project?: Project;
   onToggle: () => void;
@@ -238,6 +238,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
+  closingPhase?: 'fading' | 'collapsing';
 }) {
   const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
@@ -257,6 +258,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     if (isSelectionMode) { onSelect?.(); return; }
     onClick();
   };
+  const isClosing = !!closingPhase;
 
   const handlePriorityClick = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -286,13 +288,13 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     <>
     <div
       onClick={handleRowClick}
-      className="flex items-start sm:items-center cursor-pointer group select-none transition-opacity"
+      className={`task-complete-collapse flex items-start sm:items-center cursor-pointer group select-none transition-opacity ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''}`}
       style={{
-        padding: '9px 0',
-        borderBottom: '1px solid #f1f0ed',
+        padding: closingPhase === 'collapsing' ? '0' : '9px 0',
+        borderBottom: `1px solid ${isClosing ? '#e8e8e4' : '#f1f0ed'}`,
         gap: 10,
-        background: isSelected ? '#eef2ff' : 'transparent',
-        opacity: isSelectionMode && !isSelected ? 0.45 : 1,
+        background: isClosing ? '#f1f0ed' : isSelected ? '#eef2ff' : 'transparent',
+        opacity: isClosing ? 0 : isSelectionMode && !isSelected ? 0.45 : 1,
         borderRadius: isSelected ? 6 : 0,
       }}
       onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#faf9f7'; e.currentTarget.style.opacity = isSelectionMode ? '0.65' : '1'; } }}
@@ -318,14 +320,26 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       ) : (
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="flex-none rounded-full border transition-colors hover:border-[#9098a4]"
-          style={{ width: 20, height: 20, borderColor: '#d4d4d0', background: 'transparent', flexShrink: 0 }}
-        />
+          className="flex-none flex items-center justify-center rounded-full border transition-all duration-200 ease hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] cursor-pointer"
+          style={{
+            width: 20,
+            height: 20,
+            borderColor: isClosing ? '#0f1115' : '#d4d4d0',
+            background: isClosing ? '#0f1115' : 'transparent',
+            flexShrink: 0,
+          }}
+        >
+          {isClosing && (
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+              <path d="M5 13l4 4L19 7"/>
+            </svg>
+          )}
+        </button>
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
         <span
-          className="min-w-0 text-[15px] font-medium leading-5 text-[#0f1115]"
+          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease ${isClosing ? 'text-[#9098a4] line-through' : 'text-[#0f1115]'}`}
         >
           {task.content}
         </span>
@@ -420,7 +434,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Title */}
       <span
-        className="hidden sm:block flex-1 text-[14px] text-[#0f1115] truncate min-w-0"
+        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease ${isClosing ? 'text-[#9098a4] line-through' : 'text-[#0f1115]'}`}
         style={{ fontWeight: 450 }}
       >
         {task.content}
@@ -625,8 +639,17 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   const [open, setOpen] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingOpen, setAddingOpen] = useState(false);
+  const [closingTasks, setClosingTasks] = useState<Record<string, 'fading' | 'collapsing'>>({});
 
   const isOverdue = group.variant === 'overdue';
+  const completeTaskWithAnimation = (taskId: string) => {
+    if (closingTasks[taskId]) return;
+    setClosingTasks(prev => ({ ...prev, [taskId]: 'fading' }));
+    window.setTimeout(() => {
+      setClosingTasks(prev => ({ ...prev, [taskId]: 'collapsing' }));
+      onToggle(taskId);
+    }, 120);
+  };
 
   return (
     <div className="mb-8">
@@ -666,12 +689,13 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
               key={task.id}
               task={task}
               project={projects.find(p => p.id === task.project_id)}
-              onToggle={() => onToggle(task.id)}
+              onToggle={() => completeTaskWithAnimation(task.id)}
               onClick={() => { if (!isSelectionMode) setEditingTask(task); }}
               onEdit={updates => onEdit(task.id, updates)}
               isSelectionMode={isSelectionMode}
               isSelected={selectedIds?.includes(task.id)}
               onSelect={() => onSelect?.(task.id)}
+              closingPhase={closingTasks[task.id]}
             />
           ))}
 
@@ -1155,7 +1179,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
                   {/* Checked circle */}
                   <button
                     onClick={e => { e.stopPropagation(); onToggle(task.id); }}
-                    className="flex-none flex items-center justify-center rounded-full border-2 transition-colors hover:opacity-70"
+                    className="flex-none flex items-center justify-center rounded-full border-2 transition-colors hover:opacity-70 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
                     style={{ width: 20, height: 20, borderColor: '#0f1115', background: '#0f1115', flexShrink: 0 }}
                   >
                     <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">

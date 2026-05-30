@@ -1,5 +1,6 @@
 import * as signalR from '@microsoft/signalr';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   CalendarDays,
   Check,
@@ -11,7 +12,7 @@ import {
   PanelRightOpen,
   Search,
 } from 'lucide-react';
-import type { Project, Task, TaskPriority, TaskStatus } from '../../../shared/types';
+import type { Project, Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import { getToken } from '../../../shared/api/client';
 import {
@@ -46,10 +47,26 @@ type DragState =
 interface CalendarViewProps {
   tasks: Task[];
   projects: Project[];
+  onAdd: (
+    content: string,
+    priority: TaskPriority,
+    dueDate?: string,
+    projectId?: string,
+    status?: TaskStatus,
+    description?: string,
+    tags?: string[],
+    subtasks?: Subtask[],
+  ) => Promise<Task | void> | Task | void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
 }
+
+type CalendarAddSlot = {
+  date: string;
+  startMinutes: number;
+  durationMinutes: number;
+};
 
 const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 const DAY_START = 6 * 60;
@@ -70,6 +87,44 @@ const STATUS_LABEL: Record<TaskStatus, string> = {
   InProgress: 'W trakcie',
   Completed: 'Ukończone',
 };
+
+const MODAL_PRIORITY: Record<TaskPriority, { label: string; name: string; fg: string; bg: string }> = {
+  [Priority.P1]: { label: 'P1', name: 'Pilne', fg: 'oklch(0.62 0.18 25)', bg: 'oklch(0.96 0.03 25)' },
+  [Priority.P2]: { label: 'P2', name: 'Wysokie', fg: 'oklch(0.70 0.16 55)', bg: 'oklch(0.96 0.03 55)' },
+  [Priority.P3]: { label: 'P3', name: 'Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)' },
+  [Priority.P4]: { label: 'P4', name: 'Niskie', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+};
+
+const MODAL_STATUS: Record<TaskStatus, { name: string; fg: string; bg: string; dot: string }> = {
+  NotStarted: { name: 'Nie rozpoczęto', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)', dot: 'oklch(0.75 0.01 260)' },
+  InProgress: { name: 'W trakcie', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)', dot: 'oklch(0.60 0.18 230)' },
+  Completed: { name: 'Ukończone', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)', dot: 'oklch(0.55 0.18 145)' },
+};
+
+function ClockIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" strokeLinecap="round" /></svg>;
+}
+
+function FolderIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z" /></svg>;
+}
+
+function FlagSmall({ color }: { color: string }) {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" style={{ color }}><path fillRule="evenodd" d="M3 2.25a.75.75 0 01.75.75v.54l1.838-.46a9.75 9.75 0 016.725.738l.108.054a8.25 8.25 0 005.58.652l3.109-.732a.75.75 0 01.917.81 47.784 47.784 0 00.005 10.337.75.75 0 01-.574.812l-3.114.733a9.75 9.75 0 01-6.594-.158l-.108-.054a8.25 8.25 0 00-5.69-.625l-2.202.55V21a.75.75 0 01-1.5 0V3A.75.75 0 013 2.25z" clipRule="evenodd" /></svg>;
+}
+
+function TagIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+      <circle cx="7" cy="7" r="1.5" fill="currentColor" stroke="none"/>
+    </svg>
+  );
+}
+
+function StatusIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" strokeLinecap="round" /></svg>;
+}
 
 function getPriorityMeta(priority: TaskPriority | undefined) {
   return priority && PRIORITY_META[priority] ? PRIORITY_META[priority] : PRIORITY_META[Priority.P4];
@@ -114,9 +169,16 @@ function roundToQuarter(minutes: number) {
 }
 
 function formatMinutes(minutes: number) {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
+  const normalized = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const h = Math.floor(normalized / 60);
+  const m = normalized % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function parseTimeToMinutes(value: string) {
+  const [hours, minutes] = value.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 9 * 60;
+  return clamp(hours * 60 + minutes, 0, 24 * 60 - 1);
 }
 
 function durationLabel(minutes: number) {
@@ -161,7 +223,440 @@ function getMonthDays(anchor: Date) {
   return Array.from({ length: 42 }, (_, index) => addDays(start, index));
 }
 
-export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: CalendarViewProps) {
+function CalendarTaskAddModal({
+  slot,
+  projects,
+  onClose,
+  onAdd,
+}: {
+  slot: CalendarAddSlot;
+  projects: Project[];
+  onClose: () => void;
+  onAdd: (input: {
+    content: string;
+    priority: TaskPriority;
+    status: TaskStatus;
+    projectId?: string;
+    description?: string;
+    tags?: string[];
+    subtasks?: Subtask[];
+    date: string;
+    startMinutes: number;
+    durationMinutes: number;
+  }) => Promise<void>;
+}) {
+  const [content, setContent]         = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority]       = useState<TaskPriority>(Priority.P4);
+  const [status, setStatus]           = useState<TaskStatus>('NotStarted');
+  const [projectId, setProjectId]     = useState('');
+  const [startMinutes, setStartMinutes] = useState(slot.startMinutes);
+  const [durationMinutes, setDurationMinutes] = useState(slot.durationMinutes);
+  const [tags, setTags] = useState<string[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [newSubtask, setNewSubtask] = useState('');
+  const [isSaving, setIsSaving]       = useState(false);
+
+  const [showPriorityPicker, setShowPriorityPicker] = useState(false);
+  const [showStatusPicker, setShowStatusPicker]     = useState(false);
+  const [showProjectPicker, setShowProjectPicker]   = useState(false);
+
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [content]);
+
+  const safeDuration = clamp(durationMinutes, MIN_BLOCK, DAY_END - startMinutes);
+  const endMinutes = startMinutes + safeDuration;
+  const activeProject = projects.find(p => p.id === projectId);
+  const p = MODAL_PRIORITY[priority] ?? MODAL_PRIORITY[Priority.P4];
+  const s = MODAL_STATUS[status] ?? MODAL_STATUS.NotStarted;
+  const completedSubtasks = subtasks.filter(subtask => subtask.isCompleted).length;
+  const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
+
+  async function handleSave() {
+    if (!content.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onAdd({
+        content: content.trim(),
+        priority,
+        status,
+        projectId: projectId || undefined,
+        description: description.trim() || undefined,
+        tags: tags.length > 0 ? tags : undefined,
+        subtasks: subtasks.length > 0 ? subtasks : undefined,
+        date: slot.date,
+        startMinutes,
+        durationMinutes: safeDuration,
+      });
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') onClose();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave();
+  }
+
+  function addTag() {
+    const tag = newTag.trim();
+    if (tag && !tags.includes(tag)) setTags(prev => [...prev, tag]);
+    setNewTag('');
+  }
+
+  function removeTag(tag: string) {
+    setTags(prev => prev.filter(item => item !== tag));
+  }
+
+  function addSubtask() {
+    const content = newSubtask.trim();
+    if (!content) return;
+    setSubtasks(prev => [...prev, { id: Date.now().toString(), content, isCompleted: false }]);
+    setNewSubtask('');
+  }
+
+  function toggleSubtask(id: string) {
+    setSubtasks(prev => prev.map(subtask => subtask.id === id ? { ...subtask, isCompleted: !subtask.isCompleted } : subtask));
+  }
+
+  const ROW   = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
+  const LABEL = 'flex items-center gap-1.5 text-[12.5px] text-[#9098a4] flex-none w-[88px]';
+  const VALUE = 'flex-1 text-[13px] text-[#0f1115]';
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+      <div
+        className="absolute inset-0 backdrop-blur-[2px]"
+        style={{ background: 'rgba(15,17,21,.18)' }}
+        onClick={onClose}
+      />
+
+      <div
+        className="relative z-10 w-full flex flex-col"
+        style={{
+          maxWidth: 420,
+          maxHeight: '90vh',
+          background: '#fff',
+          border: '1px solid #e8e8e4',
+          borderRadius: 18,
+          boxShadow: '0 24px 48px -12px rgba(15,17,21,.22)',
+          overflow: 'hidden',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex-none flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #f1f0ed' }}>
+          <span className="text-[13px] font-semibold text-[#0f1115]">Nowe zadanie</span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
+            style={{ width: 28, height: 28 }}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-1">
+          <textarea
+            ref={titleRef}
+            value={content}
+            onChange={e => setContent(e.target.value)}
+            rows={1}
+            autoFocus
+            placeholder="Nazwa zadania"
+            className="w-full resize-none outline-none bg-transparent leading-snug"
+            style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
+          />
+
+          <div style={{ marginTop: 12 }}>
+            <div className="relative">
+              <div className={ROW} onClick={() => { setShowStatusPicker(o => !o); setShowPriorityPicker(false); setShowProjectPicker(false); }}>
+                <span className={LABEL}><StatusIcon /> Status</span>
+                <span className={VALUE}>
+                  <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold rounded-[5px]" style={{ padding: '2px 7px', color: s.fg, background: s.bg }}>
+                    <span className="rounded-full flex-none" style={{ width: 5, height: 5, background: s.dot }} />
+                    {s.name}
+                  </span>
+                </span>
+              </div>
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170,
+                  opacity: showStatusPicker ? 1 : 0,
+                  transform: showStatusPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showStatusPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                {(Object.entries(MODAL_STATUS) as [TaskStatus, typeof MODAL_STATUS.NotStarted][]).map(([k, v]) => (
+                  <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === status ? v.fg : '#0f1115' }} onClick={() => { setStatus(k); setShowStatusPicker(false); }}>
+                    <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: v.dot }} />
+                    {v.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className={ROW} onClick={() => { setShowPriorityPicker(o => !o); setShowStatusPicker(false); setShowProjectPicker(false); }}>
+                <span className={LABEL}><FlagSmall color={p.fg} /> Priorytet</span>
+                <span className={VALUE}>
+                  <span className="inline-flex items-center gap-1 text-[11.5px] font-semibold rounded-[5px]" style={{ padding: '2px 7px', color: p.fg, background: p.bg }}>
+                    {p.label} — {p.name}
+                  </span>
+                </span>
+              </div>
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160,
+                  opacity: showPriorityPicker ? 1 : 0,
+                  transform: showPriorityPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showPriorityPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                {(Object.entries(MODAL_PRIORITY) as [TaskPriority, (typeof MODAL_PRIORITY)[TaskPriority]][]).map(([k, v]) => (
+                  <button key={k} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: k === priority ? v.fg : '#0f1115' }} onClick={() => { setPriority(k); setShowPriorityPicker(false); }}>
+                    <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold rounded-[4px] flex-none" style={{ padding: '1px 5px', color: v.fg, background: v.bg }}>{v.label}</span>
+                    {v.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="relative">
+              <div className={ROW} onClick={() => { setShowProjectPicker(o => !o); setShowPriorityPicker(false); setShowStatusPicker(false); }}>
+                <span className={LABEL}><FolderIcon /> Projekt</span>
+                <span className={VALUE}>
+                  {activeProject ? (
+                    <span className="flex items-center gap-1.5">
+                      <span className="rounded-full inline-block" style={{ width: 7, height: 7, background: activeProject.color || '#9aa0aa', flexShrink: 0 }} />
+                      {activeProject.name}
+                    </span>
+                  ) : (
+                    <span className="text-[#b0b5be]">Bez projektu</span>
+                  )}
+                </span>
+              </div>
+              <div
+                className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
+                style={{
+                  background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 180,
+                  opacity: showProjectPicker ? 1 : 0,
+                  transform: showProjectPicker ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
+                  pointerEvents: showProjectPicker ? 'auto' : 'none',
+                  transition: 'opacity 0.18s ease, transform 0.18s cubic-bezier(0.34, 1.2, 0.64, 1)',
+                }}
+              >
+                <button className="w-full flex items-center gap-2.5 text-[13px] text-[#9098a4] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px' }} onClick={() => { setProjectId(''); setShowProjectPicker(false); }}>Bez projektu</button>
+                {projects.map(proj => (
+                  <button key={proj.id} className="w-full flex items-center gap-2.5 text-[13px] transition-colors hover:bg-[#f7f7f4]" style={{ padding: '9px 13px', color: proj.id === projectId ? '#0f1115' : '#3a3f47', fontWeight: proj.id === projectId ? 600 : 400 }} onClick={() => { setProjectId(proj.id); setShowProjectPicker(false); }}>
+                    <span className="rounded-full flex-none" style={{ width: 7, height: 7, background: proj.color || '#9aa0aa' }} />
+                    {proj.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className={ROW} style={{ cursor: 'default' }}>
+              <span className={LABEL}><ClockIcon /> Czas</span>
+              <span className={`${VALUE} grid grid-cols-3 gap-2`}>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Od
+                  <input
+                    type="time"
+                    value={formatMinutes(startMinutes)}
+                    onChange={e => setStartMinutes(clamp(parseTimeToMinutes(e.target.value), DAY_START, DAY_END - MIN_BLOCK))}
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
+                  />
+                </label>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Czas
+                  <input
+                    type="number"
+                    min={MIN_BLOCK}
+                    step={15}
+                    value={safeDuration}
+                    onChange={e => setDurationMinutes(clamp(Number(e.target.value) || MIN_BLOCK, MIN_BLOCK, DAY_END - startMinutes))}
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
+                  />
+                </label>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Do
+                  <input
+                    type="time"
+                    value={formatMinutes(endMinutes)}
+                    readOnly
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#5a606b] outline-none"
+                  />
+                </label>
+              </span>
+            </div>
+
+            <div className={`${ROW} flex-wrap`} style={{ borderBottom: 'none' }}>
+              <span className={LABEL} style={{ paddingTop: 1 }}><TagIcon /> Etykiety</span>
+              <div className="flex-1 flex flex-wrap items-center gap-1.5">
+                {tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 text-[11.5px] font-medium rounded-[5px]"
+                    style={{ padding: '2px 6px 2px 8px', background: '#f1f0ed', color: '#5a606b' }}
+                  >
+                    {tag}
+                    <button
+                      onClick={() => removeTag(tag)}
+                      className="text-[#9098a4] hover:text-[#0f1115] transition-colors"
+                      style={{ lineHeight: 1, marginLeft: 1 }}
+                    >
+                      <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M18 6 6 18M6 6l12 12"/>
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+                <input
+                  type="text"
+                  value={newTag}
+                  onChange={e => setNewTag(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+                  placeholder="+ Etykieta"
+                  className="text-[11.5px] outline-none bg-transparent placeholder:text-[#b0b5be]"
+                  style={{ color: '#9098a4', minWidth: 70, maxWidth: 100 }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
+
+          <div>
+            <p className="text-[11.5px] font-medium text-[#b0b5be] mb-1.5 uppercase tracking-wider">Opis</p>
+            <textarea
+              value={description}
+              onChange={e => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Dodaj kontekst, linki, kroki..."
+              maxLength={500}
+              className="w-full resize-none outline-none text-[13.5px] text-[#0f1115] rounded-xl leading-relaxed placeholder:text-[#b0b5be]"
+              style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px', minHeight: 80 }}
+            />
+          </div>
+
+          <div style={{ paddingTop: 6 }}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[11.5px] font-medium text-[#b0b5be] uppercase tracking-wider">
+                Podzadania{subtasks.length > 0 ? ` ${completedSubtasks}/${subtasks.length}` : ''}
+              </p>
+            </div>
+
+            {subtasks.length > 0 && (
+              <div className="rounded-full overflow-hidden mb-3" style={{ height: 3, background: '#ececec' }}>
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{ width: `${subtaskProgress}%`, background: '#0f1115' }}
+                />
+              </div>
+            )}
+
+            <div className="space-y-0.5">
+              {subtasks.map(subtask => (
+                <div
+                  key={subtask.id}
+                  className="flex items-center gap-2.5 py-1.5 group/sub"
+                >
+                  <button
+                    onClick={() => toggleSubtask(subtask.id)}
+                    className="flex-none rounded-full border transition-all"
+                    style={{
+                      width: 16, height: 16,
+                      borderColor: subtask.isCompleted ? '#0f1115' : '#d4d4d0',
+                      background: subtask.isCompleted ? '#0f1115' : 'transparent',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {subtask.isCompleted && (
+                      <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                        <path d="M5 13l4 4L19 7"/>
+                      </svg>
+                    )}
+                  </button>
+                  <span
+                    className="text-[13px] flex-1"
+                    style={{
+                      color: subtask.isCompleted ? '#9098a4' : '#0f1115',
+                      textDecoration: subtask.isCompleted ? 'line-through' : 'none',
+                    }}
+                  >
+                    {subtask.content}
+                  </span>
+                  <button
+                    onClick={() => setSubtasks(prev => prev.filter(item => item.id !== subtask.id))}
+                    className="opacity-0 group-hover/sub:opacity-100 transition-opacity text-[#9098a4] hover:text-red-500"
+                  >
+                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                      <path d="M18 6 6 18M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div
+              className="flex items-center gap-2 mt-1.5 rounded-xl border border-dashed transition-colors"
+              style={{ padding: '7px 10px', borderColor: '#e3e3df' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#c8c8c0'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#e3e3df'; }}
+            >
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#9098a4" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+              <input
+                type="text"
+                value={newSubtask}
+                onChange={e => setNewSubtask(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubtask(); } }}
+                placeholder="Dodaj podzadanie..."
+                className="flex-1 text-[12.5px] outline-none bg-transparent placeholder:text-[#b0b5be]"
+                style={{ color: '#9098a4' }}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-none flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
+          <p className="text-[11.5px] text-[#c0c5cc]">⌘ + Enter aby zapisać</p>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="text-[13px] font-medium text-[#9098a4] hover:text-[#0f1115] rounded-xl transition-colors" style={{ padding: '8px 14px' }}>
+              Anuluj
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!content.trim() || isSaving}
+              className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ padding: '8px 16px', background: '#0f1115' }}
+            >
+              {isSaving ? 'Tworzę...' : 'Dodaj zadanie'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete }: CalendarViewProps) {
   const [mode, setMode] = useState<CalendarMode>('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [blocks, setBlocks] = useState<Record<string, CalendarBlock>>({});
@@ -173,6 +668,7 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
   const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
   const [openFilterMenu, setOpenFilterMenu] = useState<FilterMenu>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [addingSlot, setAddingSlot] = useState<CalendarAddSlot | null>(null);
   const [dropPreview, setDropPreview] = useState<{ date: string; startMinutes: number; durationMinutes: number } | null>(null);
   const gridRef = useRef<HTMLDivElement>(null);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
@@ -327,6 +823,43 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
     onEdit(taskId, { dueDate: date });
   }
 
+  async function handleAddTaskFromSlot(input: {
+    content: string;
+    priority: TaskPriority;
+    status: TaskStatus;
+    projectId?: string;
+    description?: string;
+    tags?: string[];
+    subtasks?: Subtask[];
+    date: string;
+    startMinutes: number;
+    durationMinutes: number;
+  }) {
+    const createdTask = await onAdd(
+      input.content,
+      input.priority,
+      input.date,
+      input.projectId,
+      input.status,
+      input.description,
+      input.tags,
+      input.subtasks,
+    );
+
+    if (!createdTask?.id) return;
+
+    try {
+      const createdBlock = await createCalendarBlock({
+        taskId: createdTask.id,
+        startAt: toLocalIsoWithOffset(input.date, input.startMinutes),
+        durationMinutes: input.durationMinutes,
+      });
+      upsertApiBlock(createdBlock);
+    } catch (error) {
+      console.error('Failed to create calendar block for new task', error);
+    }
+  }
+
   async function clearBlocksForTask(taskId: string) {
     const taskBlocks = Object.values(blocks).filter(block => block.taskId === taskId);
     if (taskBlocks.length === 0) return;
@@ -346,6 +879,22 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
     const rect = e.currentTarget.getBoundingClientRect();
     const y = clamp(e.clientY - rect.top, 0, rect.height);
     return DAY_START + (y / HOUR_HEIGHT) * 60;
+  }
+
+  function getClickMinutes(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const y = clamp(e.clientY - rect.top, 0, rect.height);
+    return DAY_START + (y / HOUR_HEIGHT) * 60;
+  }
+
+  function handleGridClick(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    if ((e.target as HTMLElement).closest('[data-calendar-block="true"]')) return;
+    const startMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END - MIN_BLOCK);
+    setAddingSlot({
+      date,
+      startMinutes,
+      durationMinutes: DEFAULT_BLOCK,
+    });
   }
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
@@ -500,8 +1049,10 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
     return (
       <button
         key={block.id}
+        data-calendar-block="true"
         draggable
-        onClick={() => {
+        onClick={(e) => {
+          e.stopPropagation();
           if (Date.now() < suppressBlockClickUntilRef.current) {
             return;
           }
@@ -613,6 +1164,7 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropPreview(null);
                 }}
                 onDrop={(e) => handleDrop(e, key)}
+                onClick={(e) => handleGridClick(e, key)}
               >
                 {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, index) => (
                   <div key={index} className="h-[72px] border-b border-[#f1f0ed]" />
@@ -844,6 +1396,15 @@ export function CalendarView({ tasks, projects, onEdit, onToggle, onDelete }: Ca
           onDelete={() => { onDelete?.(editingTask.id); clearBlocksForTask(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {addingSlot && (
+        <CalendarTaskAddModal
+          slot={addingSlot}
+          projects={projects}
+          onAdd={handleAddTaskFromSlot}
+          onClose={() => setAddingSlot(null)}
         />
       )}
     </>

@@ -1,4 +1,4 @@
-import { TaskPriority, type Task, type TaskPriority as TaskPriorityType, type TaskStatus } from '../../../shared/types';
+import { TaskPriority, type Subtask, type Task, type TaskPriority as TaskPriorityType, type TaskStatus } from '../../../shared/types';
 import type { CreateTaskDto, UpdateTaskDto } from '../api/tasksApi';
 
 export interface ApiTask {
@@ -10,6 +10,8 @@ export interface ApiTask {
   dueDate?: string;
   projectId?: string;
   createdAt?: string;
+  tags?: string[];
+  subtasks?: Subtask[];
 }
 
 export function mapApiTask(task: ApiTask): Task {
@@ -25,6 +27,8 @@ export function mapApiTask(task: ApiTask): Task {
     dueDate: task.dueDate,
     project_id: task.projectId ?? null,
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
+    tags: task.tags,
+    subtasks: task.subtasks,
   };
 }
 
@@ -35,6 +39,8 @@ export function toCreateTaskDto(input: {
   description?: string;
   priority?: TaskPriorityType;
   dueDate?: string;
+  tags?: string[];
+  subtasks?: Subtask[];
 }): CreateTaskDto {
   return {
     content: input.content,
@@ -43,6 +49,8 @@ export function toCreateTaskDto(input: {
     description: input.description,
     priority: input.priority,
     dueDate: input.dueDate,
+    tags: input.tags,
+    subtasks: input.subtasks,
   };
 }
 
@@ -55,6 +63,8 @@ export function toUpdateTaskDto(updates: Partial<Task>): UpdateTaskDto {
   if (updates.dueDate !== undefined) dto.dueDate = updates.dueDate;
   if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
   if (updates.description !== undefined) dto.description = updates.description;
+  if (updates.tags !== undefined) dto.tags = updates.tags;
+  if (updates.subtasks !== undefined) dto.subtasks = updates.subtasks;
 
   return dto;
 }

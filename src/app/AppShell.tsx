@@ -71,9 +71,9 @@ export function AppShell() {
     if (isLoggedIn) fetchSpaces();
   }, [isLoggedIn, fetchSpaces]);
 
-  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string) => {
+  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[]) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    await addTask(content, finalProjectId, status, description, priority, dueDate);
+    return addTask(content, finalProjectId, status, description, priority, dueDate, tags, subtasks);
   };
 
   const handleEditTask = async (id: string, updates: Partial<Task>) => {
@@ -424,6 +424,7 @@ export function AppShell() {
                   <CalendarView
                     tasks={sortedAllTasks}
                     projects={projects}
+                    onAdd={handleAddTask}
                     onEdit={handleEditTask}
                     onToggle={handleToggleTask}
                     onDelete={handleDeleteTask}

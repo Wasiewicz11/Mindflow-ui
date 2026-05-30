@@ -1,5 +1,5 @@
 import { apiFetch } from '../../../shared/api/client';
-import { TaskPriority } from '../../../shared/types';
+import { TaskPriority, type Subtask } from '../../../shared/types';
 import type { ApiTask } from '../model/taskModel';
 
 export interface CreateTaskDto {
@@ -9,6 +9,8 @@ export interface CreateTaskDto {
   status?: string;
   dueDate?: string;
   projectId?: string;
+  tags?: string[];
+  subtasks?: Subtask[];
 }
 
 export interface UpdateTaskDto {
@@ -18,6 +20,8 @@ export interface UpdateTaskDto {
   status?: string;
   dueDate?: string;
   projectId?: string;
+  tags?: string[];
+  subtasks?: Subtask[];
 }
 
 export function getTasks(): Promise<ApiTask[]> {

@@ -1,7 +1,7 @@
 import * as signalR from '@microsoft/signalr';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createTask, deleteTask, getTasks, updateTask } from '../api/tasksApi';
-import type { Task, TaskPriority, TaskStatus } from '../../../shared/types';
+import type { Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { getToken } from '../../../shared/api/client';
 import { mapApiTask, toCreateTaskDto, toUpdateTaskDto } from '../model/taskModel';
 
@@ -60,8 +60,11 @@ export function useTasks(isLoggedIn: boolean) {
     description?: string,
     priority?: TaskPriority,
     dueDate?: string,
+    tags?: string[],
+    subtasks?: Subtask[],
   ) => {
-    await createTask(toCreateTaskDto({ content, projectId, status, description, priority, dueDate }));
+    const created = await createTask(toCreateTaskDto({ content, projectId, status, description, priority, dueDate, tags, subtasks }));
+    return mapApiTask(created);
   }, []);
 
   const editTask = useCallback(async (id: string, updates: Partial<Task>) => {

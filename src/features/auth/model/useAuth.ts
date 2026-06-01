@@ -1,6 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { login, logout as apiLogout, register } from '../api/authApi';
-import { getToken, refreshAccessToken, registerLogoutCallback, removeToken, setToken } from '../../../shared/api/client';
+import {
+  getToken,
+  refreshAccessToken,
+  registerLogoutCallback,
+  removeToken,
+  setToken,
+  subscribeToAuthEvents,
+} from '../../../shared/api/client';
 
 declare global {
   interface Window {
@@ -30,46 +37,76 @@ function getTokenExpiry(token: string): number | null {
 }
 
 export function useAuth() {
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => Boolean(getToken()));
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+  }, []);
+
+  const expireSession = useCallback(() => {
+    removeToken();
+    clearRefreshTimer();
+    setIsLoggedIn(false);
+  }, [clearRefreshTimer]);
 
   // Rejestrujemy callback dla client.ts — gdy refresh nie uda się w interceptorze,
   // client.ts wywoła to i wyloguje usera bez dostępu do React state.
   useEffect(() => {
     registerLogoutCallback(() => {
-      removeToken();
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      setIsLoggedIn(false);
+      expireSession();
     });
-  }, []);
+  }, [expireSession]);
 
-  function scheduleRefresh(token: string) {
+  const scheduleRefresh = useCallback(function scheduleRefresh(token: string) {
     const expiry = getTokenExpiry(token);
     if (!expiry) return;
 
     // Odświeżamy 1 minutę przed wygaśnięciem zamiast czekać na 401
     const msUntilRefresh = expiry - Date.now() - 60 * 1000;
     if (msUntilRefresh <= 0) {
-      refreshAccessToken().then(newToken => {
-        if (newToken) scheduleRefresh(newToken);
-        else { removeToken(); setIsLoggedIn(false); }
-      });
+      refreshAccessToken()
+        .then(newToken => {
+          if (newToken) {
+            setIsLoggedIn(true);
+            scheduleRefresh(newToken);
+          } else {
+            expireSession();
+          }
+        })
+        .catch(() => {
+          refreshTimerRef.current = setTimeout(() => {
+            const currentToken = getToken();
+            if (currentToken) scheduleRefresh(currentToken);
+          }, 30_000);
+        });
       return;
     }
 
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+    clearRefreshTimer();
 
     refreshTimerRef.current = setTimeout(async () => {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        scheduleRefresh(newToken);
-      } else {
-        removeToken();
-        setIsLoggedIn(false);
+      try {
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          setIsLoggedIn(true);
+          scheduleRefresh(newToken);
+        } else {
+          expireSession();
+        }
+      } catch {
+        refreshTimerRef.current = setTimeout(() => {
+          const currentToken = getToken();
+          if (currentToken) scheduleRefresh(currentToken);
+        }, 30_000);
       }
     }, msUntilRefresh);
-  }
+  }, [clearRefreshTimer, expireSession]);
 
   useEffect(() => {
     const existingScript = document.getElementById('google-gsi');
@@ -82,13 +119,59 @@ export function useAuth() {
       document.head.appendChild(script);
     }
 
-    const existingToken = getToken();
-    if (existingToken) scheduleRefresh(existingToken);
+    let cancelled = false;
+
+    async function bootstrapSession() {
+      const existingToken = getToken();
+      if (existingToken) {
+        setIsLoggedIn(true);
+        scheduleRefresh(existingToken);
+        setIsAuthReady(true);
+        return;
+      }
+
+      try {
+        const refreshedToken = await refreshAccessToken();
+        if (cancelled) return;
+
+        if (refreshedToken) {
+          setIsLoggedIn(true);
+          scheduleRefresh(refreshedToken);
+        } else {
+          setIsLoggedIn(false);
+        }
+      } catch {
+        if (!cancelled) setIsLoggedIn(false);
+      } finally {
+        if (!cancelled) setIsAuthReady(true);
+      }
+    }
+
+    bootstrapSession();
 
     return () => {
-      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      cancelled = true;
+      clearRefreshTimer();
     };
-  }, []);
+  }, [clearRefreshTimer, scheduleRefresh]);
+
+  useEffect(() => {
+    return subscribeToAuthEvents((event) => {
+      if (event.type === 'logout') {
+        clearRefreshTimer();
+        setIsLoggedIn(false);
+        setIsAuthReady(true);
+        return;
+      }
+
+      const token = getToken();
+      if (token) {
+        setIsLoggedIn(true);
+        setIsAuthReady(true);
+        scheduleRefresh(token);
+      }
+    });
+  }, [clearRefreshTimer, scheduleRefresh]);
 
   function initGoogleButton(buttonEl: HTMLElement) {
     if (!clientId || !window.google) return;
@@ -119,6 +202,7 @@ export function useAuth() {
 
       setToken(authResponse.accessToken);
       scheduleRefresh(authResponse.accessToken);
+      setIsAuthReady(true);
       setIsLoggedIn(true);
     } catch {
       console.error('Authentication failed');
@@ -131,10 +215,8 @@ export function useAuth() {
     } catch {
       // Nawet jeśli serwer nie odpowie, czyścimy lokalnie
     }
-    removeToken();
-    if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-    setIsLoggedIn(false);
+    expireSession();
   }
 
-  return { isLoggedIn, logout, initGoogleButton };
+  return { isAuthReady, isLoggedIn, logout, initGoogleButton };
 }

@@ -187,6 +187,10 @@ function parseTimeToMinutes(value: string) {
   return clamp(hours * 60 + minutes, 0, 24 * 60 - 1);
 }
 
+function minutesFromDate(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
 function durationLabel(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -665,6 +669,7 @@ function CalendarTaskAddModal({
 export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete }: CalendarViewProps) {
   const [mode, setMode] = useState<CalendarMode>('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const [now, setNow] = useState(() => new Date());
   const [blocks, setBlocks] = useState<Record<string, CalendarBlock>>({});
   const [dragState, setDragState] = useState<DragState>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
@@ -683,8 +688,15 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   const activeTasks = useMemo(() => tasks.filter(task => !task.isCompleted), [tasks]);
   const taskById = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
-  const days = mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate];
-  const todayKey = toDateKey(new Date());
+  const days = useMemo(
+    () => mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate],
+    [anchorDate, mode],
+  );
+  const todayKey = toDateKey(now);
+  const currentMinutes = minutesFromDate(now);
+  const currentTimeTop = ((currentMinutes - DAY_START) / 60) * HOUR_HEIGHT;
+  const showCurrentTimeIndicator = currentMinutes >= DAY_START && currentMinutes <= DAY_END;
+  const currentTimeLabel = formatMinutes(currentMinutes);
   const fromKey = toDateKey(days[0]);
   const toKey = toDateKey(days[days.length - 1]);
 
@@ -718,6 +730,22 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       cancelled = true;
     };
   }, [fromKey, toKey]);
+
+  useEffect(() => {
+    let intervalId: number | undefined;
+    const syncNow = () => setNow(new Date());
+    const current = new Date();
+    const msToNextMinute = (60 - current.getSeconds()) * 1000 - current.getMilliseconds();
+    const timeoutId = window.setTimeout(() => {
+      syncNow();
+      intervalId = window.setInterval(syncNow, 60_000);
+    }, Math.max(msToNextMinute, 250));
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (intervalId !== undefined) window.clearInterval(intervalId);
+    };
+  }, []);
 
   useEffect(() => {
     const token = getToken();
@@ -1245,6 +1273,19 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   </div>
                 )}
                 {visibleBlocks.filter(block => block.date === key).map(renderBlock)}
+                {key === todayKey && showCurrentTimeIndicator && (
+                  <div
+                    className="pointer-events-none absolute left-0 right-0 z-30"
+                    style={{ top: currentTimeTop }}
+                    aria-hidden="true"
+                  >
+                    <div className="absolute left-1 right-1 top-0 h-0.5 rounded-full bg-[#f97316] shadow-[0_0_0_1px_rgba(249,115,22,.14),0_4px_10px_rgba(249,115,22,.24)]" />
+                    <div className="absolute left-1 top-0 h-2 w-2 -translate-y-[3px] rounded-full bg-[#f97316] ring-2 ring-white" />
+                    <div className="absolute left-3 top-0 -translate-y-1/2 rounded-full bg-[#f97316] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
+                      {currentTimeLabel}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -33,6 +33,10 @@ export function getTasksForProject(projectId: string): Promise<ApiTask[]> {
   return apiFetch<ApiTask[]>(`/projects/${projectId}/tasks`);
 }
 
+export function getTask(id: string): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${id}`);
+}
+
 export function createTask(dto: CreateTaskDto): Promise<ApiTask> {
   return apiFetch<ApiTask>('/tasks', {
     method: 'POST',

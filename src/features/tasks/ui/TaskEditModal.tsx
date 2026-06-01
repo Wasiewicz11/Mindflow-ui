@@ -3,6 +3,8 @@ import { createPortal } from 'react-dom';
 import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
+import { getTask } from '../api/tasksApi';
+import { mapApiTask } from '../model/taskModel';
 import { DescriptionField } from './DescriptionField';
 
 interface Props {
@@ -70,7 +72,22 @@ function StatusIcon() {
   );
 }
 
+function stringArraysEqual(a: string[] = [], b: string[] = []) {
+  if (a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
+
+function subtasksEqual(a: Subtask[] = [], b: Subtask[] = []) {
+  if (a.length !== b.length) return false;
+  return a.every((item, index) => (
+    item.id === b[index].id
+    && item.content === b[index].content
+    && item.isCompleted === b[index].isCompleted
+  ));
+}
+
 export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
+  const [loadedTask, setLoadedTask] = useState(task);
   const [content, setContent]       = useState(task.content);
   const [priority, setPriority]     = useState(task.priority);
   const [status, setStatus]         = useState<TaskStatus>((task.status && task.status in STATUS_OPTIONS) ? task.status : 'NotStarted');
@@ -87,6 +104,37 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [showDatePicker, setShowDatePicker]         = useState(false);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  function applyTaskDetails(nextTask: Task) {
+    setLoadedTask(nextTask);
+    setContent(nextTask.content);
+    setPriority(nextTask.priority);
+    setStatus((nextTask.status && nextTask.status in STATUS_OPTIONS) ? nextTask.status : 'NotStarted');
+    setDueDate(nextTask.dueDate ?? '');
+    setProjectId(nextTask.project_id ?? '');
+    setDescription(nextTask.description ?? '');
+    setTags(nextTask.tags ?? []);
+    setSubtasks(nextTask.subtasks ?? []);
+    setNewTag('');
+    setNewSubtask('');
+  }
+
+  useEffect(() => {
+    let isActive = true;
+
+    getTask(task.id)
+      .then(apiTask => {
+        if (!isActive) return;
+        applyTaskDetails(mapApiTask(apiTask));
+      })
+      .catch(error => {
+        console.warn('Failed to fetch task details:', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [task.id]);
 
   // auto-resize title textarea
   useEffect(() => {
@@ -105,18 +153,27 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   function save() {
     const updates: Partial<Task> = {
-      content: content.trim() || task.content,
+      content: content.trim() || loadedTask.content,
       priority,
       status,
       project_id: projectId || null,
-      description: description || undefined,
-      tags: tags.length > 0 ? tags : undefined,
-      subtasks: subtasks.length > 0 ? subtasks : undefined,
     };
 
-    if (dueDate !== (task.dueDate ?? '')) {
+    if (dueDate !== (loadedTask.dueDate ?? '')) {
       if (dueDate) updates.dueDate = dueDate;
       else updates.clearDueDate = true;
+    }
+
+    if (description !== (loadedTask.description ?? '')) {
+      updates.description = description;
+    }
+
+    if (!stringArraysEqual(tags, loadedTask.tags ?? [])) {
+      updates.tags = tags;
+    }
+
+    if (!subtasksEqual(subtasks, loadedTask.subtasks ?? [])) {
+      updates.subtasks = subtasks;
     }
 
     onSave(updates);
@@ -196,12 +253,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             className="flex-none rounded-full border-2 transition-all hover:border-[#0f1115]"
             style={{
               width: 20, height: 20,
-              borderColor: task.isCompleted ? '#0f1115' : '#d4d4d0',
-              background: task.isCompleted ? '#0f1115' : 'transparent',
+              borderColor: loadedTask.isCompleted ? '#0f1115' : '#d4d4d0',
+              background: loadedTask.isCompleted ? '#0f1115' : 'transparent',
               flexShrink: 0,
             }}
           >
-            {task.isCompleted && (
+            {loadedTask.isCompleted && (
               <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
                 <path d="M5 13l4 4L19 7"/>
               </svg>
@@ -567,8 +624,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           style={{ borderTop: '1px solid #f1f0ed' }}
         >
           <div className="text-[11.5px] text-[#c0c5cc] flex flex-col gap-0.5">
-            {task.createdAt && (
-              <span>Dodano {new Date(task.createdAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}</span>
+            {loadedTask.createdAt && (
+              <span>Dodano {new Date(loadedTask.createdAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}</span>
             )}
             <span>⌘ + Enter aby zapisać</span>
           </div>
@@ -580,7 +637,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
               <path d="M5 13l4 4L19 7"/>
             </svg>
-            {task.isCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
+            {loadedTask.isCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
           </button>
         </div>
       </div>

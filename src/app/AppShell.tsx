@@ -17,7 +17,7 @@ import { TaskPriority } from '../shared/types';
 type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
 
 export function AppShell() {
-  const { isLoggedIn, logout, initGoogleButton } = useAuth();
+  const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
   const { tasks, addTask, editTask, removeTask } = useTasks(isLoggedIn);
 
   const [user, setUser] = useState<User | null>(null);
@@ -190,6 +190,16 @@ export function AppShell() {
   });
   const todayTasks = tasks.filter(t => !t.isCompleted && t.dueDate && t.dueDate <= todayStr);
   const importantTasks = tasks.filter(t => !t.isCompleted && t.priority === TaskPriority.P1 && (!t.dueDate || t.dueDate > todayStr));
+
+  if (!isAuthReady) {
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-[#FDFDFD] text-[#0f1115] dark:bg-[#000000] dark:text-white">
+        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0f1115] text-xl font-semibold text-white shadow-[0_12px_32px_-18px_rgba(15,17,21,.55)] dark:bg-white dark:text-[#0f1115]">
+          M
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return <LoginScreen initGoogleButton={initGoogleButton} />;

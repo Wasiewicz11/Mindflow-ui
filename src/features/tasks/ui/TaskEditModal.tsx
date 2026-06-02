@@ -11,7 +11,7 @@ import { DescriptionField } from './DescriptionField';
 interface Props {
   task: Task;
   projects: Project[];
-  onSave: (updates: Partial<Task>) => void;
+  onSave: (updates: Partial<Task>) => void | Promise<void>;
   onDelete: () => void;
   onToggleComplete: () => void;
   onClose: () => void;
@@ -180,7 +180,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const completedSubtasks = subtasks.filter(s => s.isCompleted).length;
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
 
-  function save() {
+  function save(nextSubtasks = subtasks) {
     const updates: Partial<Task> = {
       content: content.trim() || loadedTask.content,
       priority,
@@ -201,11 +201,15 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       updates.tags = tags;
     }
 
-    if (!subtasksEqual(subtasks, loadedTask.subtasks ?? [])) {
-      updates.subtasks = subtasks;
+    if (!subtasksEqual(nextSubtasks, loadedTask.subtasks ?? [])) {
+      updates.subtasks = nextSubtasks;
     }
 
     onSave(updates);
+  }
+
+  function persistSubtasks(nextSubtasks: Subtask[]) {
+    onSave({ subtasks: nextSubtasks.map((subtask, index) => ({ ...subtask, sortOrder: subtask.sortOrder ?? index })) });
   }
 
   function addTag() {
@@ -236,34 +240,42 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   function addSubtask() {
     const c = newSubtask.trim();
     if (!c) return;
-    setSubtasks(prev => [...prev, { id: Date.now().toString(), content: c, isCompleted: false, sortOrder: prev.length }]);
+    const next = [...subtasks, { id: Date.now().toString(), content: c, isCompleted: false, sortOrder: subtasks.length }];
+    setSubtasks(next);
+    persistSubtasks(next);
     setNewSubtask('');
   }
 
   function toggleSubtask(id: string) {
-    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, isCompleted: !s.isCompleted } : s));
+    const next = subtasks.map(s => s.id === id ? { ...s, isCompleted: !s.isCompleted } : s);
+    setSubtasks(next);
+    persistSubtasks(next);
   }
 
-  function updateSubtask(id: string, updates: Partial<Subtask>) {
-    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  function updateSubtask(id: string, updates: Partial<Subtask>, persist = false) {
+    const next = subtasks.map(s => s.id === id ? { ...s, ...updates } : s);
+    setSubtasks(next);
+    if (persist) persistSubtasks(next);
   }
 
   function removeSubtask(id: string) {
-    setSubtasks(prev => prev.filter(s => s.id !== id).map((s, index) => ({ ...s, sortOrder: index })));
+    const next = subtasks.filter(s => s.id !== id).map((s, index) => ({ ...s, sortOrder: index }));
+    setSubtasks(next);
+    persistSubtasks(next);
     if (subtaskDateOpenId === id) setSubtaskDateOpenId(null);
     if (subtaskDescriptionOpenId === id) setSubtaskDescriptionOpenId(null);
   }
 
   function moveSubtask(id: string, direction: -1 | 1) {
-    setSubtasks(prev => {
-      const index = prev.findIndex(s => s.id === id);
-      const nextIndex = index + direction;
-      if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) return prev;
-      const next = [...prev];
-      const [item] = next.splice(index, 1);
-      next.splice(nextIndex, 0, item);
-      return next.map((s, order) => ({ ...s, sortOrder: order }));
-    });
+    const index = subtasks.findIndex(s => s.id === id);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= subtasks.length) return;
+    const next = [...subtasks];
+    const [item] = next.splice(index, 1);
+    next.splice(nextIndex, 0, item);
+    const ordered = next.map((s, order) => ({ ...s, sortOrder: order }));
+    setSubtasks(ordered);
+    persistSubtasks(ordered);
   }
 
   // close pickers when clicking outside modal — handled by backdrop
@@ -665,6 +677,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                       <input
                         value={sub.content}
                         onChange={e => updateSubtask(sub.id, { content: e.target.value })}
+                        onBlur={e => persistSubtasks(subtasks.map(s => s.id === sub.id ? { ...s, content: e.currentTarget.value } : s))}
                         className="min-w-0 flex-1 bg-transparent text-[13px] outline-none transition-colors"
                         style={{
                           color: sub.isCompleted ? '#9098a4' : '#0f1115',
@@ -744,7 +757,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         <div className="ml-[54px] mt-2 max-w-[240px]">
                           <CalendarDatePicker
                             value={sub.dueDate ?? ''}
-                            onChange={date => updateSubtask(sub.id, { dueDate: date || undefined })}
+                            onChange={date => updateSubtask(sub.id, { dueDate: date || undefined }, true)}
                             onClose={() => setSubtaskDateOpenId(null)}
                           />
                         </div>

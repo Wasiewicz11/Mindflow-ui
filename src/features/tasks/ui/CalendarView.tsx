@@ -42,7 +42,7 @@ type CalendarBlock = {
 
 type DragState =
   | { type: 'sidebar'; taskId: string }
-  | { type: 'move'; taskId?: string | null; blockId: string; offsetMinutes: number }
+  | { type: 'move'; taskId?: string | null; blockId: string; offsetMinutes: number; duplicate: boolean }
   | null;
 
 interface CalendarViewProps {
@@ -392,19 +392,33 @@ function CalendarTaskAddModal({
             style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
           />
 
-          <label
-            className="mt-3 flex items-center gap-2.5 rounded-lg border border-[#ececec] bg-[#f7f7f4] px-3 py-2.5 text-[13px] font-medium text-[#3a3f47]"
-          >
-            <input
-              type="checkbox"
-              checked={addAsTask}
-              onChange={e => setAddAsTask(e.target.checked)}
-              className="h-4 w-4 rounded border-[#c8c8c0] text-[#0f1115] focus:ring-[#0f1115]/20"
-            />
-            Dodaj jako zadanie
-          </label>
-
           <div style={{ marginTop: 12 }}>
+            <button
+              type="button"
+              aria-pressed={addAsTask}
+              onClick={() => setAddAsTask(value => !value)}
+              className={`${ROW} w-full text-left`}
+            >
+              <span className={LABEL}><Check size={13} /> Zadanie</span>
+              <span className={`${VALUE} flex items-center`}>
+                <span
+                  className="relative inline-flex h-[22px] w-[38px] flex-none items-center rounded-full border transition-colors duration-200 ease"
+                  style={{
+                    background: addAsTask ? '#0f1115' : '#f1f0ed',
+                    borderColor: addAsTask ? '#0f1115' : '#deded9',
+                  }}
+                >
+                  <span
+                    className="absolute h-[16px] w-[16px] rounded-full bg-white shadow-sm transition-transform duration-200 ease"
+                    style={{
+                      left: 2,
+                      transform: addAsTask ? 'translateX(16px)' : 'translateX(0)',
+                    }}
+                  />
+                </span>
+              </span>
+            </button>
+
             {addAsTask && (
               <>
             <div className="relative">
@@ -887,6 +901,25 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     onEdit(taskId, { dueDate: date });
   }
 
+  async function duplicateCalendarBlock(block: CalendarBlock, date: string, startMinutes = block.startMinutes) {
+    if (block.date === date) return;
+
+    const safeStart = clamp(roundToQuarter(startMinutes), DAY_START, DAY_END - MIN_BLOCK);
+    const safeDuration = clamp(block.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
+
+    try {
+      const created = await createCalendarBlock({
+        taskId: block.taskId ?? null,
+        title: block.taskId ? block.title ?? null : block.title ?? 'Blok czasu',
+        startAt: toLocalIsoWithOffset(date, safeStart),
+        durationMinutes: safeDuration,
+      });
+      upsertApiBlock(created);
+    } catch (error) {
+      console.error('Failed to duplicate calendar block', error);
+    }
+  }
+
   async function handleAddTaskFromSlot(input: {
     content: string;
     addAsTask: boolean;
@@ -1015,9 +1048,18 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
     e.preventDefault();
-    if (dragState?.type === 'move' && !dragState.taskId) {
+    if (dragState?.type === 'move') {
       const block = blocks[dragState.blockId];
-      if (block) {
+
+      if (block && dragState.duplicate) {
+        const safeStart = clamp(roundToQuarter(getDropMinutes(e) - dragState.offsetMinutes), DAY_START, DAY_END - MIN_BLOCK);
+        duplicateCalendarBlock(block, date, safeStart);
+        setDragState(null);
+        setDropPreview(null);
+        return;
+      }
+
+      if (block && !dragState.taskId) {
         const safeStart = clamp(roundToQuarter(getDropMinutes(e) - dragState.offsetMinutes), DAY_START, DAY_END - MIN_BLOCK);
         const safeDuration = clamp(block.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
         const optimistic = { ...block, date, startMinutes: safeStart, durationMinutes: safeDuration };
@@ -1031,9 +1073,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
     const taskId = e.dataTransfer.getData('application/mindflow-task') || (dragState?.taskId ?? '');
     if (!taskId) return;
-    const existing = dragState?.type === 'move' ? blocks[dragState.blockId] : getBlockForTask(taskId);
-    const offset = dragState?.type === 'move' ? dragState.offsetMinutes : 0;
-    scheduleTask(taskId, date, getDropMinutes(e) - offset, existing?.durationMinutes ?? DEFAULT_BLOCK);
+    const existing = getBlockForTask(taskId);
+    scheduleTask(taskId, date, getDropMinutes(e), existing?.durationMinutes ?? DEFAULT_BLOCK);
     setDragState(null);
     setDropPreview(null);
   }
@@ -1193,12 +1234,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         }}
         onDragStart={(e) => {
           suppressBlockClickUntilRef.current = Date.now() + 800;
-          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.effectAllowed = e.altKey ? 'copyMove' : 'move';
           if (block.taskId) e.dataTransfer.setData('application/mindflow-task', block.taskId);
           e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
           const rect = e.currentTarget.getBoundingClientRect();
           const offsetMinutes = ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
-          setDragState({ type: 'move', taskId: block.taskId, blockId: block.id, offsetMinutes });
+          setDragState({ type: 'move', taskId: block.taskId, blockId: block.id, offsetMinutes, duplicate: e.altKey });
         }}
         onDragEnd={() => {
           suppressBlockClickUntilRef.current = Date.now() + 500;
@@ -1292,7 +1333,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                 className="relative cursor-crosshair select-none border-r border-[#f1f0ed] bg-white last:border-r-0"
                 onDragOver={(e) => {
                   e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
+                  e.dataTransfer.dropEffect = dragState?.type === 'move' && dragState.duplicate ? 'copy' : 'move';
                   updateDropPreview(e, key);
                 }}
                 onDragLeave={(e) => {
@@ -1374,12 +1415,22 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           <div
             key={key}
             className={`min-h-[112px] border-r border-b border-[#f1f0ed] p-2 transition-colors duration-200 ease hover:bg-[#f7f7f4] ${inMonth ? 'bg-white' : 'bg-[#f7f7f4]/70'}`}
-            onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = dragState?.type === 'move' && dragState.duplicate ? 'copy' : 'move';
+            }}
             onDrop={(e) => {
               e.preventDefault();
-              if (dragState?.type === 'move' && !dragState.taskId) {
+              if (dragState?.type === 'move') {
                 const block = blocks[dragState.blockId];
-                if (block) {
+
+                if (block && dragState.duplicate) {
+                  duplicateCalendarBlock(block, key);
+                  setDragState(null);
+                  return;
+                }
+
+                if (block && !dragState.taskId) {
                   const optimistic = { ...block, date: key };
                   updateLocalBlock(block.id, optimistic);
                   persistBlock(optimistic);
@@ -1402,9 +1453,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   key={block.id}
                   draggable
                   onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.effectAllowed = e.altKey ? 'copyMove' : 'move';
                     e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
-                    setDragState({ type: 'move', taskId: null, blockId: block.id, offsetMinutes: 0 });
+                    setDragState({ type: 'move', taskId: null, blockId: block.id, offsetMinutes: 0, duplicate: e.altKey });
                   }}
                   onDragEnd={() => setDragState(null)}
                   className="flex w-full items-center gap-1.5 truncate rounded-lg px-1.5 py-1 text-left text-[11px] font-medium text-[#0f766e] transition-colors duration-200 ease hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f766e]/20"

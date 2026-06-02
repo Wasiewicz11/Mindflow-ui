@@ -26,7 +26,7 @@
 ## Wspoldzielone UI
 
 - `src/shared/ui/CalendarDatePicker.tsx` - inline date picker uzywany w modalach zadan.
-- `src/shared/ui/CustomSelect.tsx` - wspoldzielony select stylowany pod Midle.
+- `src/shared/ui/CustomSelect.tsx` - wspoldzielony select stylowany pod Mindle.
 
 ## Projekty I Przestrzenie
 

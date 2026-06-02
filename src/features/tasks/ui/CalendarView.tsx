@@ -1052,6 +1052,37 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     }
   }
 
+  async function moveCalendarBlock(block: CalendarBlock, date: string, startMinutes: number) {
+    const safeStart = clamp(roundToQuarter(startMinutes), DAY_START, DAY_END - MIN_BLOCK);
+    const safeDuration = clamp(block.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
+    const optimistic = { ...block, date, startMinutes: safeStart, durationMinutes: safeDuration };
+
+    updateLocalBlock(block.id, optimistic);
+    persistBlock(optimistic);
+
+    if (block.taskId) onEdit(block.taskId, { dueDate: date });
+  }
+
+  function getDraggedBlock(e: React.DragEvent<HTMLDivElement>) {
+    const blockId = e.dataTransfer.getData('application/mindflow-calendar-block')
+      || (dragState?.type === 'move' ? dragState.blockId : '');
+    if (!blockId) return null;
+
+    const block = blocks[blockId];
+    if (!block) return null;
+
+    const rawOffset = e.dataTransfer.getData('application/mindflow-calendar-offset');
+    const offsetMinutes = rawOffset !== '' && Number.isFinite(Number(rawOffset))
+      ? Number(rawOffset)
+      : dragState?.type === 'move'
+        ? dragState.offsetMinutes
+        : 0;
+    const duplicate = e.dataTransfer.getData('application/mindflow-calendar-duplicate') === 'true'
+      || (dragState?.type === 'move' ? dragState.duplicate : false);
+
+    return { block, offsetMinutes, duplicate };
+  }
+
   async function saveStandaloneBlock(block: CalendarBlock, input: { title: string; startMinutes: number; durationMinutes: number }) {
     const safeStart = clamp(roundToQuarter(input.startMinutes), DAY_START, DAY_END - MIN_BLOCK);
     const safeDuration = clamp(input.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
@@ -1266,24 +1297,19 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
     e.preventDefault();
-    if (dragState?.type === 'move') {
-      const block = blocks[dragState.blockId];
+    const draggedBlock = getDraggedBlock(e);
 
-      if (block && dragState.duplicate) {
-        const safeStart = clamp(roundToQuarter(getDropMinutes(e) - dragState.offsetMinutes), DAY_START, DAY_END - MIN_BLOCK);
-        duplicateCalendarBlock(block, date, safeStart);
+    if (draggedBlock) {
+      const startMinutes = getDropMinutes(e) - draggedBlock.offsetMinutes;
+
+      if (draggedBlock.duplicate) {
+        duplicateCalendarBlock(draggedBlock.block, date, startMinutes);
         setDragState(null);
         setDropPreview(null);
         return;
       }
 
-      if (block && !dragState.taskId) {
-        const safeStart = clamp(roundToQuarter(getDropMinutes(e) - dragState.offsetMinutes), DAY_START, DAY_END - MIN_BLOCK);
-        const safeDuration = clamp(block.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
-        const optimistic = { ...block, date, startMinutes: safeStart, durationMinutes: safeDuration };
-        updateLocalBlock(block.id, optimistic);
-        persistBlock(optimistic);
-      }
+      moveCalendarBlock(draggedBlock.block, date, startMinutes);
       setDragState(null);
       setDropPreview(null);
       return;
@@ -1464,6 +1490,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
           const rect = e.currentTarget.getBoundingClientRect();
           const offsetMinutes = ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
+          e.dataTransfer.setData('application/mindflow-calendar-offset', String(offsetMinutes));
+          e.dataTransfer.setData('application/mindflow-calendar-duplicate', String(e.altKey));
           setDragState({ type: 'move', taskId: block.taskId, blockId: block.id, offsetMinutes, duplicate: e.altKey });
         }}
         onDragEnd={() => {
@@ -1646,20 +1674,16 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             }}
             onDrop={(e) => {
               e.preventDefault();
-              if (dragState?.type === 'move') {
-                const block = blocks[dragState.blockId];
+              const draggedBlock = getDraggedBlock(e);
 
-                if (block && dragState.duplicate) {
-                  duplicateCalendarBlock(block, key);
+              if (draggedBlock) {
+                if (draggedBlock.duplicate) {
+                  duplicateCalendarBlock(draggedBlock.block, key);
                   setDragState(null);
                   return;
                 }
 
-                if (block && !dragState.taskId) {
-                  const optimistic = { ...block, date: key };
-                  updateLocalBlock(block.id, optimistic);
-                  persistBlock(optimistic);
-                }
+                moveCalendarBlock(draggedBlock.block, key, draggedBlock.block.startMinutes);
                 setDragState(null);
                 return;
               }
@@ -1686,6 +1710,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = e.altKey ? 'copyMove' : 'move';
                     e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
+                    e.dataTransfer.setData('application/mindflow-calendar-offset', '0');
+                    e.dataTransfer.setData('application/mindflow-calendar-duplicate', String(e.altKey));
                     setDragState({ type: 'move', taskId: null, blockId: block.id, offsetMinutes: 0, duplicate: e.altKey });
                   }}
                   onDragEnd={() => setDragState(null)}

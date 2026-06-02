@@ -115,6 +115,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [subtaskDescriptionEditorId, setSubtaskDescriptionEditorId] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const subtaskSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   function applyTaskDetails(nextTask: Task) {
     setLoadedTask(nextTask);
@@ -213,7 +214,13 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   }
 
   function persistSubtasks(nextSubtasks: Subtask[]) {
-    onSave({ subtasks: nextSubtasks.map((subtask, index) => ({ ...subtask, sortOrder: subtask.sortOrder ?? index })) });
+    const subtasksToSave = nextSubtasks.map((subtask, index) => ({ ...subtask, sortOrder: subtask.sortOrder ?? index }));
+    subtaskSaveQueueRef.current = subtaskSaveQueueRef.current
+      .catch(() => undefined)
+      .then(() => Promise.resolve(onSave({ subtasks: subtasksToSave })))
+      .catch(error => {
+        console.warn('Failed to persist subtasks:', error);
+      });
   }
 
   function addTag() {
@@ -244,7 +251,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   function addSubtask() {
     const c = newSubtask.trim();
     if (!c) return;
-    const next = [...subtasks, { id: Date.now().toString(), content: c, isCompleted: false, sortOrder: subtasks.length }];
+    const next = [...subtasks, { id: crypto.randomUUID(), content: c, isCompleted: false, sortOrder: subtasks.length }];
     setSubtasks(next);
     persistSubtasks(next);
     setNewSubtask('');

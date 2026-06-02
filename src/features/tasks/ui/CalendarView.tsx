@@ -335,7 +335,7 @@ function CalendarTaskAddModal({
   function addSubtask() {
     const content = newSubtask.trim();
     if (!content) return;
-    setSubtasks(prev => [...prev, { id: Date.now().toString(), content, isCompleted: false }]);
+    setSubtasks(prev => [...prev, { id: crypto.randomUUID(), content, isCompleted: false }]);
     setNewSubtask('');
   }
 

@@ -31,7 +31,8 @@ type FilterMenu = 'projects' | 'priorities' | 'statuses' | null;
 
 type CalendarBlock = {
   id: string;
-  taskId: string;
+  taskId?: string | null;
+  title?: string | null;
   date: string;
   startMinutes: number;
   durationMinutes: number;
@@ -41,7 +42,7 @@ type CalendarBlock = {
 
 type DragState =
   | { type: 'sidebar'; taskId: string }
-  | { type: 'move'; taskId: string; blockId: string; offsetMinutes: number }
+  | { type: 'move'; taskId?: string | null; blockId: string; offsetMinutes: number }
   | null;
 
 interface CalendarViewProps {
@@ -215,6 +216,7 @@ function mapApiBlock(block: ApiCalendarBlock): CalendarBlock {
   return {
     id: block.id,
     taskId: block.taskId,
+    title: block.title,
     date: toDateKey(start),
     startMinutes: start.getHours() * 60 + start.getMinutes(),
     durationMinutes: block.durationMinutes,
@@ -244,6 +246,7 @@ function CalendarTaskAddModal({
   onClose: () => void;
   onAdd: (input: {
     content: string;
+    addAsTask: boolean;
     priority: TaskPriority;
     status: TaskStatus;
     projectId?: string;
@@ -256,6 +259,7 @@ function CalendarTaskAddModal({
   }) => Promise<void>;
 }) {
   const [content, setContent]         = useState('');
+  const [addAsTask, setAddAsTask]     = useState(false);
   const [description, setDescription] = useState('');
   const [priority, setPriority]       = useState<TaskPriority>(Priority.P4);
   const [status, setStatus]           = useState<TaskStatus>('NotStarted');
@@ -295,6 +299,7 @@ function CalendarTaskAddModal({
     try {
       await onAdd({
         content: content.trim(),
+        addAsTask,
         priority,
         status,
         projectId: projectId || undefined,
@@ -363,7 +368,7 @@ function CalendarTaskAddModal({
         onClick={e => e.stopPropagation()}
       >
         <div className="flex-none flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #f1f0ed' }}>
-          <span className="text-[13px] font-semibold text-[#0f1115]">Nowe zadanie</span>
+          <span className="text-[13px] font-semibold text-[#0f1115]">{addAsTask ? 'Nowe zadanie' : 'Nowy blok czasu'}</span>
           <button
             onClick={onClose}
             className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
@@ -382,12 +387,26 @@ function CalendarTaskAddModal({
             onChange={e => setContent(e.target.value)}
             rows={1}
             autoFocus
-            placeholder="Nazwa zadania"
+            placeholder={addAsTask ? 'Nazwa zadania' : 'Nazwa bloku czasu'}
             className="w-full resize-none outline-none bg-transparent leading-snug"
             style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
           />
 
+          <label
+            className="mt-3 flex items-center gap-2.5 rounded-lg border border-[#ececec] bg-[#f7f7f4] px-3 py-2.5 text-[13px] font-medium text-[#3a3f47]"
+          >
+            <input
+              type="checkbox"
+              checked={addAsTask}
+              onChange={e => setAddAsTask(e.target.checked)}
+              className="h-4 w-4 rounded border-[#c8c8c0] text-[#0f1115] focus:ring-[#0f1115]/20"
+            />
+            Dodaj jako zadanie
+          </label>
+
           <div style={{ marginTop: 12 }}>
+            {addAsTask && (
+              <>
             <div className="relative">
               <div className={ROW} onClick={() => { setShowStatusPicker(o => !o); setShowPriorityPicker(false); setShowProjectPicker(false); }}>
                 <span className={LABEL}><StatusIcon /> Status</span>
@@ -478,6 +497,8 @@ function CalendarTaskAddModal({
                 ))}
               </div>
             </div>
+              </>
+            )}
 
             <div className={ROW} style={{ cursor: 'default' }}>
               <span className={LABEL}><ClockIcon /> Czas</span>
@@ -514,6 +535,7 @@ function CalendarTaskAddModal({
               </span>
             </div>
 
+            {addAsTask && (
             <div className={`${ROW} flex-wrap`} style={{ borderBottom: 'none' }}>
               <span className={LABEL} style={{ paddingTop: 1 }}><TagIcon /> Etykiety</span>
               <div className="flex-1 flex flex-wrap items-center gap-1.5">
@@ -546,8 +568,11 @@ function CalendarTaskAddModal({
                 />
               </div>
             </div>
+            )}
           </div>
 
+          {addAsTask && (
+            <>
           <div style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
 
           <div>
@@ -642,6 +667,8 @@ function CalendarTaskAddModal({
               />
             </div>
           </div>
+            </>
+          )}
         </div>
 
         <div className="flex-none flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
@@ -656,7 +683,7 @@ function CalendarTaskAddModal({
               className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
               style={{ padding: '8px 16px', background: '#0f1115' }}
             >
-              {isSaving ? 'Tworzę...' : 'Dodaj zadanie'}
+              {isSaving ? 'Tworzę...' : addAsTask ? 'Dodaj zadanie' : 'Dodaj blok'}
             </button>
           </div>
         </div>
@@ -796,7 +823,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   const visibleBlocks = useMemo(() => {
     const dayKeys = new Set(days.map(toDateKey));
-    return Object.values(blocks).filter(block => dayKeys.has(block.date) && taskById.has(block.taskId));
+    return Object.values(blocks).filter(block => dayKeys.has(block.date) && (!block.taskId || taskById.has(block.taskId)));
   }, [blocks, days, taskById]);
 
   function getBlockForTask(taskId: string) {
@@ -823,7 +850,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   async function persistBlock(block: CalendarBlock) {
     try {
       const updated = await updateCalendarBlock(block.id, {
-        taskId: block.taskId,
+        taskId: block.taskId ?? null,
+        title: block.title ?? null,
         startAt: toLocalIsoWithOffset(block.date, block.startMinutes),
         durationMinutes: block.durationMinutes,
       });
@@ -846,6 +874,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       try {
         const created = await createCalendarBlock({
           taskId,
+          title: null,
           startAt: toLocalIsoWithOffset(date, safeStart),
           durationMinutes: safeDuration,
         });
@@ -860,6 +889,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   async function handleAddTaskFromSlot(input: {
     content: string;
+    addAsTask: boolean;
     priority: TaskPriority;
     status: TaskStatus;
     projectId?: string;
@@ -870,6 +900,21 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     startMinutes: number;
     durationMinutes: number;
   }) {
+    if (!input.addAsTask) {
+      try {
+        const createdBlock = await createCalendarBlock({
+          taskId: null,
+          title: input.content,
+          startAt: toLocalIsoWithOffset(input.date, input.startMinutes),
+          durationMinutes: input.durationMinutes,
+        });
+        upsertApiBlock(createdBlock);
+      } catch (error) {
+        console.error('Failed to create calendar block', error);
+      }
+      return;
+    }
+
     const createdTask = await onAdd(
       input.content,
       input.priority,
@@ -886,6 +931,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     try {
       const createdBlock = await createCalendarBlock({
         taskId: createdTask.id,
+        title: null,
         startAt: toLocalIsoWithOffset(input.date, input.startMinutes),
         durationMinutes: input.durationMinutes,
       });
@@ -969,6 +1015,20 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
     e.preventDefault();
+    if (dragState?.type === 'move' && !dragState.taskId) {
+      const block = blocks[dragState.blockId];
+      if (block) {
+        const safeStart = clamp(roundToQuarter(getDropMinutes(e) - dragState.offsetMinutes), DAY_START, DAY_END - MIN_BLOCK);
+        const safeDuration = clamp(block.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
+        const optimistic = { ...block, date, startMinutes: safeStart, durationMinutes: safeDuration };
+        updateLocalBlock(block.id, optimistic);
+        persistBlock(optimistic);
+      }
+      setDragState(null);
+      setDropPreview(null);
+      return;
+    }
+
     const taskId = e.dataTransfer.getData('application/mindflow-task') || (dragState?.taskId ?? '');
     if (!taskId) return;
     const existing = dragState?.type === 'move' ? blocks[dragState.blockId] : getBlockForTask(taskId);
@@ -1109,10 +1169,13 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       : `${selectedStatuses.length} statusy`;
 
   const renderBlock = (block: CalendarBlock) => {
-    const task = taskById.get(block.taskId);
-    if (!task) return null;
-    const project = projects.find(p => p.id === task.project_id);
-    const meta = getPriorityMeta(task.priority);
+    const task = block.taskId ? taskById.get(block.taskId) : undefined;
+    if (block.taskId && !task) return null;
+    const project = task ? projects.find(p => p.id === task.project_id) : undefined;
+    const meta = task
+      ? getPriorityMeta(task.priority)
+      : { fg: 'oklch(0.46 0.12 185)', bg: 'oklch(0.96 0.035 185)', ring: 'oklch(0.76 0.08 185)' };
+    const title = task?.content ?? block.title ?? 'Blok czasu';
     const top = ((block.startMinutes - DAY_START) / 60) * HOUR_HEIGHT;
     const height = Math.max(42, (block.durationMinutes / 60) * HOUR_HEIGHT);
 
@@ -1126,12 +1189,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           if (Date.now() < suppressBlockClickUntilRef.current) {
             return;
           }
-          setEditingTask(task);
+          if (task) setEditingTask(task);
         }}
         onDragStart={(e) => {
           suppressBlockClickUntilRef.current = Date.now() + 800;
           e.dataTransfer.effectAllowed = 'move';
-          e.dataTransfer.setData('application/mindflow-task', block.taskId);
+          if (block.taskId) e.dataTransfer.setData('application/mindflow-task', block.taskId);
           e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
           const rect = e.currentTarget.getBoundingClientRect();
           const offsetMinutes = ((e.clientY - rect.top) / HOUR_HEIGHT) * 60;
@@ -1154,7 +1217,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         <span className="flex h-full min-h-0 flex-col px-2 py-2">
           <span className="min-w-0">
             <span className="block break-words text-[12.5px] font-semibold leading-tight tracking-[-0.01em] text-[#0f1115]">
-              {task.content}
+              {title}
             </span>
             <span className="mt-1 block text-[10.5px] font-medium leading-snug text-[#5a606b]">
               {formatMinutes(block.startMinutes)}-{formatMinutes(block.startMinutes + block.durationMinutes)}
@@ -1162,6 +1225,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             </span>
           </span>
           {project && <span className="mt-auto block truncate text-[10.5px] font-medium text-[#5a606b]">{project.name}</span>}
+          {!task && <span className="mt-auto block truncate text-[10.5px] font-semibold text-[#0f766e]">Blok czasu</span>}
         </span>
         <span
           role="presentation"
@@ -1250,7 +1314,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                       height: Math.max(42, (selectionSlot.durationMinutes / 60) * HOUR_HEIGHT),
                     }}
                   >
-                    <span className="block text-[11px] font-semibold tracking-[-0.01em] text-[#0f1115]">Nowe zadanie</span>
+                    <span className="block text-[11px] font-semibold tracking-[-0.01em] text-[#0f1115]">Nowy blok czasu</span>
                     <span className="mt-0.5 block text-[10.5px] font-medium leading-snug text-[#5a606b]">
                       {formatMinutes(selectionSlot.startMinutes)}-{formatMinutes(selectionSlot.startMinutes + selectionSlot.durationMinutes)}
                       <span className="block">{durationLabel(selectionSlot.durationMinutes)}</span>
@@ -1299,6 +1363,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       {days.map(day => {
         const key = toDateKey(day);
         const dayTasks = activeTasks.filter(task => task.dueDate === key || Object.values(blocks).some(block => block.taskId === task.id && block.date === key));
+        const dayStandaloneBlocks = visibleBlocks
+          .filter(block => block.date === key && !block.taskId)
+          .sort((a, b) => a.startMinutes - b.startMinutes);
+        const visibleStandaloneBlocks = dayStandaloneBlocks.slice(0, 4);
+        const visibleDayTasks = dayTasks.slice(0, Math.max(0, 4 - visibleStandaloneBlocks.length));
+        const hiddenCount = dayStandaloneBlocks.length + dayTasks.length - visibleStandaloneBlocks.length - visibleDayTasks.length;
         const inMonth = day.getMonth() === anchorDate.getMonth();
         return (
           <div
@@ -1307,6 +1377,17 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
             onDrop={(e) => {
               e.preventDefault();
+              if (dragState?.type === 'move' && !dragState.taskId) {
+                const block = blocks[dragState.blockId];
+                if (block) {
+                  const optimistic = { ...block, date: key };
+                  updateLocalBlock(block.id, optimistic);
+                  persistBlock(optimistic);
+                }
+                setDragState(null);
+                return;
+              }
+
               const taskId = e.dataTransfer.getData('application/mindflow-task') || (dragState?.taskId ?? '');
               if (taskId) moveMonthTask(taskId, key);
               setDragState(null);
@@ -1316,7 +1397,23 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               {day.getDate()}
             </div>
             <div className="space-y-1">
-              {dayTasks.slice(0, 4).map(task => {
+              {visibleStandaloneBlocks.map(block => (
+                <button
+                  key={block.id}
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
+                    setDragState({ type: 'move', taskId: null, blockId: block.id, offsetMinutes: 0 });
+                  }}
+                  onDragEnd={() => setDragState(null)}
+                  className="flex w-full items-center gap-1.5 truncate rounded-lg px-1.5 py-1 text-left text-[11px] font-medium text-[#0f766e] transition-colors duration-200 ease hover:bg-[#ecfdf5] focus:outline-none focus:ring-2 focus:ring-[#0f766e]/20"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#0f766e]" />
+                  <span className="truncate">{formatMinutes(block.startMinutes)} {block.title ?? 'Blok czasu'}</span>
+                </button>
+              ))}
+              {visibleDayTasks.map(task => {
                 const block = getBlockForTask(task.id);
                 const meta = getPriorityMeta(task.priority);
                 return (
@@ -1337,7 +1434,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   </button>
                 );
               })}
-              {dayTasks.length > 4 && <div className="px-1.5 text-[10.5px] font-medium text-[#9098a4]">+{dayTasks.length - 4} więcej</div>}
+              {hiddenCount > 0 && <div className="px-1.5 text-[10.5px] font-medium text-[#9098a4]">+{hiddenCount} więcej</div>}
             </div>
           </div>
         );

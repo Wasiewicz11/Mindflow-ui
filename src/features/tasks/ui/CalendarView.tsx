@@ -11,6 +11,7 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Search,
+  Trash2,
 } from 'lucide-react';
 import type { Project, Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
@@ -707,6 +708,163 @@ function CalendarTaskAddModal({
   );
 }
 
+function CalendarBlockEditModal({
+  block,
+  onClose,
+  onSave,
+}: {
+  block: CalendarBlock;
+  onClose: () => void;
+  onSave: (input: {
+    title: string;
+    startMinutes: number;
+    durationMinutes: number;
+  }) => Promise<void>;
+}) {
+  const [title, setTitle] = useState(block.title ?? 'Blok czasu');
+  const [startMinutes, setStartMinutes] = useState(block.startMinutes);
+  const [durationMinutes, setDurationMinutes] = useState(block.durationMinutes);
+  const [isSaving, setIsSaving] = useState(false);
+  const titleRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    const el = titleRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [title]);
+
+  const safeDuration = clamp(durationMinutes, MIN_BLOCK, DAY_END - startMinutes);
+  const endMinutes = startMinutes + safeDuration;
+  const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-default';
+  const LABEL = 'flex items-center gap-1.5 text-[12.5px] text-[#9098a4] flex-none w-[88px]';
+  const VALUE = 'flex-1 text-[13px] text-[#0f1115]';
+
+  async function handleSave() {
+    if (!title.trim() || isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave({
+        title: title.trim(),
+        startMinutes,
+        durationMinutes: safeDuration,
+      });
+      onClose();
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Escape') onClose();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSave();
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+      <div
+        className="absolute inset-0 backdrop-blur-[2px]"
+        style={{ background: 'rgba(15,17,21,.18)' }}
+        onClick={onClose}
+      />
+
+      <div
+        className="relative z-10 w-full flex flex-col"
+        style={{
+          maxWidth: 420,
+          background: '#fff',
+          border: '1px solid #e8e8e4',
+          borderRadius: 18,
+          boxShadow: '0 24px 48px -12px rgba(15,17,21,.22)',
+          overflow: 'hidden',
+        }}
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex-none flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #f1f0ed' }}>
+          <span className="text-[13px] font-semibold text-[#0f1115]">Edytuj blok czasu</span>
+          <button
+            onClick={onClose}
+            className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
+            style={{ width: 28, height: 28 }}
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M18 6 6 18M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="px-5 py-4">
+          <textarea
+            ref={titleRef}
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            rows={1}
+            autoFocus
+            placeholder="Nazwa bloku czasu"
+            className="w-full resize-none outline-none bg-transparent leading-snug"
+            style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
+          />
+
+          <div style={{ marginTop: 12 }}>
+            <div className={ROW}>
+              <span className={LABEL}><ClockIcon /> Czas</span>
+              <span className={`${VALUE} grid grid-cols-3 gap-2`}>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Od
+                  <input
+                    type="time"
+                    value={formatMinutes(startMinutes)}
+                    onChange={e => setStartMinutes(clamp(parseTimeToMinutes(e.target.value), DAY_START, DAY_END - MIN_BLOCK))}
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
+                  />
+                </label>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Czas
+                  <input
+                    type="number"
+                    min={MIN_BLOCK}
+                    step={15}
+                    value={safeDuration}
+                    onChange={e => setDurationMinutes(clamp(Number(e.target.value) || MIN_BLOCK, MIN_BLOCK, DAY_END - startMinutes))}
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
+                  />
+                </label>
+                <label className="text-[10.5px] font-medium text-[#9098a4]">
+                  Do
+                  <input
+                    type="time"
+                    value={formatMinutes(endMinutes)}
+                    readOnly
+                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#5a606b] outline-none"
+                  />
+                </label>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-none flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
+          <p className="text-[11.5px] text-[#c0c5cc]">⌘ + Enter aby zapisać</p>
+          <div className="flex items-center gap-2">
+            <button onClick={onClose} className="text-[13px] font-medium text-[#9098a4] hover:text-[#0f1115] rounded-xl transition-colors" style={{ padding: '8px 14px' }}>
+              Anuluj
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!title.trim() || isSaving}
+              className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ padding: '8px 16px', background: '#0f1115' }}
+            >
+              {isSaving ? 'Zapisuję...' : 'Zapisz'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete }: CalendarViewProps) {
   const [mode, setMode] = useState<CalendarMode>('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
@@ -720,6 +878,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
   const [openFilterMenu, setOpenFilterMenu] = useState<FilterMenu>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingBlock, setEditingBlock] = useState<CalendarBlock | null>(null);
+  const [blockContextMenu, setBlockContextMenu] = useState<{ blockId: string; x: number; y: number } | null>(null);
   const [addingSlot, setAddingSlot] = useState<CalendarAddSlot | null>(null);
   const [dropPreview, setDropPreview] = useState<{ date: string; startMinutes: number; durationMinutes: number } | null>(null);
   const [slotSelection, setSlotSelection] = useState<SlotSelection | null>(null);
@@ -787,6 +947,23 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       if (intervalId !== undefined) window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!blockContextMenu) return;
+
+    const close = () => setBlockContextMenu(null);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
+    };
+
+    window.addEventListener('click', close);
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [blockContextMenu]);
 
   useEffect(() => {
     const token = getToken();
@@ -872,6 +1049,47 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       upsertApiBlock(updated);
     } catch (error) {
       console.error('Failed to update calendar block', error);
+    }
+  }
+
+  async function saveStandaloneBlock(block: CalendarBlock, input: { title: string; startMinutes: number; durationMinutes: number }) {
+    const safeStart = clamp(roundToQuarter(input.startMinutes), DAY_START, DAY_END - MIN_BLOCK);
+    const safeDuration = clamp(input.durationMinutes, MIN_BLOCK, DAY_END - safeStart);
+    const optimistic = {
+      ...block,
+      title: input.title,
+      startMinutes: safeStart,
+      durationMinutes: safeDuration,
+    };
+
+    updateLocalBlock(block.id, optimistic);
+
+    try {
+      const updated = await updateCalendarBlock(block.id, {
+        taskId: null,
+        title: input.title,
+        startAt: toLocalIsoWithOffset(block.date, safeStart),
+        durationMinutes: safeDuration,
+      });
+      upsertApiBlock(updated);
+    } catch (error) {
+      console.error('Failed to update calendar block', error);
+    }
+  }
+
+  async function deleteStandaloneBlock(blockId: string) {
+    setBlocks(prev => {
+      const next = { ...prev };
+      delete next[blockId];
+      return next;
+    });
+    setEditingBlock(null);
+    setBlockContextMenu(null);
+
+    try {
+      await deleteCalendarBlock(blockId);
+    } catch (error) {
+      console.error('Failed to delete calendar block', error);
     }
   }
 
@@ -1231,6 +1449,13 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             return;
           }
           if (task) setEditingTask(task);
+          else setEditingBlock(block);
+        }}
+        onContextMenu={(e) => {
+          if (task) return;
+          e.preventDefault();
+          e.stopPropagation();
+          setBlockContextMenu({ blockId: block.id, x: e.clientX, y: e.clientY });
         }}
         onDragStart={(e) => {
           suppressBlockClickUntilRef.current = Date.now() + 800;
@@ -1452,6 +1677,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                 <button
                   key={block.id}
                   draggable
+                  onClick={() => setEditingBlock(block)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setBlockContextMenu({ blockId: block.id, x: e.clientX, y: e.clientY });
+                  }}
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = e.altKey ? 'copyMove' : 'move';
                     e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
@@ -1637,6 +1868,26 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         </aside>
       </div>
 
+      {blockContextMenu && blocks[blockContextMenu.blockId] && createPortal(
+        <div
+          role="menu"
+          className="fixed z-[60] min-w-[150px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)]"
+          style={{ left: blockContextMenu.x, top: blockContextMenu.y }}
+          onClick={e => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => deleteStandaloneBlock(blockContextMenu.blockId)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-red-600 transition-colors duration-200 ease hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+          >
+            <Trash2 size={13} strokeWidth={2} />
+            Usuń
+          </button>
+        </div>,
+        document.body
+      )}
+
       {editingTask && (
         <TaskEditModal
           task={editingTask}
@@ -1645,6 +1896,14 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           onDelete={() => { onDelete?.(editingTask.id); clearBlocksForTask(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {editingBlock && (
+        <CalendarBlockEditModal
+          block={editingBlock}
+          onSave={(input) => saveStandaloneBlock(editingBlock, input)}
+          onClose={() => setEditingBlock(null)}
         />
       )}
 

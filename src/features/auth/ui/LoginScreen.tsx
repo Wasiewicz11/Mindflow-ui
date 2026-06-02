@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { BrandMark } from '../../../shared/ui/BrandMark';
 
 interface Props {
   initGoogleButton: (el: HTMLElement) => void;
@@ -55,10 +56,8 @@ export function LoginScreen({ initGoogleButton }: Props) {
       <main className="mx-auto flex min-h-[100dvh] w-full max-w-xl flex-col items-center px-8 pb-10 pt-[14dvh] sm:px-10 sm:pt-[16dvh]">
         <section className="flex w-full flex-col items-center text-center">
           <div className="mb-8 flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0f1115] text-xl font-semibold text-white shadow-[0_12px_32px_-18px_rgba(15,17,21,.55)] dark:bg-white dark:text-[#0f1115]">
-              M
-            </div>
-            <span className="text-[19px] font-semibold tracking-[-0.02em]">MindFlow</span>
+            <BrandMark markClassName="h-11 w-11" />
+            <span className="text-[19px] font-semibold tracking-[-0.02em]">Midle</span>
           </div>
 
           <div className="w-full">

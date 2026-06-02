@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { User, Space, Project } from '../../../shared/types';
+import { BrandMark } from '../../../shared/ui/BrandMark';
 
 type ActiveTab = SidebarProps['activeTab'];
 
@@ -207,10 +208,8 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* LOGO */}
       <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
-        <span className="text-[#0f1115] dark:text-white flex">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-        </span>
-        <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>MindFlow</span>
+        <BrandMark markClassName="h-[18px] w-[18px]" />
+        <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>Midle</span>
       </div>
 
       {/* MAIN NAV */}

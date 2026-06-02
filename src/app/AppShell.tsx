@@ -11,6 +11,7 @@ import { getMe } from '../features/users';
 import { getProjects, createProject, deleteProject, updateProject, ProjectSettingsModal } from '../features/projects';
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
+import { BrandMark } from '../shared/ui/BrandMark';
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
@@ -42,6 +43,10 @@ export function AppShell() {
     document.documentElement.classList.remove('dark', 'theme-gray');
     if (theme === 'dark') document.documentElement.classList.add('dark');
     else if (theme === 'gray') document.documentElement.classList.add('dark', 'theme-gray');
+    const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+    if (favicon) {
+      favicon.href = theme === 'light' ? '/mindle_mark_black.svg' : '/mindle_mark_white.svg';
+    }
     localStorage.setItem('mindflow_theme', theme);
   }, [theme]);
 
@@ -208,9 +213,7 @@ export function AppShell() {
   if (!isAuthReady) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#FDFDFD] text-[#0f1115] dark:bg-[#000000] dark:text-white">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[#0f1115] text-xl font-semibold text-white shadow-[0_12px_32px_-18px_rgba(15,17,21,.55)] dark:bg-white dark:text-[#0f1115]">
-          M
-        </div>
+        <BrandMark markClassName="h-11 w-11" />
       </div>
     );
   }

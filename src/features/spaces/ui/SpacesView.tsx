@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createSpace, deleteSpace, getSpaces } from '../api/spacesApi';
 import type { Space } from '../../../shared/types';
 import { useAuth } from '../../auth/model/useAuth';
+import { BrandMark } from '../../../shared/ui/BrandMark';
 
 interface Props {
   onSelectSpace: (space: Space) => void;
@@ -52,13 +53,9 @@ export function SpacesView({ onSelectSpace }: Props) {
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 flex items-center justify-center shadow-lg shadow-gray-900/20 dark:shadow-white/10">
-              <svg className="w-5 h-5 text-white dark:text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
-              MindFlow
+            <BrandMark markClassName="h-8 w-8" />
+            <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
+              Midle
             </span>
           </div>
 

@@ -64,8 +64,8 @@ export function DesignBook() {
         borderRight: '1px solid #f1f0ed', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto',
       }}>
         <div style={{ padding: '0 20px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="#0f1115"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1115', letterSpacing: '-0.01em' }}>MindFlow</span>
+          <img src="/mindle_mark_black.svg" alt="" style={{ width: 16, height: 16 }} />
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#0f1115', letterSpacing: '-0.01em' }}>Midle</span>
           <span style={{ fontSize: 11, color: '#b0b5be', marginLeft: 2 }}>Design</span>
         </div>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 2, padding: '0 12px' }}>
@@ -93,19 +93,19 @@ export function DesignBook() {
         {/* Header */}
         <div style={{ marginBottom: 64 }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: '#b0b5be', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 12 }}>Design System v1.0</div>
-          <h1 style={{ fontSize: 40, fontWeight: 750, color: '#0f1115', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 12 }}>MindFlow<br/>Design Book</h1>
+          <h1 style={{ fontSize: 40, fontWeight: 750, color: '#0f1115', letterSpacing: '-0.03em', lineHeight: 1.1, marginBottom: 12 }}>Midle<br/>Design Book</h1>
           <p style={{ fontSize: 15, color: '#5a606b', lineHeight: 1.6, maxWidth: 480 }}>
-            Kompletny przewodnik po komponentach, tokenach i wzorcach projektowych używanych w aplikacji MindFlow.
+            Kompletny przewodnik po komponentach, tokenach i wzorcach projektowych używanych w aplikacji Midle.
           </p>
         </div>
 
         {/* ══ 1. BRAND ════════════════════════════════════════════════════════ */}
-        <Section id="brand" title="Brand Identity" subtitle="Fundament wizualny MindFlow — logo, nazwa, misja.">
+        <Section id="brand" title="Brand Identity" subtitle="Fundament wizualny Midle — logo, nazwa, misja.">
 
           <div style={{ background: '#0f1115', borderRadius: 18, padding: 48, marginBottom: 24, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <svg viewBox="0 0 24 24" width="32" height="32" fill="white"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-              <span style={{ fontSize: 28, fontWeight: 700, color: 'white', letterSpacing: '-0.02em' }}>MindFlow</span>
+              <img src="/mindle_mark_white.svg" alt="" style={{ width: 32, height: 32 }} />
+              <span style={{ fontSize: 28, fontWeight: 700, color: 'white', letterSpacing: '-0.02em' }}>Midle</span>
             </div>
             <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Think less. Flow more.</p>
           </div>
@@ -131,8 +131,8 @@ export function DesignBook() {
             ].map(v => (
               <div key={v.label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
                 <div style={{ background: v.bg, border: v.border, borderRadius: 14, padding: '16px 24px', display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill={v.bg === '#0f1115' ? 'white' : '#0f1115'}><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: v.bg === '#0f1115' ? 'white' : '#0f1115', letterSpacing: '-0.01em' }}>MindFlow</span>
+                  <img src={v.bg === '#0f1115' ? '/mindle_mark_white.svg' : '/mindle_mark_black.svg'} alt="" style={{ width: 18, height: 18 }} />
+                  <span style={{ fontSize: 15, fontWeight: 700, color: v.bg === '#0f1115' ? 'white' : '#0f1115', letterSpacing: '-0.01em' }}>Midle</span>
                 </div>
                 <span style={{ fontSize: 11, color: '#9098a4' }}>{v.label}</span>
               </div>
@@ -253,7 +253,7 @@ export function DesignBook() {
               { label: 'Display',  size: 40, weight: 750, tracking: '-0.03em', lh: 1.1,  text: 'Dzień dobry, Filip.' },
               { label: 'H1',       size: 28, weight: 700, tracking: '-0.02em', lh: 1.2,  text: 'Twoje zadania na dziś' },
               { label: 'H2',       size: 22, weight: 700, tracking: '-0.02em', lh: 1.3,  text: 'Aktywne projekty' },
-              { label: 'H3',       size: 18, weight: 650, tracking: '-0.01em', lh: 1.4,  text: 'Mindflow – organizuj myśli' },
+              { label: 'H3',       size: 18, weight: 650, tracking: '-0.01em', lh: 1.4,  text: 'Midle - organizuj myśli' },
               { label: 'Body L',   size: 15, weight: 400, tracking: '0',       lh: 1.6,  text: 'Tekst opisu, kontekstu, notatki. Zawsze czytelny, nigdy przytłaczający.' },
               { label: 'Body M',   size: 13.5, weight: 400, tracking: '0',     lh: 1.6,  text: 'Treść zadania, opis projektu, notatka.' },
               { label: 'Body S',   size: 13, weight: 400, tracking: '0',       lh: 1.5,  text: 'Labels, dropdown items, secondary content.' },
@@ -599,8 +599,8 @@ export function DesignBook() {
         {/* Footer */}
         <div style={{ paddingTop: 32, borderTop: '1px solid #f1f0ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="#0f1115"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8Z"/></svg>
-            <span style={{ fontSize: 12, color: '#9098a4' }}>MindFlow Design System v1.0</span>
+            <img src="/mindle_mark_black.svg" alt="" style={{ width: 14, height: 14 }} />
+            <span style={{ fontSize: 12, color: '#9098a4' }}>Midle Design System v1.0</span>
           </div>
           <span style={{ fontSize: 12, color: '#b0b5be' }}>Filipwasiewicz — 2026</span>
         </div>

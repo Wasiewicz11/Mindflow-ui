@@ -4,7 +4,7 @@ import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 import { getProjectTags } from '../../projects';
-import { getTask } from '../api/tasksApi';
+import { createSubtask, deleteSubtask, getTask, reorderSubtasks, updateSubtask as updateSubtaskApi } from '../api/tasksApi';
 import { mapApiTask } from '../model/taskModel';
 import { DescriptionField } from './DescriptionField';
 
@@ -115,7 +115,6 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [subtaskDescriptionEditorId, setSubtaskDescriptionEditorId] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
-  const subtaskSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   function applyTaskDetails(nextTask: Task) {
     setLoadedTask(nextTask);
@@ -213,14 +212,17 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     onSave(updates);
   }
 
-  function persistSubtasks(nextSubtasks: Subtask[]) {
-    const subtasksToSave = nextSubtasks.map((subtask, index) => ({ ...subtask, sortOrder: subtask.sortOrder ?? index }));
-    subtaskSaveQueueRef.current = subtaskSaveQueueRef.current
-      .catch(() => undefined)
-      .then(() => Promise.resolve(onSave({ subtasks: subtasksToSave })))
-      .catch(error => {
-        console.warn('Failed to persist subtasks:', error);
-      });
+  function applyApiTask(apiTask: Parameters<typeof mapApiTask>[0]) {
+    applyTaskDetails(mapApiTask(apiTask));
+  }
+
+  async function persistSubtask(nextSubtask: Subtask) {
+    try {
+      const updated = await updateSubtaskApi(loadedTask.id, nextSubtask);
+      applyApiTask(updated);
+    } catch (error) {
+      console.warn('Failed to persist subtask:', error);
+    }
   }
 
   function addTag() {
@@ -251,28 +253,40 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   function addSubtask() {
     const c = newSubtask.trim();
     if (!c) return;
-    const next = [...subtasks, { id: crypto.randomUUID(), content: c, isCompleted: false, sortOrder: subtasks.length }];
-    setSubtasks(next);
-    persistSubtasks(next);
+    const subtask = { id: crypto.randomUUID(), content: c, isCompleted: false, sortOrder: subtasks.length };
+    setSubtasks(prev => [...prev, subtask]);
     setNewSubtask('');
+    createSubtask(loadedTask.id, subtask)
+      .then(applyApiTask)
+      .catch(error => {
+        console.warn('Failed to create subtask:', error);
+        setSubtasks(prev => prev.filter(item => item.id !== subtask.id));
+      });
   }
 
   function toggleSubtask(id: string) {
     const next = subtasks.map(s => s.id === id ? { ...s, isCompleted: !s.isCompleted } : s);
     setSubtasks(next);
-    persistSubtasks(next);
+    const changed = next.find(s => s.id === id);
+    if (changed) void persistSubtask(changed);
   }
 
   function updateSubtask(id: string, updates: Partial<Subtask>, persist = false) {
     const next = subtasks.map(s => s.id === id ? { ...s, ...updates } : s);
     setSubtasks(next);
-    if (persist) persistSubtasks(next);
+    const changed = next.find(s => s.id === id);
+    if (persist && changed) void persistSubtask(changed);
   }
 
   function removeSubtask(id: string) {
     const next = subtasks.filter(s => s.id !== id).map((s, index) => ({ ...s, sortOrder: index }));
     setSubtasks(next);
-    persistSubtasks(next);
+    deleteSubtask(loadedTask.id, id)
+      .then(applyApiTask)
+      .catch(error => {
+        console.warn('Failed to delete subtask:', error);
+        setSubtasks(subtasks);
+      });
     if (subtaskDatePicker?.id === id) setSubtaskDatePicker(null);
     if (subtaskDescriptionEditorId === id) setSubtaskDescriptionEditorId(null);
   }
@@ -286,7 +300,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     next.splice(nextIndex, 0, item);
     const ordered = next.map((s, order) => ({ ...s, sortOrder: order }));
     setSubtasks(ordered);
-    persistSubtasks(ordered);
+    reorderSubtasks(loadedTask.id, ordered.map(subtask => subtask.id))
+      .then(applyApiTask)
+      .catch(error => {
+        console.warn('Failed to reorder subtasks:', error);
+        setSubtasks(subtasks);
+      });
   }
 
   // close pickers when clicking outside modal — handled by backdrop
@@ -685,7 +704,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                       <input
                         value={sub.content}
                         onChange={e => updateSubtask(sub.id, { content: e.target.value })}
-                        onBlur={e => persistSubtasks(subtasks.map(s => s.id === sub.id ? { ...s, content: e.currentTarget.value } : s))}
+                        onBlur={e => updateSubtask(sub.id, { content: e.currentTarget.value }, true)}
                         className="min-w-0 flex-1 bg-transparent text-[13px] outline-none transition-colors"
                         style={{
                           color: sub.isCompleted ? '#9098a4' : '#0f1115',

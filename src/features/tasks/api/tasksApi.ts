@@ -54,3 +54,28 @@ export function updateTask(id: string, dto: UpdateTaskDto): Promise<ApiTask> {
 export function deleteTask(id: string): Promise<void> {
   return apiFetch<void>(`/tasks/${id}`, { method: 'DELETE' });
 }
+
+export function createSubtask(taskId: string, subtask: Subtask): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${taskId}/subtasks`, {
+    method: 'POST',
+    body: JSON.stringify(subtask),
+  });
+}
+
+export function updateSubtask(taskId: string, subtask: Subtask): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${taskId}/subtasks/${subtask.id}`, {
+    method: 'PUT',
+    body: JSON.stringify(subtask),
+  });
+}
+
+export function deleteSubtask(taskId: string, subtaskId: string): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${taskId}/subtasks/${subtaskId}`, { method: 'DELETE' });
+}
+
+export function reorderSubtasks(taskId: string, subtaskIds: string[]): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${taskId}/subtasks/reorder`, {
+    method: 'PUT',
+    body: JSON.stringify({ subtaskIds }),
+  });
+}

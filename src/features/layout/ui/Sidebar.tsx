@@ -38,6 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [expandedSpaces, setExpandedSpaces] = useState<Record<string, boolean>>({});
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [pendingDeleteProject, setPendingDeleteProject] = useState<Project | null>(null);
 
   const menuItems: Array<{ id: ActiveTab; label: string; icon: React.ReactNode }> = [
     {
@@ -170,30 +171,32 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       <button
         onClick={() => { setActiveTab('tasks'); onSelectProject(project.id); }}
-        className={`w-full flex items-center px-3 py-2 rounded-lg text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
+        className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 pr-16 text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
           activeProjectId === project.id && activeTab === 'tasks'
             ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium translate-x-1'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 hover:translate-x-1'
         }`}
       >
-        <span className="w-2 h-2 rounded-full mr-2 transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }}></span>
-        <span className="truncate max-w-[120px] text-left">{project.name}</span>
-        <span className="ml-auto flex-none rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] dark:bg-white/8 dark:text-gray-400">
+        <span className="h-2 w-2 flex-none rounded-full transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }} />
+        <span className="min-w-0 flex-1 truncate text-left">{project.name}</span>
+        <span className="flex-none rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-0 group-focus-within:translate-x-1 group-focus-within:opacity-0 dark:bg-white/8 dark:text-gray-400">
           {activeTaskCountByProjectId[project.id] ?? 0}
         </span>
       </button>
-      <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute right-2 flex items-center gap-1 rounded-md bg-white/92 px-1 py-0.5 opacity-0 shadow-sm backdrop-blur-sm transition-all duration-200 group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100 dark:bg-[#1C1C1E]/92 dark:shadow-black/20 -translate-x-1">
         <button
           onClick={(e) => { e.stopPropagation(); onOpenProjectSettings(project.id); }}
-          className="text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 transition-all hover:scale-110"
+          className="rounded-md p-1 text-gray-400 transition-all duration-200 hover:scale-110 hover:bg-[#f1f0ed] hover:text-[#5a606b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:text-gray-500 dark:hover:bg-white/8 dark:hover:text-gray-200"
           title="Ustawienia projektu"
+          aria-label={`Ustawienia projektu ${project.name}`}
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id); }}
-          className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-all hover:scale-110"
+          onClick={(e) => { e.stopPropagation(); setPendingDeleteProject(project); }}
+          className="rounded-md p-1 text-gray-400 transition-all duration-200 hover:scale-110 hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 dark:text-gray-500 dark:hover:bg-red-950/30 dark:hover:text-red-400"
           title="Usuń projekt"
+          aria-label={`Usuń projekt ${project.name}`}
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
@@ -204,7 +207,8 @@ const Sidebar: React.FC<SidebarProps> = ({
   const isDropTarget = (id: string) => draggingProjectId !== null && dragOverTarget === id;
 
   return (
-    <div className="hidden lg:flex h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10" style={{ width: 220 }}>
+    <>
+      <div className="hidden lg:flex h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10" style={{ width: 220 }}>
 
       {/* LOGO */}
       <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
@@ -389,7 +393,46 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-    </div>
+      </div>
+
+      {pendingDeleteProject && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-[#0f1115]/20 backdrop-blur-sm animate-fade-in dark:bg-black/40"
+            onClick={() => setPendingDeleteProject(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-[#FDFDFD] shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] animate-scale-in dark:border-white/8 dark:bg-[#1C1C1E]">
+            <div className="p-6">
+              <h3 className="text-[17px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">
+                Usunąć projekt?
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[#5a606b] dark:text-gray-300">
+                Projekt <span className="font-medium text-[#0f1115] dark:text-white">{pendingDeleteProject.name}</span> zostanie usunięty na stałe. Tej operacji nie można cofnąć.
+              </p>
+              <div className="mt-5 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPendingDeleteProject(null)}
+                  className="flex-1 rounded-xl border border-[#e8e8e4] px-4 py-2 text-sm font-medium text-[#5a606b] transition-colors duration-200 hover:bg-[#f7f7f4] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:border-white/10 dark:text-gray-300 dark:hover:bg-white/5"
+                >
+                  Anuluj
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onDeleteProject(pendingDeleteProject.id);
+                    setPendingDeleteProject(null);
+                  }}
+                  className="flex-1 rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white transition-colors duration-200 hover:bg-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200 dark:focus-visible:ring-red-900/60"
+                >
+                  Usuń projekt
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

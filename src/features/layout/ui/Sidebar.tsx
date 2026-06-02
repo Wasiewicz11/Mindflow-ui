@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import type { User, Space, Project } from '../../../shared/types';
 
+type ActiveTab = SidebarProps['activeTab'];
+
 interface SidebarProps {
   activeTab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
   setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings') => void;
@@ -36,7 +38,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [draggingProjectId, setDraggingProjectId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
 
-  const menuItems = [
+  const menuItems: Array<{ id: ActiveTab; label: string; icon: React.ReactNode }> = [
     {
       id: 'dashboard', label: 'Centrum', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
@@ -216,7 +218,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {menuItems.map(item => (
           <button
             key={item.id}
-            onClick={() => { setActiveTab(item.id as any); if (item.id === 'tasks') onSelectProject(null); }}
+            onClick={() => { setActiveTab(item.id); if (item.id === 'tasks') onSelectProject(null); }}
             className={`w-full cursor-pointer flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
               isNavActive(item.id)
                 ? 'font-semibold text-[#0f1115] dark:text-white'

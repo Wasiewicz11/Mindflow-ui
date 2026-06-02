@@ -24,7 +24,7 @@ export function AppShell() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = false;
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null);
 
@@ -46,10 +46,6 @@ export function AppShell() {
   }, [theme]);
 
   useEffect(() => {
-    setIsLoading(false);
-  }, [tasks]);
-
-  useEffect(() => {
     if (!isLoggedIn) return;
     getMe().then(setUser).catch(() => {});
   }, [isLoggedIn]);
@@ -69,7 +65,8 @@ export function AppShell() {
   }, []);
 
   useEffect(() => {
-    if (isLoggedIn) fetchSpaces();
+    if (!isLoggedIn) return;
+    void Promise.resolve().then(fetchSpaces);
   }, [isLoggedIn, fetchSpaces]);
 
   const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[]) => {
@@ -201,7 +198,11 @@ export function AppShell() {
     if (b.dueDate) return 1;
     return b.createdAt.getTime() - a.createdAt.getTime();
   });
-  const todayTasks = tasks.filter(t => !t.isCompleted && t.dueDate && t.dueDate <= todayStr);
+  const todayTasks = tasks.filter(t => {
+    if (t.isCompleted) return false;
+    if (t.dueDate && t.dueDate <= todayStr) return true;
+    return t.dueSubtasks?.some(subtask => !subtask.isCompleted && subtask.dueDate && subtask.dueDate <= todayStr) ?? false;
+  });
   const importantTasks = tasks.filter(t => !t.isCompleted && t.priority === TaskPriority.P1 && (!t.dueDate || t.dueDate > todayStr));
 
   if (!isAuthReady) {
@@ -221,7 +222,7 @@ export function AppShell() {
   const activeProject = projects.find(p => p.id === activeProjectId);
   const showProjectView = activeTab === 'tasks' && !!activeProjectId && !!activeProject;
 
-  const MobileBottomNav = () => (
+  const mobileBottomNav = (
     <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-black/90 backdrop-blur-xl border-t border-gray-100/50 dark:border-white/5 z-50 px-6 pt-3 pb-8 flex justify-between items-center shadow-lg shadow-gray-200/50 dark:shadow-none transition-colors duration-300">
       <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'dashboard' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
@@ -343,7 +344,7 @@ export function AppShell() {
                   {todayTasks.length > 0 && (
                     <div>
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Na dziś / Zaległe</h2>
-                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} />
+                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} showDueSubtasks />
                     </div>
                   )}
 
@@ -500,7 +501,7 @@ export function AppShell() {
           </>
         )}
 
-        <MobileBottomNav />
+        {mobileBottomNav}
       </main>
 
       {spaceSettingsId && (() => {

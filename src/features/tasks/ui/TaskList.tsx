@@ -21,6 +21,7 @@ interface TaskListProps {
   compactMode?: boolean;
   isLoading?: boolean;
   activeProjectId?: string | null;
+  showDueSubtasks?: boolean;
 }
 
 const TaskList: React.FC<TaskListProps> = ({
@@ -34,7 +35,8 @@ const TaskList: React.FC<TaskListProps> = ({
   onBulkEdit,
   compactMode = false,
   isLoading = false,
-  activeProjectId = null
+  activeProjectId = null,
+  showDueSubtasks = false
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
@@ -126,6 +128,12 @@ const TaskList: React.FC<TaskListProps> = ({
     if (isTomorrow) return 'Jutro';
 
     return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+  };
+
+  const getSubtaskProgress = (task: Task) => {
+    const total = task.subtaskTotalCount ?? task.subtasks?.length ?? 0;
+    const completed = task.subtaskCompletedCount ?? task.subtasks?.filter(subtask => subtask.isCompleted).length ?? 0;
+    return { completed, total };
   };
 
   const openAddModal = () => {
@@ -223,6 +231,8 @@ const TaskList: React.FC<TaskListProps> = ({
     const isSelected = selectedIds.includes(task.id);
     const closingPhase = task.isCompleted ? undefined : closingTasks[task.id];
     const isClosing = !!closingPhase;
+    const subtaskProgress = getSubtaskProgress(task);
+    const dueSubtasks = showDueSubtasks ? (task.dueSubtasks ?? []).filter(subtask => !subtask.isCompleted) : [];
 
     return (
       <div
@@ -260,7 +270,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
           <div className="flex flex-col truncate pr-2">
             <span className={`font-medium truncate transition-all duration-200 ease ${compactMode ? 'text-xs' : 'text-sm'} ${task.isCompleted || isClosing ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200'}`}>
-              {task.content}
+              {dueSubtasks.length > 0 ? `#${task.content}` : task.content}
             </span>
 
             {!compactMode && (
@@ -292,10 +302,27 @@ const TaskList: React.FC<TaskListProps> = ({
                 {project && <span className="mx-1">• {project.name}</span>}
               </div>
             )}
+            {dueSubtasks.length > 0 && (
+              <div className="mt-1 space-y-0.5">
+                {dueSubtasks.slice(0, 3).map(subtask => (
+                  <div key={subtask.id} className="flex min-w-0 items-center gap-1 text-[10px] text-gray-400 dark:text-gray-500">
+                    <span className="text-gray-300 dark:text-gray-600">##</span>
+                    <span className="truncate">{subtask.content}</span>
+                    {subtask.dueDate && <span className="flex-none">{formatDate(subtask.dueDate)}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center">
+        <div className="flex items-center gap-2">
+          {subtaskProgress.total > 0 && !isSelectionMode && (
+            <span className="flex-none rounded-md bg-[#f7f7f4] px-1.5 py-0.5 text-[11px] font-semibold text-[#9098a4]" title="Wykonane podzadania">
+              {subtaskProgress.completed}/{subtaskProgress.total}
+            </span>
+          )}
+
           {!compactMode && !isSelectionMode && (
             <div className="
               flex items-center justify-center
@@ -387,7 +414,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
         {/* Ukończ zaznaczone */}
         <button
-          onClick={() => { onBulkEdit && onBulkEdit(selectedIds, { isCompleted: true }); setIsSelectionMode(false); setSelectedIds([]); }}
+          onClick={() => { onBulkEdit?.(selectedIds, { isCompleted: true }); setIsSelectionMode(false); setSelectedIds([]); }}
           className="col-span-1 flex items-center justify-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-800/40 lg:border-none lg:bg-transparent lg:hover:bg-emerald-50 dark:lg:hover:bg-emerald-900/20 py-2.5 px-3 lg:py-1.5 rounded-2xl lg:rounded-full transition-colors text-xs font-semibold"
           title="Oznacz jako ukończone"
         >

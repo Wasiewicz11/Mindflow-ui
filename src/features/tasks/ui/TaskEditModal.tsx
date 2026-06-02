@@ -84,6 +84,9 @@ function subtasksEqual(a: Subtask[] = [], b: Subtask[] = []) {
     item.id === b[index].id
     && item.content === b[index].content
     && item.isCompleted === b[index].isCompleted
+    && (item.description ?? '') === (b[index].description ?? '')
+    && (item.dueDate ?? '') === (b[index].dueDate ?? '')
+    && (item.sortOrder ?? index) === (b[index].sortOrder ?? index)
   ));
 }
 
@@ -104,6 +107,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [showStatusPicker, setShowStatusPicker]     = useState(false);
   const [showProjectPicker, setShowProjectPicker]   = useState(false);
   const [showDatePicker, setShowDatePicker]         = useState(false);
+  const [subtaskDateOpenId, setSubtaskDateOpenId]   = useState<string | null>(null);
+  const [subtaskDescriptionOpenId, setSubtaskDescriptionOpenId] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -231,12 +236,34 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   function addSubtask() {
     const c = newSubtask.trim();
     if (!c) return;
-    setSubtasks(prev => [...prev, { id: Date.now().toString(), content: c, isCompleted: false }]);
+    setSubtasks(prev => [...prev, { id: Date.now().toString(), content: c, isCompleted: false, sortOrder: prev.length }]);
     setNewSubtask('');
   }
 
   function toggleSubtask(id: string) {
     setSubtasks(prev => prev.map(s => s.id === id ? { ...s, isCompleted: !s.isCompleted } : s));
+  }
+
+  function updateSubtask(id: string, updates: Partial<Subtask>) {
+    setSubtasks(prev => prev.map(s => s.id === id ? { ...s, ...updates } : s));
+  }
+
+  function removeSubtask(id: string) {
+    setSubtasks(prev => prev.filter(s => s.id !== id).map((s, index) => ({ ...s, sortOrder: index })));
+    if (subtaskDateOpenId === id) setSubtaskDateOpenId(null);
+    if (subtaskDescriptionOpenId === id) setSubtaskDescriptionOpenId(null);
+  }
+
+  function moveSubtask(id: string, direction: -1 | 1) {
+    setSubtasks(prev => {
+      const index = prev.findIndex(s => s.id === id);
+      const nextIndex = index + direction;
+      if (index < 0 || nextIndex < 0 || nextIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [item] = next.splice(index, 1);
+      next.splice(nextIndex, 0, item);
+      return next.map((s, order) => ({ ...s, sortOrder: order }));
+    });
   }
 
   // close pickers when clicking outside modal — handled by backdrop
@@ -608,47 +635,143 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             )}
 
             {/* Subtask list */}
-            <div className="space-y-0.5">
-              {subtasks.map(sub => (
-                <div
-                  key={sub.id}
-                  className="flex items-center gap-2.5 py-1.5 group/sub"
-                >
-                  <button
-                    onClick={() => toggleSubtask(sub.id)}
-                    className="flex-none rounded-full border transition-all"
-                    style={{
-                      width: 16, height: 16,
-                      borderColor: sub.isCompleted ? '#0f1115' : '#d4d4d0',
-                      background: sub.isCompleted ? '#0f1115' : 'transparent',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {sub.isCompleted && (
-                      <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
-                        <path d="M5 13l4 4L19 7"/>
-                      </svg>
-                    )}
-                  </button>
-                  <span
-                    className="text-[13px] flex-1"
-                    style={{
-                      color: sub.isCompleted ? '#9098a4' : '#0f1115',
-                      textDecoration: sub.isCompleted ? 'line-through' : 'none',
-                    }}
-                  >
-                    {sub.content}
-                  </span>
-                  <button
-                    onClick={() => setSubtasks(prev => prev.filter(s => s.id !== sub.id))}
-                    className="opacity-0 group-hover/sub:opacity-100 transition-opacity text-[#9098a4] hover:text-red-500"
-                  >
-                    <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                      <path d="M18 6 6 18M6 6l12 12"/>
-                    </svg>
-                  </button>
-                </div>
-              ))}
+            <div className="space-y-1">
+              {subtasks.map((sub, index) => {
+                const descriptionOpen = subtaskDescriptionOpenId === sub.id;
+                const dateOpen = subtaskDateOpenId === sub.id;
+                return (
+                  <div key={sub.id} className="group/sub rounded-xl transition-colors hover:bg-[#f7f7f4]" style={{ padding: '6px 7px' }}>
+                    <div className="flex items-center gap-2">
+                      <span className="w-4 flex-none text-right text-[11px] font-medium text-[#c0c5cc]">{index + 1}.</span>
+
+                      <button
+                        onClick={() => toggleSubtask(sub.id)}
+                        className="flex-none rounded-full border transition-all duration-200 ease hover:scale-110 hover:border-[#0f1115]"
+                        style={{
+                          width: 16, height: 16,
+                          borderColor: sub.isCompleted ? '#0f1115' : '#d4d4d0',
+                          background: sub.isCompleted ? '#0f1115' : 'transparent',
+                          flexShrink: 0,
+                        }}
+                        title={sub.isCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
+                      >
+                        {sub.isCompleted && (
+                          <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+                            <path d="M5 13l4 4L19 7"/>
+                          </svg>
+                        )}
+                      </button>
+
+                      <input
+                        value={sub.content}
+                        onChange={e => updateSubtask(sub.id, { content: e.target.value })}
+                        className="min-w-0 flex-1 bg-transparent text-[13px] outline-none transition-colors"
+                        style={{
+                          color: sub.isCompleted ? '#9098a4' : '#0f1115',
+                          textDecoration: sub.isCompleted ? 'line-through' : 'none',
+                        }}
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubtaskDateOpenId(dateOpen ? null : sub.id);
+                          setSubtaskDescriptionOpenId(null);
+                        }}
+                        className="inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[11.5px] font-medium text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
+                        title="Termin podzadania"
+                      >
+                        <CalIcon />
+                        <span>{sub.dueDate ? new Date(sub.dueDate + 'T00:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—'}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSubtaskDescriptionOpenId(descriptionOpen ? null : sub.id);
+                          setSubtaskDateOpenId(null);
+                        }}
+                        className="flex h-7 w-7 flex-none items-center justify-center rounded-lg transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
+                        style={{ color: sub.description?.trim() ? '#9098a4' : '#c0c5cc' }}
+                        title={sub.description?.trim() ? 'Opis dostępny' : 'Dodaj opis'}
+                      >
+                        <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <path d="M14 2v6h6M8 13h8M8 17h5" />
+                        </svg>
+                      </button>
+
+                      <div className="flex flex-none items-center opacity-0 transition-opacity group-hover/sub:opacity-100">
+                        <button
+                          type="button"
+                          onClick={() => moveSubtask(sub.id, -1)}
+                          disabled={index === 0}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Przesuń wyżej"
+                        >
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="m6 15 6-6 6 6"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveSubtask(sub.id, 1)}
+                          disabled={index === subtasks.length - 1}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Przesuń niżej"
+                        >
+                          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="m6 9 6 6 6-6"/></svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSubtask(sub.id)}
+                          className="flex h-6 w-6 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-red-50 hover:text-red-500"
+                          title="Usuń podzadanie"
+                        >
+                          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                            <path d="M18 6 6 18M6 6l12 12"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateRows: dateOpen ? '1fr' : '0fr',
+                        transition: 'grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden' }}>
+                        <div className="ml-[54px] mt-2 max-w-[240px]">
+                          <CalendarDatePicker
+                            value={sub.dueDate ?? ''}
+                            onChange={date => updateSubtask(sub.id, { dueDate: date || undefined })}
+                            onClose={() => setSubtaskDateOpenId(null)}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateRows: descriptionOpen ? '1fr' : '0fr',
+                        transition: 'grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+                      }}
+                    >
+                      <div style={{ overflow: 'hidden' }}>
+                        <div className="ml-[28px] mt-2">
+                          <DescriptionField
+                            value={sub.description ?? ''}
+                            onChange={description => updateSubtask(sub.id, { description })}
+                            placeholder="Opis podzadania..."
+                            title={sub.content.trim() || content.trim() || undefined}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             {/* Add subtask input */}

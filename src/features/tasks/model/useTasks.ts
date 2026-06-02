@@ -19,7 +19,7 @@ export function useTasks(isLoggedIn: boolean) {
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    fetchTasks();
+    void Promise.resolve().then(fetchTasks);
 
     const token = getToken();
     const connection = new signalR.HubConnectionBuilder()

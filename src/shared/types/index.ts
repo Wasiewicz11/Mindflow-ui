@@ -52,6 +52,9 @@ export interface Subtask {
   id: string;
   content: string;
   isCompleted: boolean;
+  description?: string;
+  dueDate?: string;
+  sortOrder?: number;
 }
 
 // Task rozszerzone o pola wizualne (isCompleted, priority jako P1-P4, project_id)
@@ -69,6 +72,10 @@ export interface Task {
   description?: string;
   tags?: string[];
   subtasks?: Subtask[];
+  dueSubtasks?: Subtask[];
+  subtaskCompletedCount?: number;
+  subtaskTotalCount?: number;
+  subtaskDueCount?: number;
 }
 
 export type InputMode = 'text' | 'audio';

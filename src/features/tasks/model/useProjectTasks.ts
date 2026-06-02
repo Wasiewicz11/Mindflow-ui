@@ -18,7 +18,7 @@ export function useProjectTasks(projectId: string) {
   }, [projectId]);
 
   useEffect(() => {
-    fetchTasks();
+    void Promise.resolve().then(fetchTasks);
   }, [fetchTasks]);
 
   const addTask = useCallback(async (
@@ -39,7 +39,10 @@ export function useProjectTasks(projectId: string) {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...withDerived } : t));
 
     const dto = toUpdateTaskDto(updates);
-    if (Object.keys(dto).length > 0) await updateTask(id, dto);
+    if (Object.keys(dto).length > 0) {
+      const updated = await updateTask(id, dto);
+      setTasks(prev => prev.map(t => t.id === id ? mapApiTask(updated) : t));
+    }
   }, []);
 
   const removeTask = useCallback(async (id: string) => {

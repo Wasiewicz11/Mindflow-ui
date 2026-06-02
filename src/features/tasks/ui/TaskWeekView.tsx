@@ -46,15 +46,22 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
     const q = search.toLowerCase();
     return open.filter(t =>
       t.content.toLowerCase().includes(q) ||
-      t.tags?.some(tag => tag.toLowerCase().includes(q))
+      t.tags?.some(tag => tag.toLowerCase().includes(q)) ||
+      t.dueSubtasks?.some(subtask => subtask.content.toLowerCase().includes(q))
     );
   }, [tasks, search]);
 
-  const overdueTasks = activeTasks.filter(t => t.dueDate && t.dueDate < todayStr);
-  const noDateTasks = activeTasks.filter(t => !t.dueDate);
+  const hasDueSubtaskBefore = (task: Task, dateStr: string) =>
+    task.dueSubtasks?.some(subtask => !subtask.isCompleted && subtask.dueDate && subtask.dueDate < dateStr) ?? false;
+
+  const hasDueSubtaskOn = (task: Task, dateStr: string) =>
+    task.dueSubtasks?.some(subtask => !subtask.isCompleted && subtask.dueDate === dateStr) ?? false;
+
+  const overdueTasks = activeTasks.filter(t => (t.dueDate && t.dueDate < todayStr) || hasDueSubtaskBefore(t, todayStr));
+  const noDateTasks = activeTasks.filter(t => !t.dueDate && !(t.dueSubtasks?.some(subtask => !subtask.isCompleted && subtask.dueDate) ?? false));
 
   const getTasksForDate = (dateStr: string) => {
-    return activeTasks.filter(t => t.dueDate === dateStr);
+    return activeTasks.filter(t => t.dueDate === dateStr || hasDueSubtaskOn(t, dateStr));
   };
 
   const formatDateLabel = (date: Date) => {
@@ -115,7 +122,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
     setDraggedTaskId(null);
   };
 
-  const renderTaskCard = (task: Task) => {
+  const renderTaskCard = (task: Task, dateKey?: string | null) => {
     const project = projects.find(p => p.id === task.project_id);
     const isBeingDragged = draggedTaskId === task.id;
 
@@ -127,6 +134,12 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
 
     const dateDisplay = formatDateDetail(task.dueDate);
     const isOverdueOrToday = task.dueDate && new Date(task.dueDate).toISOString().split('T')[0] <= todayStr;
+    const visibleDueSubtasks = (task.dueSubtasks ?? []).filter(subtask => {
+      if (subtask.isCompleted || !subtask.dueDate) return false;
+      if (dateKey === 'overdue') return subtask.dueDate < todayStr;
+      if (!dateKey || dateKey === 'nodate') return false;
+      return subtask.dueDate === dateKey;
+    });
 
     return (
       <div
@@ -151,8 +164,19 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
 
           <div className="flex-1 min-w-0">
             <p className="text-xs font-medium text-gray-800 dark:text-gray-200 leading-snug mb-1 break-words">
-              {task.content}
+              #{task.content}
             </p>
+            {visibleDueSubtasks.length > 0 && (
+              <div className="mb-1 space-y-0.5">
+                {visibleDueSubtasks.slice(0, 3).map(subtask => (
+                  <div key={subtask.id} className="flex min-w-0 items-center gap-1 text-[10px] font-medium text-gray-400 dark:text-gray-500">
+                    <span className="text-gray-300 dark:text-gray-600">##</span>
+                    <span className="truncate">{subtask.content}</span>
+                    {subtask.dueDate && <span className="flex-none">{formatDateDetail(subtask.dueDate)}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-2 flex-wrap">
               {dateDisplay && (
@@ -204,7 +228,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
         <div className="flex-1 overflow-y-auto custom-scrollbar px-1 pb-48 lg:pb-20 min-h-[200px]">
           {columnTasks.length > 0 || isOver ? (
             <>
-              {columnTasks.map(task => renderTaskCard(task))}
+              {columnTasks.map(task => renderTaskCard(task, dateKey))}
               {isOver && draggedTaskId && (
                 <div className="mb-3 p-4 h-[50px] rounded-xl border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50/50 dark:bg-white/5 flex flex-col items-center justify-center animate-pulse">
                   <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">Upuść tutaj</span>

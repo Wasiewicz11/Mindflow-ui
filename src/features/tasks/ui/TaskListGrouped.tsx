@@ -85,6 +85,12 @@ function sortByDueThenPriority(tasks: Task[]): Task[] {
   });
 }
 
+function getSubtaskProgress(task: Task) {
+  const total = task.subtaskTotalCount ?? task.subtasks?.length ?? 0;
+  const completed = task.subtaskCompletedCount ?? task.subtasks?.filter(subtask => subtask.isCompleted).length ?? 0;
+  return { completed, total };
+}
+
 function groupTasksByDueDate(tasks: Task[]): Group[] {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
@@ -356,6 +362,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
   const overdue = task.dueDate
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
+  const subtaskProgress = getSubtaskProgress(task);
 
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -479,6 +486,15 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {subtaskProgress.total > 0 && (
+            <span
+              className="inline-flex flex-none items-center rounded-lg px-[7px] py-0.5 text-[10.5px] font-semibold"
+              style={{ color: '#9098a4', background: '#f7f7f4' }}
+            >
+              {subtaskProgress.completed}/{subtaskProgress.total}
+            </span>
+          )}
+
           <button
             onClick={handlePriorityClick}
             className={`min-w-7 flex-none rounded-lg border-0 px-[7px] py-0.5 text-center text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
@@ -552,6 +568,16 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Right meta — project + date */}
       <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
+        {subtaskProgress.total > 0 && (
+          <span
+            className="rounded-md text-[11px] font-semibold"
+            style={{ minWidth: 34, padding: '2px 6px', color: '#9098a4', background: '#f7f7f4', textAlign: 'center' }}
+            title="Wykonane podzadania"
+          >
+            {subtaskProgress.completed}/{subtaskProgress.total}
+          </span>
+        )}
+
         {project && (
           <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 88 }}>
             <span

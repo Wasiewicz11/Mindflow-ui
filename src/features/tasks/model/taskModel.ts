@@ -12,10 +12,15 @@ export interface ApiTask {
   createdAt?: string;
   tags?: string[];
   subtasks?: Subtask[];
+  dueSubtasks?: Subtask[];
+  subtaskCompletedCount?: number;
+  subtaskTotalCount?: number;
+  subtaskDueCount?: number;
 }
 
 export function mapApiTask(task: ApiTask): Task {
   const status = (task.status as TaskStatus | undefined) ?? 'NotStarted';
+  const fallbackDueSubtasks = task.subtasks?.filter(subtask => !subtask.isCompleted && !!subtask.dueDate);
 
   return {
     id: task.id,
@@ -29,6 +34,10 @@ export function mapApiTask(task: ApiTask): Task {
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
     tags: task.tags,
     subtasks: task.subtasks,
+    dueSubtasks: task.dueSubtasks ?? fallbackDueSubtasks,
+    subtaskCompletedCount: task.subtaskCompletedCount ?? task.subtasks?.filter(subtask => subtask.isCompleted).length ?? 0,
+    subtaskTotalCount: task.subtaskTotalCount ?? task.subtasks?.length ?? 0,
+    subtaskDueCount: task.subtaskDueCount ?? task.dueSubtasks?.length ?? fallbackDueSubtasks?.length ?? 0,
   };
 }
 

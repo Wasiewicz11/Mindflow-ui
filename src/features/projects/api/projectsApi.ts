@@ -39,3 +39,27 @@ export function updateProject(spaceId: string, id: string, dto: UpdateProjectDto
 export function deleteProject(spaceId: string, id: string): Promise<void> {
   return apiFetch<void>(`/spaces/${spaceId}/projects/${id}`, { method: 'DELETE' });
 }
+
+export function getProjectTags(projectId: string): Promise<string[]> {
+  return apiFetch<string[]>(`/projects/${projectId}/tags`);
+}
+
+export function createProjectTag(projectId: string, name: string): Promise<string[]> {
+  return apiFetch<string[]>(`/projects/${projectId}/tags`, {
+    method: 'POST',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function renameProjectTag(projectId: string, currentName: string, name: string): Promise<string[]> {
+  return apiFetch<string[]>(`/projects/${projectId}/tags/${encodeURIComponent(currentName)}`, {
+    method: 'PUT',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function deleteProjectTag(projectId: string, name: string): Promise<string[]> {
+  return apiFetch<string[]>(`/projects/${projectId}/tags/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+  });
+}

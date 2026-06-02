@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
+import { getProjectTags } from '../../projects';
 import { getTask } from '../api/tasksApi';
 import { mapApiTask } from '../model/taskModel';
 import { DescriptionField } from './DescriptionField';
@@ -95,6 +96,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [projectId, setProjectId]   = useState(task.project_id ?? '');
   const [description, setDescription] = useState(task.description ?? '');
   const [tags, setTags]             = useState<string[]>(task.tags ?? []);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [subtasks, setSubtasks]     = useState<Subtask[]>(task.subtasks ?? []);
   const [newTag, setNewTag]         = useState('');
   const [newSubtask, setNewSubtask] = useState('');
@@ -135,6 +137,28 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       isActive = false;
     };
   }, [task.id]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    if (!projectId) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    getProjectTags(projectId)
+      .then(projectTags => {
+        if (isActive) setAvailableTags(projectTags);
+      })
+      .catch(error => {
+        console.warn('Failed to fetch project tags:', error);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [projectId]);
 
   // auto-resize title textarea
   useEffect(() => {
@@ -180,8 +204,23 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   }
 
   function addTag() {
-    const t = newTag.trim();
-    if (t && !tags.includes(t)) setTags(prev => [...prev, t]);
+    const raw = newTag.trim();
+    if (!raw || !projectId) {
+      setNewTag('');
+      return;
+    }
+
+    const canonical = availableTags.find(tag => tag.toLowerCase() === raw.toLowerCase()) ?? raw;
+    if (!tags.some(tag => tag.toLowerCase() === canonical.toLowerCase())) {
+      setTags(prev => [...prev, canonical]);
+    }
+    setNewTag('');
+  }
+
+  function addExistingTag(tag: string) {
+    if (!tags.some(selected => selected.toLowerCase() === tag.toLowerCase())) {
+      setTags(prev => [...prev, tag]);
+    }
     setNewTag('');
   }
 
@@ -214,6 +253,11 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
   const LABEL = 'flex items-center gap-1.5 text-[12.5px] text-[#9098a4] flex-none w-[88px]';
   const VALUE = 'flex-1 text-[13px] text-[#0f1115]';
+  const matchingAvailableTags = availableTags.filter(tag => {
+    const query = newTag.trim().toLowerCase();
+    return !tags.some(selected => selected.toLowerCase() === tag.toLowerCase())
+      && (!query || tag.toLowerCase().includes(query));
+  });
 
   return createPortal(
     <div
@@ -430,7 +474,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 <button
                   className="w-full flex items-center gap-2.5 text-[13px] text-[#9098a4] transition-colors hover:bg-[#f7f7f4]"
                   style={{ padding: '9px 13px' }}
-                  onClick={() => { setProjectId(''); setShowProjectPicker(false); }}
+                  onClick={() => { setProjectId(''); setTags([]); setAvailableTags([]); setShowProjectPicker(false); }}
                 >
                   Bez projektu
                 </button>
@@ -515,10 +559,22 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                   value={newTag}
                   onChange={e => setNewTag(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
-                  placeholder="+ Etykieta"
+                  placeholder={projectId ? '+ Etykieta' : 'Wybierz projekt'}
+                  disabled={!projectId}
                   className="text-[11.5px] outline-none bg-transparent"
                   style={{ color: '#9098a4', minWidth: 70, maxWidth: 100 }}
                 />
+                {projectId && matchingAvailableTags.slice(0, 6).map(tag => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => addExistingTag(tag)}
+                    className="inline-flex items-center text-[11.5px] font-medium rounded-[5px] transition-colors hover:bg-[#e8e8e4]"
+                    style={{ padding: '2px 7px', background: '#f7f7f4', color: '#5a606b' }}
+                  >
+                    {tag}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

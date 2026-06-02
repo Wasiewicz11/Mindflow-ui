@@ -81,7 +81,6 @@ export function toUpdateTaskDto(updates: Partial<Task>): UpdateTaskDto {
   if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
   if (updates.description !== undefined) dto.description = updates.description;
   if (updates.tags !== undefined) dto.tags = updates.tags;
-  if (updates.subtasks !== undefined) dto.subtasks = updates.subtasks;
 
   return dto;
 }

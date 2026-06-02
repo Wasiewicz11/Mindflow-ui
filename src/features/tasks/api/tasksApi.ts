@@ -22,7 +22,6 @@ export interface UpdateTaskDto {
   clearDueDate?: boolean;
   projectId?: string;
   tags?: string[];
-  subtasks?: Subtask[];
 }
 
 export function getTasks(): Promise<ApiTask[]> {

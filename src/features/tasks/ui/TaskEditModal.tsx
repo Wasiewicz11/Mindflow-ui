@@ -82,18 +82,6 @@ function stringArraysEqual(a: string[] = [], b: string[] = []) {
   return a.every((value, index) => value === b[index]);
 }
 
-function subtasksEqual(a: Subtask[] = [], b: Subtask[] = []) {
-  if (a.length !== b.length) return false;
-  return a.every((item, index) => (
-    item.id === b[index].id
-    && item.content === b[index].content
-    && item.isCompleted === b[index].isCompleted
-    && (item.description ?? '') === (b[index].description ?? '')
-    && (item.dueDate ?? '') === (b[index].dueDate ?? '')
-    && (item.sortOrder ?? index) === (b[index].sortOrder ?? index)
-  ));
-}
-
 export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
   const [loadedTask, setLoadedTask] = useState(task);
   const [content, setContent]       = useState(task.content);
@@ -184,7 +172,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const completedSubtasks = subtasks.filter(s => s.isCompleted).length;
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
 
-  function save(nextSubtasks = subtasks) {
+  function save() {
     const updates: Partial<Task> = {
       content: content.trim() || loadedTask.content,
       priority,
@@ -203,10 +191,6 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
     if (!stringArraysEqual(tags, loadedTask.tags ?? [])) {
       updates.tags = tags;
-    }
-
-    if (!subtasksEqual(nextSubtasks, loadedTask.subtasks ?? [])) {
-      updates.subtasks = nextSubtasks;
     }
 
     onSave(updates);

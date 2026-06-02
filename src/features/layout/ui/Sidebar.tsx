@@ -13,6 +13,7 @@ interface SidebarProps {
   onCreateProject: (name: string, color: string, spaceId: string | null) => void;
   onDeleteProject: (id: string) => void;
   onMoveProject: (projectId: string, newSpaceId: string | null) => void;
+  onOpenProjectSettings: (projectId: string) => void;
   onCreateSpace: (name: string) => void;
   onDeleteSpace: (id: string) => void;
   onOpenSpaceSettings: (spaceId: string) => void;
@@ -23,7 +24,7 @@ const PROJECT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab, setActiveTab, user,
-  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
+  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onOpenProjectSettings, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
 }) => {
   const [imgError, setImgError] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState<string | null>(null);
@@ -178,13 +179,22 @@ const Sidebar: React.FC<SidebarProps> = ({
           {activeTaskCountByProjectId[project.id] ?? 0}
         </span>
       </button>
-      <button
-        onClick={() => onDeleteProject(project.id)}
-        className="absolute right-2 opacity-0 group-hover:opacity-100 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-all hover:scale-110"
-        title="Usuń projekt"
-      >
-        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
-      </button>
+      <div className="absolute right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={(e) => { e.stopPropagation(); onOpenProjectSettings(project.id); }}
+          className="text-gray-300 dark:text-gray-600 hover:text-gray-600 dark:hover:text-gray-300 transition-all hover:scale-110"
+          title="Ustawienia projektu"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); onDeleteProject(project.id); }}
+          className="text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 transition-all hover:scale-110"
+          title="Usuń projekt"
+        >
+          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
     </div>
   );
 

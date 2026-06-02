@@ -81,5 +81,5 @@ export function useTasks(isLoggedIn: boolean) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return { tasks, addTask, editTask, removeTask };
+  return { tasks, addTask, editTask, removeTask, refreshTasks: fetchTasks };
 }

@@ -8,7 +8,7 @@ import { useAuth } from '../features/auth';
 import { useTasks } from '../features/tasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from '../features/spaces';
 import { getMe } from '../features/users';
-import { getProjects, createProject, deleteProject } from '../features/projects';
+import { getProjects, createProject, deleteProject, updateProject, ProjectSettingsModal } from '../features/projects';
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
 import type { Note, User, Space, Project, Task } from '../shared/types';
@@ -18,7 +18,7 @@ type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
 
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
-  const { tasks, addTask, editTask, removeTask } = useTasks(isLoggedIn);
+  const { tasks, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
 
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
@@ -26,6 +26,7 @@ export function AppShell() {
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
   const [isLoading, setIsLoading] = useState(true);
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
+  const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null);
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -152,6 +153,18 @@ export function AppShell() {
     }
   };
 
+  const handleUpdateProject = async (id: string, name: string, color: string) => {
+    const project = projects.find(p => p.id === id);
+    if (!project?.space_id) return;
+
+    try {
+      const updated = await updateProject(project.space_id, id, { name, color });
+      setProjects(prev => prev.map(p => p.id === id ? { ...p, ...updated, space_id: updated.spaceId } : p));
+    } catch (e) {
+      console.error('Failed to update project', e);
+    }
+  };
+
   const handleMoveProject = (projectId: string, newSpaceId: string | null) => {
     setProjects(prev => prev.map(p => p.id === projectId ? { ...p, space_id: newSpaceId } : p));
   };
@@ -249,6 +262,7 @@ export function AppShell() {
         onCreateProject={handleCreateProject}
         onDeleteProject={handleDeleteProject}
         onMoveProject={handleMoveProject}
+        onOpenProjectSettings={(id) => setProjectSettingsId(id)}
         onCreateSpace={handleCreateSpace}
         onDeleteSpace={handleDeleteSpace}
         onOpenSpaceSettings={(id) => setSpaceSettingsId(id)}
@@ -499,6 +513,19 @@ export function AppShell() {
             onClose={() => setSpaceSettingsId(null)}
             onUpdateSpace={handleUpdateSpace}
             onDeleteSpace={handleDeleteSpace}
+          />
+        );
+      })()}
+      {projectSettingsId && (() => {
+        const project = projects.find(p => p.id === projectSettingsId);
+        if (!project) return null;
+        return (
+          <ProjectSettingsModal
+            project={project}
+            onClose={() => setProjectSettingsId(null)}
+            onUpdateProject={handleUpdateProject}
+            onDeleteProject={handleDeleteProject}
+            onTagsChanged={refreshTasks}
           />
         );
       })()}

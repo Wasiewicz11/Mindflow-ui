@@ -171,15 +171,17 @@ const Sidebar: React.FC<SidebarProps> = ({
     >
       <button
         onClick={() => { setActiveTab('tasks'); onSelectProject(project.id); }}
-        className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 pr-16 text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
+        className={`relative w-full rounded-lg px-3 py-2 pr-16 text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
           activeProjectId === project.id && activeTab === 'tasks'
             ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium translate-x-1'
             : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-white/5 hover:translate-x-1'
         }`}
       >
-        <span className="h-2 w-2 flex-none rounded-full transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }} />
-        <span className="min-w-0 flex-1 truncate text-left">{project.name}</span>
-        <span className="flex-none rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-0 group-focus-within:translate-x-1 group-focus-within:opacity-0 dark:bg-white/8 dark:text-gray-400">
+        <span className="flex min-w-0 items-center gap-2 pr-6">
+          <span className="h-2 w-2 flex-none rounded-full transition-transform duration-300 group-hover:scale-110" style={{ backgroundColor: project.color || '#9CA3AF' }} />
+          <span className="min-w-0 flex-1 truncate text-left">{project.name}</span>
+        </span>
+        <span className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-[#f1f0ed] px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4] transition-all duration-200 group-hover:translate-x-1 group-hover:opacity-0 group-focus-within:translate-x-1 group-focus-within:opacity-0 dark:bg-white/8 dark:text-gray-400">
           {activeTaskCountByProjectId[project.id] ?? 0}
         </span>
       </button>

@@ -851,7 +851,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
         <TaskEditModal
           task={editingTask}
           projects={projects}
-          onSave={updates => { onEdit(editingTask.id, updates); setEditingTask(null); }}
+          onSave={updates => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}
@@ -1409,7 +1409,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
             <TaskEditModal
               task={editingCompleted}
               projects={projects}
-              onSave={updates => { onEdit(editingCompleted.id, updates); setEditingCompleted(null); }}
+              onSave={updates => onEdit(editingCompleted.id, updates)}
               onDelete={() => { onDelete(editingCompleted.id); setEditingCompleted(null); }}
               onToggleComplete={() => { onToggle(editingCompleted.id); setEditingCompleted(null); }}
               onClose={() => setEditingCompleted(null)}

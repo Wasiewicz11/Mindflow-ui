@@ -1892,7 +1892,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         <TaskEditModal
           task={editingTask}
           projects={projects}
-          onSave={(updates) => { onEdit(editingTask.id, updates); setEditingTask(null); }}
+          onSave={(updates) => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete?.(editingTask.id); clearBlocksForTask(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onClose={() => setEditingTask(null)}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
@@ -7,6 +7,10 @@ import { getProjectTags } from '../../projects';
 import { getTask } from '../api/tasksApi';
 import { mapApiTask } from '../model/taskModel';
 import { DescriptionField } from './DescriptionField';
+
+const DescriptionEditorModal = lazy(() =>
+  import('./DescriptionEditorModal').then(m => ({ default: m.DescriptionEditorModal })),
+);
 
 interface Props {
   task: Task;
@@ -107,8 +111,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [showStatusPicker, setShowStatusPicker]     = useState(false);
   const [showProjectPicker, setShowProjectPicker]   = useState(false);
   const [showDatePicker, setShowDatePicker]         = useState(false);
-  const [subtaskDateOpenId, setSubtaskDateOpenId]   = useState<string | null>(null);
-  const [subtaskDescriptionOpenId, setSubtaskDescriptionOpenId] = useState<string | null>(null);
+  const [subtaskDatePicker, setSubtaskDatePicker] = useState<{ id: string; rect: DOMRect } | null>(null);
+  const [subtaskDescriptionEditorId, setSubtaskDescriptionEditorId] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
 
@@ -262,8 +266,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     const next = subtasks.filter(s => s.id !== id).map((s, index) => ({ ...s, sortOrder: index }));
     setSubtasks(next);
     persistSubtasks(next);
-    if (subtaskDateOpenId === id) setSubtaskDateOpenId(null);
-    if (subtaskDescriptionOpenId === id) setSubtaskDescriptionOpenId(null);
+    if (subtaskDatePicker?.id === id) setSubtaskDatePicker(null);
+    if (subtaskDescriptionEditorId === id) setSubtaskDescriptionEditorId(null);
   }
 
   function moveSubtask(id: string, direction: -1 | 1) {
@@ -292,6 +296,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
   const LABEL = 'flex items-center gap-1.5 text-[12.5px] text-[#9098a4] flex-none w-[88px]';
   const VALUE = 'flex-1 text-[13px] text-[#0f1115]';
+  const editingSubtaskDescription = subtasks.find(subtask => subtask.id === subtaskDescriptionEditorId);
   const matchingAvailableTags = availableTags.filter(tag => {
     const query = newTag.trim().toLowerCase();
     return !tags.some(selected => selected.toLowerCase() === tag.toLowerCase())
@@ -649,18 +654,14 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             {/* Subtask list */}
             <div className="space-y-1">
               {subtasks.map((sub, index) => {
-                const descriptionOpen = subtaskDescriptionOpenId === sub.id;
-                const dateOpen = subtaskDateOpenId === sub.id;
                 return (
                   <div key={sub.id} className="group/sub rounded-xl transition-colors hover:bg-[#f7f7f4]" style={{ padding: '6px 7px' }}>
                     <div className="flex items-center gap-2">
-                      <span className="w-4 flex-none text-right text-[11px] font-medium text-[#c0c5cc]">{index + 1}.</span>
-
                       <button
                         onClick={() => toggleSubtask(sub.id)}
-                        className="flex-none rounded-full border transition-all duration-200 ease hover:scale-110 hover:border-[#0f1115]"
+                        className="flex-none rounded-[5px] border transition-all duration-200 ease hover:scale-110 hover:border-[#0f1115]"
                         style={{
-                          width: 16, height: 16,
+                          width: 17, height: 17,
                           borderColor: sub.isCompleted ? '#0f1115' : '#d4d4d0',
                           background: sub.isCompleted ? '#0f1115' : 'transparent',
                           flexShrink: 0,
@@ -687,11 +688,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setSubtaskDateOpenId(dateOpen ? null : sub.id);
-                          setSubtaskDescriptionOpenId(null);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setSubtaskDatePicker(current => current?.id === sub.id ? null : { id: sub.id, rect });
                         }}
-                        className="inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[11.5px] font-medium text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
+                        className="inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[11.5px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
                         title="Termin podzadania"
                       >
                         <CalIcon />
@@ -700,11 +702,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
                       <button
                         type="button"
-                        onClick={() => {
-                          setSubtaskDescriptionOpenId(descriptionOpen ? null : sub.id);
-                          setSubtaskDateOpenId(null);
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSubtaskDescriptionEditorId(sub.id);
+                          setSubtaskDatePicker(null);
                         }}
-                        className="flex h-7 w-7 flex-none items-center justify-center rounded-lg transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
+                        className="flex h-7 w-7 flex-none items-center justify-center rounded-lg transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
                         style={{ color: sub.description?.trim() ? '#9098a4' : '#c0c5cc' }}
                         title={sub.description?.trim() ? 'Opis dostępny' : 'Dodaj opis'}
                       >
@@ -745,43 +748,6 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         </button>
                       </div>
                     </div>
-
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateRows: dateOpen ? '1fr' : '0fr',
-                        transition: 'grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-                      }}
-                    >
-                      <div style={{ overflow: 'hidden' }}>
-                        <div className="ml-[54px] mt-2 max-w-[240px]">
-                          <CalendarDatePicker
-                            value={sub.dueDate ?? ''}
-                            onChange={date => updateSubtask(sub.id, { dueDate: date || undefined }, true)}
-                            onClose={() => setSubtaskDateOpenId(null)}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        display: 'grid',
-                        gridTemplateRows: descriptionOpen ? '1fr' : '0fr',
-                        transition: 'grid-template-rows 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
-                      }}
-                    >
-                      <div style={{ overflow: 'hidden' }}>
-                        <div className="ml-[28px] mt-2">
-                          <DescriptionField
-                            value={sub.description ?? ''}
-                            onChange={description => updateSubtask(sub.id, { description })}
-                            placeholder="Opis podzadania..."
-                            title={sub.content.trim() || content.trim() || undefined}
-                          />
-                        </div>
-                      </div>
-                    </div>
                   </div>
                 );
               })}
@@ -809,6 +775,45 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             </div>
           </div>
         </div>
+
+        {subtaskDatePicker && typeof document !== 'undefined' && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[70]"
+              onClick={() => setSubtaskDatePicker(null)}
+            />
+            <div
+              className="fixed z-[71] animate-calendar-reveal"
+              style={{
+                top: subtaskDatePicker.rect.bottom + 6,
+                left: Math.max(8, Math.min(subtaskDatePicker.rect.right - 240, window.innerWidth - 248)),
+                width: 240,
+                borderRadius: 16,
+                overflow: 'hidden',
+                boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              <CalendarDatePicker
+                value={subtasks.find(subtask => subtask.id === subtaskDatePicker.id)?.dueDate ?? ''}
+                onChange={date => updateSubtask(subtaskDatePicker.id, { dueDate: date || undefined }, true)}
+                onClose={() => setSubtaskDatePicker(null)}
+              />
+            </div>
+          </>,
+          document.body
+        )}
+
+        {editingSubtaskDescription && (
+          <Suspense fallback={null}>
+            <DescriptionEditorModal
+              value={editingSubtaskDescription.description ?? ''}
+              title={editingSubtaskDescription.content.trim() || content.trim() || undefined}
+              onChange={description => updateSubtask(editingSubtaskDescription.id, { description }, true)}
+              onClose={() => setSubtaskDescriptionEditorId(null)}
+            />
+          </Suspense>
+        )}
 
         {/* ── Footer ── */}
         <div

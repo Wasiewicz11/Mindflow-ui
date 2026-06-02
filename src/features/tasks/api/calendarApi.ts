@@ -5,8 +5,9 @@ export type CalendarSyncStatus = 'local' | 'synced' | 'conflict';
 
 export interface ApiCalendarBlock {
   id: string;
-  taskId: string;
+  taskId?: string | null;
   userId: string;
+  title?: string | null;
   startAt: string;
   durationMinutes: number;
   createdAt: string;
@@ -18,13 +19,15 @@ export interface ApiCalendarBlock {
 }
 
 export interface CreateCalendarBlockRequest {
-  taskId: string;
+  taskId?: string | null;
+  title?: string | null;
   startAt: string;
   durationMinutes: number;
 }
 
 export interface UpdateCalendarBlockRequest {
-  taskId: string;
+  taskId?: string | null;
+  title?: string | null;
   startAt: string;
   durationMinutes: number;
 }

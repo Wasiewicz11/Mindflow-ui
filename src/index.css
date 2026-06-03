@@ -20,6 +20,26 @@
 
 /* Gray Theme Utility Overrides */
 @layer utilities {
+  .theme-gray .bg-white {
+    background-color: #27272A !important;
+  }
+  .theme-gray .bg-white\/98 {
+    background-color: rgba(39, 39, 42, 0.98) !important;
+  }
+  .theme-gray .bg-white\/95 {
+    background-color: rgba(39, 39, 42, 0.95) !important;
+  }
+  .theme-gray .bg-\[\#FDFDFD\],
+  .theme-gray .bg-\[\#fdfdfd\] {
+    background-color: #27272A !important;
+  }
+  .theme-gray .hover\:bg-white:hover,
+  .theme-gray .focus\:bg-white:focus {
+    background-color: #323238 !important;
+  }
+  .theme-gray .dark\:bg-white {
+    background-color: #3F3F46 !important;
+  }
   .theme-gray .dark\:bg-\[\#000000\] {
     background-color: #18181B !important;
   }

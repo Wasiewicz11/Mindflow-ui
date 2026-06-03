@@ -278,7 +278,7 @@ function GroupModeSelect({ value, onChange }: {
       <button
         type="button"
         onClick={() => setOpen(isOpen => !isOpen)}
-        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e8e8e4] bg-white px-3 text-[12px] font-medium text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+        className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[#e8e8e4] bg-white px-3 text-[12px] font-medium text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:border-white/10 dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white dark:focus-visible:outline-white/20"
         aria-haspopup="menu"
         aria-expanded={open}
       >
@@ -287,7 +287,7 @@ function GroupModeSelect({ value, onChange }: {
         <ChevronDown size={13} strokeWidth={2} className={`transition-transform duration-200 ease ${open ? 'rotate-180' : ''}`} />
       </button>
 
-      <div className={`absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-all duration-200 ease ${open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}>
+      <div className={`absolute right-0 top-full z-50 mt-1 min-w-[180px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-all duration-200 ease dark:border-white/10 dark:bg-[#27272A] dark:shadow-none ${open ? 'translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}>
         {GROUP_MODE_OPTIONS.map(option => {
           const Icon = option.icon;
           const selected = option.value === value;
@@ -298,8 +298,8 @@ function GroupModeSelect({ value, onChange }: {
               onClick={() => { onChange(option.value); setOpen(false); }}
               className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] transition-colors duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${
                 selected
-                  ? 'bg-[#f7f7f4] font-medium text-[#0f1115]'
-                  : 'font-normal text-[#5a606b] hover:bg-[#f1f0ed] hover:text-[#0f1115]'
+                  ? 'bg-[#f7f7f4] font-medium text-[#0f1115] dark:bg-[#323238] dark:text-white'
+                  : 'font-normal text-[#5a606b] hover:bg-[#f1f0ed] hover:text-[#0f1115] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white'
               }`}
             >
               <Icon size={13} strokeWidth={2} />

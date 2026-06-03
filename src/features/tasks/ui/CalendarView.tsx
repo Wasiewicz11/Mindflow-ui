@@ -1387,16 +1387,16 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         <button
           type="button"
           onClick={() => setOpenFilterMenu(isOpen ? null : id)}
-          className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#e8e8e4] bg-white px-2.5 py-2 text-left transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+          className="flex w-full items-center justify-between gap-2 rounded-lg border border-[#e8e8e4] bg-white px-2.5 py-2 text-left transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:hover:bg-[#323238] dark:focus:ring-white/10"
         >
           <span className="min-w-0">
             <span className="block text-[10px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">{label}</span>
-            <span className="block truncate text-[12px] font-medium text-[#5a606b]">{summary}</span>
+            <span className="block truncate text-[12px] font-medium text-[#5a606b] dark:text-gray-300">{summary}</span>
           </span>
           <span className="text-[12px] font-semibold text-[#9098a4]">{values.length || 'all'}</span>
         </button>
         <div
-          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-[#e8e8e4] bg-white p-1.5 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-[opacity,transform] duration-200 ease custom-scrollbar"
+          className="absolute left-0 right-0 top-full z-30 mt-1 max-h-52 overflow-y-auto rounded-lg border border-[#e8e8e4] bg-white p-1.5 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition-[opacity,transform] duration-200 ease custom-scrollbar dark:border-white/10 dark:bg-[#27272A] dark:shadow-none"
           style={{
             opacity: isOpen ? 1 : 0,
             transform: isOpen ? 'translateY(0) scale(1)' : 'translateY(-6px) scale(0.97)',
@@ -1406,7 +1406,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           <button
             type="button"
             onClick={onClear}
-            className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+            className="mb-1 flex w-full items-center justify-between rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:hover:bg-[#323238] dark:focus:ring-white/10"
           >
             Wszystkie
             {values.length === 0 && <Check size={13} />}
@@ -1418,9 +1418,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                 type="button"
                 key={option.id}
                 onClick={() => onToggle(option.id)}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-200 dark:hover:bg-[#323238] dark:focus:ring-white/10"
               >
-                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors duration-200 ease ${active ? 'border-[#0f1115] bg-[#0f1115] text-white' : 'border-[#c0c5cc] bg-white text-transparent'}`}>
+                <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors duration-200 ease ${active ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'border-[#c0c5cc] bg-white text-transparent dark:border-white/15 dark:bg-[#3F3F46]'}`}>
                   <Check size={11} />
                 </span>
                 {option.color && <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: option.color }} />}
@@ -1552,9 +1552,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   };
 
   const renderTimeGrid = () => (
-    <div className="flex min-w-[760px] flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm">
-      <div className="w-16 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4]">
-        <div className="h-14 border-b border-[#f1f0ed]" />
+    <div className="flex min-w-[760px] flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+      <div className="w-16 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] dark:border-white/8 dark:bg-[#232326]">
+        <div className="h-14 border-b border-[#f1f0ed] dark:border-white/8" />
         {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, index) => (
           <div key={index} className="relative h-[72px] pr-3 text-right text-[11px] font-medium text-[#9098a4]">
             {formatMinutes(DAY_START + index * 60)}
@@ -1563,12 +1563,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       </div>
 
       <div className="min-w-0 flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
-        <div className={`grid h-14 border-b border-[#f1f0ed] bg-white ${mode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
+        <div className={`grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${mode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
           {days.map(day => {
             const key = toDateKey(day);
             return (
-              <div key={key} className="flex items-center justify-center border-r border-[#f1f0ed] last:border-r-0">
-                <div className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-2 transition-colors duration-200 ease ${key === todayKey ? 'bg-[#0f1115] text-white' : 'text-[#0f1115]'}`}>
+              <div key={key} className="flex items-center justify-center border-r border-[#f1f0ed] last:border-r-0 dark:border-white/8">
+                <div className={`flex h-9 min-w-9 items-center justify-center rounded-lg px-2 transition-colors duration-200 ease ${key === todayKey ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#0f1115] dark:text-gray-100'}`}>
                   <span className="text-[11px] font-semibold uppercase tracking-[0.06em]">{day.toLocaleDateString('pl-PL', { weekday: 'short' })}</span>
                   <span className="ml-1.5 text-[13px] font-semibold">{day.getDate()}</span>
                 </div>
@@ -1583,7 +1583,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             return (
               <div
                 key={key}
-                className="relative cursor-crosshair select-none border-r border-[#f1f0ed] bg-white last:border-r-0"
+                className="relative cursor-crosshair select-none border-r border-[#f1f0ed] bg-white last:border-r-0 dark:border-white/8 dark:bg-[#27272A]"
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = dragState?.type === 'move' && dragState.duplicate ? 'copy' : 'move';
@@ -1598,7 +1598,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                 onMouseUp={(e) => handleGridMouseUp(e, key)}
               >
                 {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, index) => (
-                  <div key={index} className="h-[72px] border-b border-[#f1f0ed]" />
+                  <div key={index} className="h-[72px] border-b border-[#f1f0ed] dark:border-white/8" />
                 ))}
                 {selectionSlot && (
                   <div
@@ -1638,7 +1638,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                     aria-hidden="true"
                   >
                     <div className="absolute left-1 right-1 top-0 h-0.5 rounded-full bg-[#f97316] shadow-[0_0_0_1px_rgba(249,115,22,.14),0_4px_10px_rgba(249,115,22,.24)]" />
-                    <div className="absolute left-1 top-0 h-2 w-2 -translate-y-[3px] rounded-full bg-[#f97316] ring-2 ring-white" />
+                    <div className="absolute left-1 top-0 h-2 w-2 -translate-y-[3px] rounded-full bg-[#f97316] ring-2 ring-white dark:ring-[#27272A]" />
                     <div className="absolute left-3 top-0 -translate-y-1/2 rounded-full bg-[#f97316] px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white shadow-sm">
                       {currentTimeLabel}
                     </div>
@@ -1653,7 +1653,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   );
 
   const renderMonth = () => (
-    <div className="grid min-h-[680px] grid-cols-7 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm">
+    <div className="grid min-h-[680px] grid-cols-7 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
       {days.map(day => {
         const key = toDateKey(day);
         const dayTasks = activeTasks.filter(task => task.dueDate === key || Object.values(blocks).some(block => block.taskId === task.id && block.date === key));
@@ -1667,7 +1667,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         return (
           <div
             key={key}
-            className={`min-h-[112px] border-r border-b border-[#f1f0ed] p-2 transition-colors duration-200 ease hover:bg-[#f7f7f4] ${inMonth ? 'bg-white' : 'bg-[#f7f7f4]/70'}`}
+            className={`min-h-[112px] border-r border-b border-[#f1f0ed] p-2 transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:border-white/8 dark:hover:bg-[#323238] ${inMonth ? 'bg-white dark:bg-[#27272A]' : 'bg-[#f7f7f4]/70 dark:bg-[#232326]'}`}
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = dragState?.type === 'move' && dragState.duplicate ? 'copy' : 'move';
@@ -1693,7 +1693,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               setDragState(null);
             }}
           >
-            <div className={`mb-2 inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-[12px] font-semibold ${key === todayKey ? 'bg-[#0f1115] text-white' : 'text-[#5a606b]'}`}>
+            <div className={`mb-2 inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-[12px] font-semibold ${key === todayKey ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#5a606b] dark:text-gray-300'}`}>
               {day.getDate()}
             </div>
             <div className="space-y-1">
@@ -1759,27 +1759,27 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">
                 <CalendarDays size={14} /> Kalendarz i timeblocking
               </div>
-              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#0f1115]">{title}</h2>
+              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">{title}</h2>
             </div>
 
             <div className="flex items-center gap-2">
-              <button onClick={() => setAnchorDate(new Date())} className="rounded-lg border border-[#e8e8e4] bg-white px-3 py-2 text-[13px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20">Dzisiaj</button>
-              <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1">
-                <button onClick={() => shiftDate(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20" title="Poprzedni okres"><ChevronLeft size={17} /></button>
-                <button onClick={() => shiftDate(1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20" title="Następny okres"><ChevronRight size={17} /></button>
+              <button onClick={() => setAnchorDate(new Date())} className="rounded-lg border border-[#e8e8e4] bg-white px-3 py-2 text-[13px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-200 dark:hover:bg-[#323238] dark:focus:ring-white/10">Dzisiaj</button>
+              <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1 dark:border-white/10 dark:bg-[#27272A]">
+                <button onClick={() => shiftDate(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Poprzedni okres"><ChevronLeft size={17} /></button>
+                <button onClick={() => shiftDate(1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Następny okres"><ChevronRight size={17} /></button>
               </div>
-              <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1">
+              <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1 dark:border-white/10 dark:bg-[#27272A]">
                 {(['day', 'week', 'month'] as CalendarMode[]).map(item => (
                   <button
                     key={item}
                     onClick={() => setMode(item)}
-                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 ${mode === item ? 'bg-[#0f1115] text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed]'}`}
+                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/10 ${mode === item ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'}`}
                   >
                     {{ day: 'Dzień', week: 'Tydzień', month: 'Miesiąc' }[item]}
                   </button>
                 ))}
               </div>
-              <button onClick={() => setDrawerOpen(open => !open)} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#e8e8e4] bg-white text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20" title="Lista zadań">
+              <button onClick={() => setDrawerOpen(open => !open)} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#e8e8e4] bg-white text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Lista zadań">
                 {drawerOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
               </button>
             </div>
@@ -1791,7 +1791,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         </section>
 
         <aside
-          className="hidden w-[330px] shrink-0 flex-col rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm transition-[opacity,transform,width] duration-200 ease lg:flex"
+          className="hidden w-[330px] shrink-0 flex-col rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm transition-[opacity,transform,width] duration-200 ease lg:flex dark:border-white/10 dark:bg-[#27272A] dark:shadow-none"
           style={{
             opacity: drawerOpen ? 1 : 0,
             transform: drawerOpen ? 'translateX(0) scale(1)' : 'translateX(12px) scale(0.97)',
@@ -1802,14 +1802,14 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         >
           <div className="border-b border-[#f1f0ed] p-4">
             <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0f1115]">
+              <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0f1115] dark:text-white">
                 <ListFilter size={16} /> Zadania do zaplanowania
               </div>
               <span className="rounded-full bg-[#f7f7f4] px-2 py-1 text-[11px] font-medium text-[#9098a4]">{filteredTasks.length}</span>
             </div>
-            <label className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#FDFDFD] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white">
+            <label className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#FDFDFD] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326] dark:focus-within:border-white/15 dark:focus-within:bg-[#323238]">
               <Search size={15} className="text-[#9098a4]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Szukaj zadań..." className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0f1115] outline-none placeholder:text-[#b0b5be]" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Szukaj zadań..." className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white" />
             </label>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {renderFilterMenu({
@@ -1867,11 +1867,11 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                     setDragState({ type: 'sidebar', taskId: task.id });
                   }}
                   onDragEnd={() => setDragState(null)}
-                  className="group w-full rounded-lg border border-[#e8e8e4] bg-white p-3 text-left transition-[background,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:bg-[#f7f7f4] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+                  className="group w-full rounded-lg border border-[#e8e8e4] bg-white p-3 text-left transition-[background,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:bg-[#f7f7f4] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:hover:bg-[#323238] dark:hover:shadow-none dark:focus:ring-white/10"
                 >
                   <div className="mb-2 flex items-start gap-2">
                     <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: meta.fg, background: meta.bg }}>{meta.label}</span>
-                    <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug tracking-[-0.01em] text-[#0f1115]">{task.content}</span>
+                    <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug tracking-[-0.01em] text-[#0f1115] dark:text-white">{task.content}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#9098a4]">
                     <span className="flex items-center gap-1"><Filter size={11} />{getStatusLabel(task.status)}</span>
@@ -1882,7 +1882,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               );
             })}
             {filteredTasks.length === 0 && (
-              <div className="rounded-[18px] border border-dashed border-[#e8e8e4] p-6 text-center text-[13px] font-medium text-[#9098a4]">
+              <div className="rounded-[18px] border border-dashed border-[#e8e8e4] p-6 text-center text-[13px] font-medium text-[#9098a4] dark:border-white/10">
                 Brak zadań dla wybranych filtrów.
               </div>
             )}
@@ -1897,7 +1897,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       {blockContextMenu && blocks[blockContextMenu.blockId] && createPortal(
         <div
           role="menu"
-          className="fixed z-[60] min-w-[150px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)]"
+          className="fixed z-[60] min-w-[150px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] dark:border-white/10 dark:bg-[#27272A] dark:shadow-none"
           style={{ left: blockContextMenu.x, top: blockContextMenu.y }}
           onClick={e => e.stopPropagation()}
         >

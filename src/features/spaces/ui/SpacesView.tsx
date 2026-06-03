@@ -55,7 +55,7 @@ export function SpacesView({ onSelectSpace }: Props) {
           <div className="flex items-center gap-3">
             <BrandMark markClassName="h-8 w-8" />
             <span className="text-xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Mindle
+              Minddley
             </span>
           </div>
 

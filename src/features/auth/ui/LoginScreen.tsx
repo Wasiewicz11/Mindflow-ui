@@ -57,7 +57,7 @@ export function LoginScreen({ initGoogleButton }: Props) {
         <section className="flex w-full flex-col items-center text-center">
           <div className="mb-8 flex items-center gap-3">
             <BrandMark markClassName="h-11 w-11" />
-            <span className="text-[19px] font-semibold tracking-[-0.02em]">Mindle</span>
+            <span className="text-[19px] font-semibold tracking-[-0.02em]">Minddley</span>
           </div>
 
           <div className="w-full">

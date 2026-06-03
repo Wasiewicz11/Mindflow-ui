@@ -215,7 +215,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* LOGO */}
       <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
         <BrandMark markClassName="h-[18px] w-[18px]" />
-        <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>Mindle</span>
+        <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>Minddley</span>
       </div>
 
       {/* MAIN NAV */}

@@ -16,6 +16,8 @@ import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
 type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
+type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
+type EffectiveTheme = 'light' | 'dark' | 'gray';
 
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
@@ -33,22 +35,37 @@ export function AppShell() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
 
-  const [theme, setTheme] = useState<'light' | 'dark' | 'gray'>(() => {
+  const [theme, setTheme] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem('mindflow_theme');
-    if (stored === 'light' || stored === 'dark' || stored === 'gray') return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    if (stored === 'light' || stored === 'dark' || stored === 'gray' || stored === 'system') return stored;
+    return 'system';
   });
+  const [systemPrefersDark, setSystemPrefersDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const effectiveTheme: EffectiveTheme =
+    theme === 'system'
+      ? (systemPrefersDark ? 'gray' : 'light')
+      : theme;
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+    const handleChange = (event: MediaQueryListEvent) => setSystemPrefersDark(event.matches);
+
+    mediaQuery.addEventListener('change', handleChange);
+
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     document.documentElement.classList.remove('dark', 'theme-gray');
-    if (theme === 'dark') document.documentElement.classList.add('dark');
-    else if (theme === 'gray') document.documentElement.classList.add('dark', 'theme-gray');
+    if (effectiveTheme === 'dark') document.documentElement.classList.add('dark');
+    else if (effectiveTheme === 'gray') document.documentElement.classList.add('dark', 'theme-gray');
     const favicon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (favicon) {
-      favicon.href = theme === 'light' ? '/mindle_mark_black.svg' : '/mindle_mark_white.svg';
+      favicon.href = effectiveTheme === 'light' ? '/mindle_mark_black.svg' : '/mindle_mark_white.svg';
     }
     localStorage.setItem('mindflow_theme', theme);
-  }, [theme]);
+  }, [effectiveTheme, theme]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -467,34 +484,54 @@ export function AppShell() {
               )}
 
               {activeTab === 'settings' && (
-                <div className="max-w-xl space-y-6 animate-fade-in">
-                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
-                    <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Profil</h2>
-                    <div className="flex items-center gap-4">
-                      {user?.avatarUrl && (
-                        <img src={user.avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="w-12 h-12 rounded-full object-cover" />
-                      )}
-                      <div>
-                        <p className="font-semibold text-gray-900 dark:text-white">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray:400">{user?.email}</p>
-                      </div>
+                <div className="mx-auto w-full max-w-3xl animate-fade-in">
+                  <div className="overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] transition-colors duration-300 dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
+                    <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia konta</p>
+                      <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Profil i wygląd</h2>
+                      <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Dostosuj konto i wybierz motyw, który najlepiej pasuje do Twojego rytmu pracy.</p>
                     </div>
-                    <button
-                      onClick={handleLogout}
-                      className="mt-4 w-full px-4 py-2 text-sm font-medium text-red-500 border border-red-200 dark:border-red-900/40 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-xl transition-colors"
-                    >
-                      Wyloguj się
-                    </button>
-                  </div>
 
-                  <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl border border-gray-100 dark:border-white/5 p-6">
-                    <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Wygląd</h2>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">Motyw</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Wybierz styl interfejsu</p>
-                      </div>
-                      <ThemeSelector theme={theme} setTheme={setTheme} />
+                    <div className="divide-y divide-[#f1f0ed] dark:divide-white/6">
+                      <section className="px-6 py-5">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="flex items-center gap-4">
+                            <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-[#e8e8e4] bg-[#f7f7f4] dark:border-white/10 dark:bg-white/5">
+                              {user?.avatarUrl ? (
+                                <img src={user.avatarUrl} alt="Avatar" referrerPolicy="no-referrer" className="h-full w-full object-cover" />
+                              ) : (
+                                <span className="text-lg font-semibold text-[#0f1115] dark:text-white">
+                                  {user?.firstName?.[0]}
+                                  {user?.lastName?.[0]}
+                                </span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Profil</p>
+                              <p className="mt-1 text-base font-semibold text-[#0f1115] dark:text-white">{user ? `${user.firstName} ${user.lastName}` : ''}</p>
+                              <p className="text-sm text-[#5a606b] dark:text-gray-400">{user?.email}</p>
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={handleLogout}
+                            className="inline-flex h-11 items-center justify-center rounded-xl border border-[#f3d4d4] bg-[#fff8f8] px-4 text-sm font-medium text-[#b93838] transition-[background-color,border-color,color,transform] duration-200 ease hover:-translate-y-px hover:border-[#efc3c3] hover:bg-[#fff1f1] focus:outline-none focus:ring-2 focus:ring-[#efc3c3] focus:ring-offset-2 focus:ring-offset-white dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus:ring-red-900/60 dark:focus:ring-offset-[#1C1C1E]"
+                          >
+                            Wyloguj się
+                          </button>
+                        </div>
+                      </section>
+
+                      <section className="px-6 py-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="max-w-md">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Wygląd</p>
+                            <p className="mt-1 text-base font-semibold text-[#0f1115] dark:text-white">Motyw interfejsu</p>
+                            <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Tryb systemowy używa jasnego wyglądu, a przy ciemnym systemie automatycznie przełącza aplikację na szary wariant.</p>
+                          </div>
+                          <ThemeSelector theme={theme} setTheme={setTheme} />
+                        </div>
+                      </section>
                     </div>
                   </div>
                 </div>

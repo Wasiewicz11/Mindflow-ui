@@ -1,16 +1,40 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays, ChevronDown, CircleDot, Flag } from 'lucide-react';
+import type { CSSProperties } from 'react';
 import type { Task, Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 
-const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
-  NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
-  InProgress:  { label: 'W trakcie',     dot: 'oklch(0.60 0.18 230)', fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)'  },
-  Completed:   { label: 'Ukończone',     dot: 'oklch(0.55 0.18 145)', fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)'  },
+type ChipMeta = { fg: string; bg: string; darkFg: string; darkBg: string };
+
+const STATUS_META: Record<string, { label: string; dot: string } & ChipMeta> = {
+  NotStarted: {
+    label: 'Nie rozpoczęto',
+    dot: 'oklch(0.75 0.01 260)',
+    fg: 'oklch(0.55 0.01 260)',
+    bg: 'oklch(0.96 0.005 260)',
+    darkFg: '#c0c5cc',
+    darkBg: 'rgba(192,197,204,.12)',
+  },
+  InProgress: {
+    label: 'W trakcie',
+    dot: 'oklch(0.60 0.18 230)',
+    fg: 'oklch(0.55 0.15 230)',
+    bg: 'oklch(0.96 0.03 230)',
+    darkFg: '#38bdf8',
+    darkBg: 'rgba(56,189,248,.14)',
+  },
+  Completed: {
+    label: 'Ukończone',
+    dot: 'oklch(0.55 0.18 145)',
+    fg: 'oklch(0.50 0.15 145)',
+    bg: 'oklch(0.96 0.03 145)',
+    darkFg: '#4ade80',
+    darkBg: 'rgba(74,222,128,.13)',
+  },
 };
 
 interface Props {
@@ -26,12 +50,21 @@ interface Props {
   activeProjectId?: string | null;
 }
 
-const PRIORITY: Record<TaskPriority, { label: string; name: string; fg: string; bg: string }> = {
-  [TaskPriority.P1]: { label: 'P1', name: 'Pilne',   fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-  [TaskPriority.P2]: { label: 'P2', name: 'Wysokie', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-  [TaskPriority.P3]: { label: 'P3', name: 'Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-  [TaskPriority.P4]: { label: 'P4', name: 'Niskie',  fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+const PRIORITY: Record<TaskPriority, { label: string; name: string } & ChipMeta> = {
+  [TaskPriority.P1]: { label: 'P1', name: 'Pilne', fg: 'oklch(0.62 0.18 25)', bg: 'oklch(0.96 0.03 25)', darkFg: '#fb7185', darkBg: 'rgba(251,113,133,.14)' },
+  [TaskPriority.P2]: { label: 'P2', name: 'Wysokie', fg: 'oklch(0.70 0.16 55)', bg: 'oklch(0.96 0.03 55)', darkFg: '#fb923c', darkBg: 'rgba(251,146,60,.14)' },
+  [TaskPriority.P3]: { label: 'P3', name: 'Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)', darkFg: '#38bdf8', darkBg: 'rgba(56,189,248,.14)' },
+  [TaskPriority.P4]: { label: 'P4', name: 'Niskie', fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)', darkFg: '#e2e5e9', darkBg: 'rgba(226,229,233,.16)' },
 };
+
+function chipStyle(meta: ChipMeta): CSSProperties {
+  return {
+    '--mf-chip-fg': meta.fg,
+    '--mf-chip-bg': meta.bg,
+    '--mf-chip-dark-fg': meta.darkFg,
+    '--mf-chip-dark-bg': meta.darkBg,
+  } as CSSProperties;
+}
 
 const PRIORITY_ORDER: Record<TaskPriority, number> = {
   [TaskPriority.P1]: 0,
@@ -165,7 +198,7 @@ function SearchIcon() {
   );
 }
 
-interface FilterOption { value: string; label: string; fg?: string; bg?: string; dot?: string }
+interface FilterOption { value: string; label: string; fg?: string; bg?: string; darkFg?: string; darkBg?: string; dot?: string }
 
 function FilterSelect({ label, value, options, onChange }: {
   label: string;
@@ -176,26 +209,28 @@ function FilterSelect({ label, value, options, onChange }: {
   const [open, setOpen] = useState(false);
   const isActive = value !== 'all';
   const active = options.find(o => o.value === value);
+  const activeChipStyle = active?.fg && active?.bg
+    ? chipStyle({
+      fg: active.fg,
+      bg: active.bg,
+      darkFg: active.darkFg ?? active.fg,
+      darkBg: active.darkBg ?? 'rgba(192,197,204,.12)',
+    })
+    : undefined;
 
   return (
     <div style={{ position: 'relative' }}>
       <button
         onClick={() => setOpen(o => !o)}
-        style={{
-          padding: '5px 10px',
-          borderRadius: 7,
-          fontSize: 12,
-          fontWeight: 500,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 5,
-          whiteSpace: 'nowrap',
-          cursor: 'pointer',
-          background: isActive ? (active?.bg ?? '#f1f0ed') : '#fff',
-          color: isActive ? (active?.fg ?? '#0f1115') : '#5a606b',
-          border: `1px solid ${isActive ? 'transparent' : '#ececec'}`,
-          transition: 'all 0.15s',
-        }}
+        type="button"
+        className={`flex cursor-pointer items-center gap-[5px] whitespace-nowrap rounded-[7px] border px-[10px] py-[5px] text-[12px] font-medium transition-all duration-150 ${
+          isActive
+            ? activeChipStyle
+              ? 'mf-chip border-transparent'
+              : 'border-transparent bg-[#f1f0ed] text-[#0f1115] dark:bg-[#323238] dark:text-white'
+            : 'border-[#d8d8d3] bg-white text-[#5a606b] hover:border-[#c0c5cc] hover:bg-[#f7f7f4] hover:text-[#0f1115] dark:border-[#4a4d54] dark:bg-[#232326] dark:text-gray-400 dark:hover:border-[#62666d] dark:hover:bg-[#2b2b2f] dark:hover:text-gray-100'
+        }`}
+        style={activeChipStyle}
       >
         {isActive && active?.dot && (
           <span style={{ width: 6, height: 6, borderRadius: '50%', background: active.dot, flexShrink: 0 }} />
@@ -210,14 +245,14 @@ function FilterSelect({ label, value, options, onChange }: {
         <>
           <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setOpen(false)} />
           <div
-            className="animate-calendar-reveal"
+            className="animate-calendar-reveal bg-white dark:bg-[#27272A]"
+            data-theme-dropdown="true"
             style={{
               position: 'absolute',
               top: '100%',
               left: 0,
               marginTop: 4,
               zIndex: 99,
-              background: '#fff',
               border: '1px solid #e8e8e4',
               borderRadius: 10,
               boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)',
@@ -230,6 +265,7 @@ function FilterSelect({ label, value, options, onChange }: {
               return (
                 <button
                   key={opt.value}
+                  data-selected={sel ? 'true' : undefined}
                   onClick={() => { onChange(opt.value); setOpen(false); }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 8,
@@ -242,7 +278,7 @@ function FilterSelect({ label, value, options, onChange }: {
                 >
                   {opt.dot && <span style={{ width: 7, height: 7, borderRadius: '50%', background: opt.dot, flexShrink: 0 }} />}
                   {opt.bg && opt.fg && opt.value !== 'all' ? (
-                    <span style={{ padding: '2px 6px', borderRadius: 5, fontSize: 10.5, fontWeight: 600, color: opt.fg, background: opt.bg, letterSpacing: '0.03em' }}>
+                    <span className="mf-chip" style={{ ...chipStyle({ fg: opt.fg, bg: opt.bg, darkFg: opt.darkFg ?? opt.fg, darkBg: opt.darkBg ?? 'rgba(192,197,204,.12)' }), padding: '2px 6px', borderRadius: 5, fontSize: 10.5, fontWeight: 600, letterSpacing: '0.03em' }}>
                       {opt.label}
                     </span>
                   ) : (
@@ -405,31 +441,26 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     <>
     <div
       onClick={handleRowClick}
-      className={`task-complete-collapse flex items-start sm:items-center cursor-pointer group select-none transition-opacity ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''}`}
+      className={`task-complete-collapse group flex cursor-pointer select-none items-start border-b border-[#f1f0ed] transition-[background-color,opacity] sm:items-center dark:border-white/8 dark:hover:bg-[#202125] ${isSelected ? 'bg-[#eef2ff] dark:bg-[#232326]' : ''} ${isClosing ? 'bg-[#f1f0ed] dark:bg-[#232326]' : ''} ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''}`}
       style={{
         padding: closingPhase === 'collapsing' ? '0' : '9px 0',
-        borderBottom: `1px solid ${isClosing ? '#e8e8e4' : '#f1f0ed'}`,
         gap: 10,
-        background: isClosing ? '#f1f0ed' : isSelected ? '#eef2ff' : 'transparent',
         opacity: isClosing ? 0 : isSelectionMode && !isSelected ? 0.45 : 1,
         borderRadius: isSelected ? 6 : 0,
       }}
-      onMouseEnter={e => { if (!isSelected) { e.currentTarget.style.background = '#faf9f7'; e.currentTarget.style.opacity = isSelectionMode ? '0.65' : '1'; } }}
-      onMouseLeave={e => { e.currentTarget.style.background = isSelected ? '#eef2ff' : 'transparent'; e.currentTarget.style.opacity = isSelectionMode && !isSelected ? '0.45' : '1'; }}
     >
       {/* Checkbox / selection circle */}
       {isSelectionMode ? (
         <button
           onClick={e => { e.stopPropagation(); onSelect?.(); }}
-          className="flex-none flex items-center justify-center rounded-full border-2 transition-all"
-          style={{
-            width: 20, height: 20, flexShrink: 0,
-            borderColor: isSelected ? '#0f1115' : '#d4d4d0',
-            background: isSelected ? '#0f1115' : 'transparent',
-          }}
+          className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 transition-all ${
+            isSelected
+              ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
+              : 'border-[#d4d4d0] bg-transparent dark:border-[#62666d]'
+          }`}
         >
           {isSelected && (
-            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
               <path d="M5 13l4 4L19 7"/>
             </svg>
           )}
@@ -437,17 +468,14 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       ) : (
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className="flex-none flex items-center justify-center rounded-full border transition-all duration-200 ease hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] cursor-pointer"
-          style={{
-            width: 20,
-            height: 20,
-            borderColor: isClosing ? '#0f1115' : '#d4d4d0',
-            background: isClosing ? '#0f1115' : 'transparent',
-            flexShrink: 0,
-          }}
+          className={`flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
+            isClosing
+              ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
+              : 'border-[#d4d4d0] bg-transparent dark:border-[#747984]'
+          }`}
         >
           {isClosing && (
-            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
+            <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
               <path d="M5 13l4 4L19 7"/>
             </svg>
           )}
@@ -456,7 +484,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
         <span
-          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease ${isClosing ? 'text-[#9098a4] line-through' : 'text-[#0f1115]'}`}
+          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease dark:text-white ${isClosing ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         >
           {task.content}
         </span>
@@ -488,8 +516,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
           {subtaskProgress.total > 0 && (
             <span
-              className="inline-flex flex-none items-center rounded-lg px-[7px] py-0.5 text-[10.5px] font-semibold"
-              style={{ color: '#9098a4', background: '#f7f7f4' }}
+              className="inline-flex flex-none items-center rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400"
             >
               {subtaskProgress.completed}/{subtaskProgress.total}
             </span>
@@ -497,12 +524,8 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
           <button
             onClick={handlePriorityClick}
-            className={`min-w-7 flex-none rounded-lg border-0 px-[7px] py-0.5 text-center text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
-            style={{
-              color: p.fg,
-              background: p.bg,
-              letterSpacing: '0.03em',
-            }}
+            className={`mf-chip min-w-7 flex-none rounded-lg border-0 px-[7px] py-0.5 text-center text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
+            style={{ ...chipStyle(p), letterSpacing: '0.03em' }}
             title={onEdit && !isSelectionMode ? 'Zmień priorytet' : undefined}
           >
             {p.label}
@@ -510,13 +533,9 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
           <button
             onClick={handleStatusClick}
-            className={`inline-flex flex-none items-center gap-[4px] rounded-lg border-0 px-[7px] py-0.5 text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
+            className={`mf-chip inline-flex flex-none items-center gap-[4px] rounded-lg border-0 px-[7px] py-0.5 text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
             title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
-            style={{
-              color: st.fg,
-              background: st.bg,
-              letterSpacing: '0.02em',
-            }}
+            style={{ ...chipStyle(st), letterSpacing: '0.02em' }}
           >
             <span className="flex-none rounded-full" style={{ width: 5, height: 5, background: st.dot }} />
             {st.label}
@@ -527,11 +546,10 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       {/* Priority badge — clickable */}
       <button
         onClick={handlePriorityClick}
-        className="hidden sm:block flex-none text-[10.5px] font-semibold rounded-[5px] transition-opacity"
+        className="mf-chip hidden flex-none rounded-[5px] text-[10.5px] font-semibold transition-opacity sm:block"
         style={{
           padding: '2px 6px',
-          color: p.fg,
-          background: p.bg,
+          ...chipStyle(p),
           letterSpacing: '0.03em',
           minWidth: 26,
           textAlign: 'center',
@@ -547,10 +565,10 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       {/* Status badge — clickable */}
       <button
         onClick={handleStatusClick}
-        className="hidden sm:inline-flex flex-none items-center gap-[4px] text-[10.5px] font-semibold rounded-[5px]"
+        className="mf-chip hidden flex-none items-center gap-[4px] rounded-[5px] text-[10.5px] font-semibold sm:inline-flex"
         title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
         style={{
-          padding: '2px 7px', color: st.fg, background: st.bg, letterSpacing: '0.02em', flexShrink: 0,
+          padding: '2px 7px', ...chipStyle(st), letterSpacing: '0.02em', flexShrink: 0,
           border: 'none', cursor: onEdit && !isSelectionMode ? 'pointer' : 'default',
         }}
       >
@@ -560,7 +578,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Title */}
       <span
-        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease ${isClosing ? 'text-[#9098a4] line-through' : 'text-[#0f1115]'}`}
+        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease dark:text-white ${isClosing ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         style={{ fontWeight: 450 }}
       >
         {task.content}
@@ -570,8 +588,8 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
         {subtaskProgress.total > 0 && (
           <span
-            className="rounded-md text-[11px] font-semibold"
-            style={{ minWidth: 34, padding: '2px 6px', color: '#9098a4', background: '#f7f7f4', textAlign: 'center' }}
+            className="rounded-md bg-[#f7f7f4] text-[11px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400"
+            style={{ minWidth: 34, padding: '2px 6px', textAlign: 'center' }}
             title="Wykonane podzadania"
           >
             {subtaskProgress.completed}/{subtaskProgress.total}
@@ -618,6 +636,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         />
         <div
           className="animate-calendar-reveal"
+          data-theme-dropdown="true"
           style={{
             position: 'fixed',
             top: priorityRect.bottom + 4,
@@ -638,6 +657,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
             return (
               <button
                 key={priority}
+                data-selected={isActive ? 'true' : undefined}
                 onClick={e => { e.stopPropagation(); onEdit?.({ priority }); setPriorityOpen(false); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -676,6 +696,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         />
         <div
           className="animate-calendar-reveal"
+          data-theme-dropdown="true"
           style={{
             position: 'fixed',
             top: statusRect.bottom + 4,
@@ -696,6 +717,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
             return (
               <button
                 key={s}
+                data-selected={isActive ? 'true' : undefined}
                 onClick={e => { e.stopPropagation(); onEdit?.({ status: s }); setStatusOpen(false); }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 8,
@@ -799,8 +821,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
           <ChevronIcon open={open} />
         </span>
         <span
-          className="text-[15px] font-semibold"
-          style={{ color: isOverdue ? '#e05050' : '#0f1115' }}
+          className={`text-[15px] font-semibold ${isOverdue ? 'text-[#e05050]' : 'text-[#8a909a] dark:text-gray-500'}`}
         >
           {group.label}
         </span>
@@ -836,10 +857,8 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
           ))}
 
           <button
-            className="flex items-center gap-2 text-[13px] transition-colors mt-1 py-2"
-            style={{ color: '#c0c5cc' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#c0c5cc'; }}
+            type="button"
+            className="mt-1 flex items-center gap-2 py-2 text-[13px] text-[#c0c5cc] transition-colors hover:text-[#9098a4] dark:text-gray-500 dark:hover:text-gray-300"
             onClick={() => setAddingOpen(true)}
           >
             <PlusIcon /> Dodaj zadanie
@@ -1009,6 +1028,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={closeBulkPicker} />
       <div
         className="animate-calendar-reveal"
+        data-theme-dropdown={bulkPicker.type === 'date' ? undefined : 'true'}
         style={{
           position: 'fixed',
           bottom: window.innerHeight - bulkPicker.rect.top + 8,
@@ -1106,10 +1126,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-[14px] text-[#9098a4]">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</p>
         <button
-          className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
-          style={{ color: '#9098a4', background: '#f5f4f1' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+          type="button"
+          className="flex items-center gap-2 rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
           onClick={() => setAddModalOpen(true)}
         >
           <PlusIcon /> Nowe zadanie
@@ -1134,10 +1152,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       {/* Top-level add button + Wybierz wiele */}
       <div className="mb-4 flex items-center justify-between gap-3">
         <button
-          className="flex items-center gap-2 text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
-          style={{ color: '#9098a4', background: '#f5f4f1' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+          type="button"
+          className="flex items-center gap-2 rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
           onClick={() => setAddModalOpen(true)}
         >
           <PlusIcon /> Nowe zadanie
@@ -1151,8 +1167,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
               onClick={() => { setIsSelectionMode(m => !m); setSelectedIds([]); }}
               className={`h-9 rounded-lg px-3 text-[12px] font-semibold transition-colors duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${
                 isSelectionMode
-                  ? 'bg-[#0f1115] text-white'
-                  : 'bg-[#f5f4f1] text-[#9098a4] hover:bg-[#f1f0ed] hover:text-[#3a3f47]'
+                  ? 'bg-[#0f1115] text-white dark:bg-[#0f1115] dark:text-white'
+                  : 'bg-[#f5f4f1] text-[#9098a4] hover:bg-[#f1f0ed] hover:text-[#3a3f47] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white'
               }`}
             >
               {isSelectionMode ? 'Gotowe' : 'Wybierz'}
@@ -1171,14 +1187,15 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
       )}
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2 flex-wrap mb-4">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <div
-          className="flex items-center gap-2 transition-all"
+          className={`flex items-center gap-2 rounded-[7px] border bg-white text-[#0f1115] transition-all dark:bg-[#232326] dark:text-gray-100 ${
+            filterSearch
+              ? 'border-[#9098a4] dark:border-[#747984]'
+              : 'border-[#d8d8d3] dark:border-[#4a4d54]'
+          }`}
           style={{
             padding: '5px 10px',
-            background: '#fff',
-            border: `1px solid ${filterSearch ? '#9098a4' : '#ececec'}`,
-            borderRadius: 7,
             flex: 1,
             minWidth: 160,
             maxWidth: 280,
@@ -1191,7 +1208,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
             value={filterSearch}
             onChange={e => setFilterSearch(e.target.value)}
             className="bg-transparent outline-none w-full"
-            style={{ fontSize: 12.5, color: '#0f1115', caretColor: '#0f1115' }}
+            style={{ fontSize: 12.5, color: 'inherit', caretColor: 'currentColor' }}
           />
           {filterSearch && (
             <button onClick={() => setFilterSearch('')} style={{ color: '#9098a4', lineHeight: 1, flexShrink: 0 }}>
@@ -1206,9 +1223,9 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           onChange={setFilterStatus}
           options={[
             { value: 'all', label: 'Wszystkie statusy' },
-            { value: 'NotStarted', label: 'Nie rozpoczęto', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)', dot: 'oklch(0.75 0.01 260)' },
-            { value: 'InProgress',  label: 'W trakcie',     fg: 'oklch(0.55 0.15 230)', bg: 'oklch(0.96 0.03 230)',  dot: 'oklch(0.60 0.18 230)' },
-            { value: 'Completed',   label: 'Ukończone',     fg: 'oklch(0.50 0.15 145)', bg: 'oklch(0.96 0.03 145)',  dot: 'oklch(0.55 0.18 145)' },
+            { value: 'NotStarted', ...STATUS_META.NotStarted },
+            { value: 'InProgress', ...STATUS_META.InProgress },
+            { value: 'Completed', ...STATUS_META.Completed },
           ]}
         />
 
@@ -1218,10 +1235,10 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           onChange={setFilterPriority}
           options={[
             { value: 'all', label: 'Wszystkie priorytety' },
-            { value: 'P1', label: 'P1 — Pilne',   fg: 'oklch(0.62 0.18 25)',  bg: 'oklch(0.96 0.03 25)'   },
-            { value: 'P2', label: 'P2 — Wysokie', fg: 'oklch(0.70 0.16 55)',  bg: 'oklch(0.96 0.03 55)'   },
-            { value: 'P3', label: 'P3 — Średnie', fg: 'oklch(0.70 0.13 230)', bg: 'oklch(0.96 0.03 230)'  },
-            { value: 'P4', label: 'P4 — Niskie',  fg: 'oklch(0.65 0.01 260)', bg: 'oklch(0.95 0.005 260)' },
+            { value: TaskPriority.P1, ...PRIORITY[TaskPriority.P1], label: `${PRIORITY[TaskPriority.P1].label} — ${PRIORITY[TaskPriority.P1].name}` },
+            { value: TaskPriority.P2, ...PRIORITY[TaskPriority.P2], label: `${PRIORITY[TaskPriority.P2].label} — ${PRIORITY[TaskPriority.P2].name}` },
+            { value: TaskPriority.P3, ...PRIORITY[TaskPriority.P3], label: `${PRIORITY[TaskPriority.P3].label} — ${PRIORITY[TaskPriority.P3].name}` },
+            { value: TaskPriority.P4, ...PRIORITY[TaskPriority.P4], label: `${PRIORITY[TaskPriority.P4].label} — ${PRIORITY[TaskPriority.P4].name}` },
           ]}
         />
 
@@ -1240,10 +1257,9 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
 
         {hasActiveFilter && (
           <button
+            type="button"
             onClick={clearFilters}
-            style={{ fontSize: 12, color: '#9098a4', padding: '5px 8px', borderRadius: 7, background: 'none', border: 'none', cursor: 'pointer' }}
-            onMouseEnter={e => (e.currentTarget.style.color = '#3a3f47')}
-            onMouseLeave={e => (e.currentTarget.style.color = '#9098a4')}
+            className="rounded-[7px] px-2 py-[5px] text-[12px] text-[#9098a4] transition-colors hover:text-[#3a3f47] dark:text-gray-400 dark:hover:text-gray-200"
           >
             Wyczyść
           </button>
@@ -1255,10 +1271,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           <p className="text-[14px] text-[#9098a4]">Brak zadań pasujących do filtrów.</p>
           <button
             onClick={clearFilters}
-            className="text-[13px] font-medium transition-colors rounded-lg px-3 py-1.5"
-            style={{ color: '#9098a4', background: '#f5f4f1' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#0f1115'; (e.currentTarget as HTMLElement).style.background = '#eceae6'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = '#9098a4'; (e.currentTarget as HTMLElement).style.background = '#f5f4f1'; }}
+            type="button"
+            className="rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
           >
             Wyczyść filtry
           </button>

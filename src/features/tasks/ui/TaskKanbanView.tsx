@@ -137,6 +137,7 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
   return (
     <article
       draggable={dragReady}
+      data-mf-task-card="true"
       onClick={handleClick}
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerRelease}
@@ -161,6 +162,7 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
         {/* When grouped by priority, show status badge — and vice versa */}
         {groupBy === 'status' ? (
           <span
+            data-mf-priority={task.priority}
             className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
             style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
           >
@@ -169,6 +171,7 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
           </span>
         ) : (
           <span
+            data-mf-status={task.status ?? 'NotStarted'}
             className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-md"
             style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.03em', color: s.fg, background: s.bg }}
           >
@@ -277,23 +280,12 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
         style={{ padding: '0 18px 14px', marginBottom: 2 }}
       >
         {/* Group by toggle */}
-        <div
-          className="flex items-center gap-0.5"
-          style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
-        >
+        <div className="mf-segmented">
           {(['status', 'priority'] as const).map(mode => (
             <button
               key={mode}
               onClick={() => setGroupBy(mode)}
-              className="transition-all duration-150"
-              style={{
-                padding: '4px 10px',
-                borderRadius: 5,
-                fontSize: 12,
-                fontWeight: 500,
-                background: groupBy === mode ? '#0f1115' : 'transparent',
-                color: groupBy === mode ? '#fff' : '#5a606b',
-              }}
+              className={`mf-segmented-option ${groupBy === mode ? 'is-active' : ''}`}
             >
               {{ status: 'Statusy', priority: 'Priorytety' }[mode]}
             </button>
@@ -302,6 +294,7 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
 
         {/* Search */}
         <div
+          data-mf-board-control="true"
           className="flex items-center gap-2 transition-all duration-150"
           style={{
             padding: '5px 10px',
@@ -355,6 +348,7 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
             return (
               <section
                 key={col.key}
+                data-mf-column="true"
                 className="flex-none flex flex-col h-full min-h-0 relative"
                 style={{
                   width: 288,
@@ -374,6 +368,8 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
                 {/* header */}
                 <div className="flex items-center gap-2" style={{ padding: '14px 0 8px' }}>
                   <span
+                    data-mf-priority={groupBy === 'priority' ? col.key : undefined}
+                    data-mf-status={groupBy === 'status' ? col.key : undefined}
                     className="inline-flex items-center gap-[5px] text-[11px] font-semibold rounded-md"
                     style={{ padding: '3px 8px 3px 7px', letterSpacing: '0.03em', color: col.fg, background: col.bg }}
                   >
@@ -387,6 +383,7 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
                 <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
                   {colTasks.length === 0 && !isOver && (
                     <div
+                      data-mf-empty-state="true"
                       className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
                       style={{ border: '1.5px dashed #e3e3df' }}
                     >
@@ -407,7 +404,7 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
                   ))}
 
                   {isOver && draggingId && (
-                    <div className="p-4 h-[52px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 flex items-center justify-center animate-pulse">
+                    <div data-mf-empty-state="true" className="p-4 h-[52px] rounded-xl border-2 border-dashed border-gray-300 bg-gray-50/50 flex items-center justify-center animate-pulse">
                       <span className="text-[11px] font-semibold text-gray-400">Upuść tutaj</span>
                     </div>
                   )}

@@ -57,18 +57,12 @@ export function ProjectView({ projectId, project, projects }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
-          <div
-            className="flex rounded-[7px] border border-[#ececec] bg-white p-[2px] dark:border-white/10 dark:bg-[#27272A]"
-          >
+          <div className="mf-segmented">
             {(['list', 'week', 'board'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`rounded-[5px] px-[11px] py-1 text-[12.5px] font-medium transition-all duration-150 ${
-                  viewMode === mode
-                    ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]'
-                    : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'
-                }`}
+                className={`mf-segmented-option ${viewMode === mode ? 'is-active' : ''}`}
               >
                 {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
               </button>

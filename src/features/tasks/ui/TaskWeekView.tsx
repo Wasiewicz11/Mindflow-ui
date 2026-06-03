@@ -144,6 +144,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
     return (
       <div
         key={task.id}
+        data-mf-task-card="true"
         draggable
         onDragStart={(e) => handleDragStart(e, task.id)}
         onDragEnd={handleDragEnd}
@@ -230,13 +231,13 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
             <>
               {columnTasks.map(task => renderTaskCard(task, dateKey))}
               {isOver && draggedTaskId && (
-                <div className="mb-3 p-4 h-[50px] rounded-xl border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50/50 dark:bg-white/5 flex flex-col items-center justify-center animate-pulse">
+                <div data-mf-empty-state="true" className="mb-3 p-4 h-[50px] rounded-xl border-2 border-dashed border-gray-300 dark:border-white/20 bg-gray-50/50 dark:bg-white/5 flex flex-col items-center justify-center animate-pulse">
                   <span className="text-[9px] font-semibold text-gray-400 dark:text-gray-500">Upuść tutaj</span>
                 </div>
               )}
             </>
           ) : (
-            <div className="h-20 border-2 border-dashed border-gray-100 dark:border-white/10 rounded-xl flex items-center justify-center text-gray-300 dark:text-gray-600 text-xs font-medium">
+            <div data-mf-empty-state="true" className="h-20 border-2 border-dashed border-gray-100 dark:border-white/10 rounded-xl flex items-center justify-center text-gray-300 dark:text-gray-600 text-xs font-medium">
               Brak zadań
             </div>
           )}
@@ -261,6 +262,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
         {/* Search bar */}
         <div className="flex-none flex items-center gap-2 px-4 pb-3">
           <div
+            data-mf-board-control="true"
             className="flex items-center gap-2 transition-all"
             style={{
               padding: '5px 10px',

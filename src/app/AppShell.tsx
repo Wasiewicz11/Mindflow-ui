@@ -319,23 +319,12 @@ export function AppShell() {
               </div>
 
               {activeTab === 'tasks' && (
-                <div
-                  className="flex dark:bg-white/5"
-                  style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
-                >
+                <div className="mf-segmented">
                   {(['list', 'week', 'board'] as const).map(mode => (
                     <button
                       key={mode}
                       onClick={() => setTaskViewMode(mode)}
-                      className="transition-all duration-150"
-                      style={{
-                        padding: '4px 11px',
-                        borderRadius: 5,
-                        fontSize: 12.5,
-                        fontWeight: 500,
-                        background: taskViewMode === mode ? '#0f1115' : 'transparent',
-                        color: taskViewMode === mode ? '#fff' : '#5a606b',
-                      }}
+                      className={`mf-segmented-option ${taskViewMode === mode ? 'is-active' : ''}`}
                     >
                       {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
                     </button>
@@ -485,7 +474,7 @@ export function AppShell() {
 
               {activeTab === 'settings' && (
                 <div className="mx-auto w-full max-w-3xl animate-fade-in">
-                  <div className="overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] transition-colors duration-300 dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
+                  <div className="overflow-visible rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] transition-colors duration-300 dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
                     <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia konta</p>
                       <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Profil i wygląd</h2>

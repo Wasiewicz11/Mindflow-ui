@@ -61,6 +61,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
   return (
     <article
       onClick={() => onOpen(task)}
+      data-mf-task-card="true"
       className="bg-white border rounded-xl transition-all duration-150 cursor-pointer dark:bg-[#27272A]"
       style={{
         borderColor: '#ececec',
@@ -81,6 +82,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
       {/* priority + status badges */}
       <div className="flex items-center gap-1.5 mb-2 flex-wrap">
         <span
+          data-mf-priority={task.priority}
           className="inline-flex items-center gap-[5px] text-[10.5px] font-semibold rounded-md"
           style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.04em', color: p.fg, background: p.bg }}
         >
@@ -88,6 +90,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
           {p.label}
         </span>
         <span
+          data-mf-status={task.status ?? 'NotStarted'}
           className="inline-flex items-center gap-[4px] text-[10.5px] font-semibold rounded-md"
           style={{ padding: '3px 7px 3px 6px', letterSpacing: '0.03em', color: st.fg, background: st.bg }}
         >
@@ -124,6 +127,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
 
   return (
     <section
+      data-mf-column="true"
       className="group flex-none flex flex-col h-full min-h-0 relative"
       style={{
         width: 288,
@@ -165,6 +169,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
         {open.length === 0 && (
           <div
+            data-mf-empty-state="true"
             className="rounded-xl py-8 text-center text-[13px] text-[#b8bcc4] dark:text-gray-500"
             style={{ border: '1.5px dashed #e3e3df' }}
           >
@@ -229,6 +234,7 @@ export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onA
       {/* Search bar */}
       <div className="flex-none flex items-center gap-2 px-[18px] pb-3">
         <div
+          data-mf-board-control="true"
           className="flex items-center gap-2 transition-all"
           style={{
             padding: '5px 10px',

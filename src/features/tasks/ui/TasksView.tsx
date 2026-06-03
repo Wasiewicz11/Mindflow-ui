@@ -62,7 +62,7 @@ export function TasksView({ space, onBack }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] dark:bg-[#000000] p-8">
+    <div className="min-h-screen bg-[#FDFDFD] p-8 dark:bg-[#000000]">
       <div className="max-w-2xl mx-auto">
 
         {/* Header */}
@@ -110,12 +110,12 @@ export function TasksView({ space, onBack }: Props) {
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !adding && handleAdd()}
             placeholder="Dodaj zadanie..."
-            className="flex-1 bg-white dark:bg-[#1C1C1E] border border-gray-100 dark:border-white/5 rounded-xl px-4 py-3 text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:bg-white dark:focus:bg-[#1C1C1E] focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 focus:border-gray-200 dark:focus:border-white/10 outline-none transition-all"
+            className="flex-1 rounded-xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-900 outline-none transition-all placeholder-gray-400 focus:border-gray-200 focus:bg-white focus:ring-2 focus:ring-gray-200 dark:border-white/5 dark:bg-[#1C1C1E] dark:text-white dark:placeholder-gray-500 dark:focus:border-white/10 dark:focus:bg-[#27272A] dark:focus:ring-white/10"
           />
           <button
             onClick={handleAdd}
             disabled={adding || !inputValue.trim()}
-            className="px-4 py-3 rounded-xl text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-black hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors shadow-sm hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2"
+            className="flex items-center gap-2 rounded-xl bg-gray-900 px-4 py-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:hover:bg-[#e8e8e4]"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4" />
@@ -150,7 +150,7 @@ export function TasksView({ space, onBack }: Props) {
             className="absolute inset-0 bg-gray-900/20 dark:bg-black/40 backdrop-blur-sm animate-fade-in"
             onClick={() => setIsModalOpen(false)}
           />
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-scale-in z-10 border border-gray-100 dark:border-white/5">
+          <div className="relative z-10 w-full max-w-sm animate-scale-in rounded-2xl border border-gray-100 bg-white p-6 shadow-xl dark:border-white/5 dark:bg-[#1C1C1E]">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
               Edytuj zadanie
             </h3>
@@ -164,7 +164,7 @@ export function TasksView({ space, onBack }: Props) {
                   type="text"
                   value={formContent}
                   onChange={(e) => setFormContent(e.target.value)}
-                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 outline-none transition-all"
+                  className="w-full rounded-xl border border-gray-100 bg-gray-50 px-4 py-2 text-sm text-gray-900 outline-none transition-all focus:bg-white focus:ring-2 focus:ring-gray-200 dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:bg-[#27272A] dark:focus:ring-white/10"
                   placeholder="Co trzeba zrobić?"
                   required
                   autoFocus
@@ -189,7 +189,7 @@ export function TasksView({ space, onBack }: Props) {
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-black rounded-xl hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors shadow-sm"
+                    className="rounded-xl bg-gray-900 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-gray-800 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:hover:bg-[#e8e8e4]"
                   >
                     Zapisz
                   </button>
@@ -216,11 +216,11 @@ function TaskRow({ task, index, onEdit, onDelete }: TaskRowProps) {
   return (
     <div
       onClick={onEdit}
-      className={`group relative flex items-center justify-between rounded-xl border bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 hover:border-gray-200 dark:hover:border-white/10 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 cursor-pointer p-4 animate-fade-in-up ${staggerClass}`}
+      className={`group relative flex items-center justify-between rounded-xl border border-gray-100 bg-white p-4 transition-all duration-300 hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-md dark:border-white/5 dark:bg-[#1C1C1E] dark:hover:border-white/10 dark:hover:bg-[#27272A] dark:hover:shadow-none cursor-pointer animate-fade-in-up ${staggerClass}`}
     >
       <div className="flex items-center flex-1 min-w-0 mr-4 space-x-4">
         {/* Checkbox placeholder */}
-        <div className="flex-shrink-0 w-5 h-5 rounded-md border border-gray-300 dark:border-white/20 bg-white dark:bg-white/5" />
+        <div className="h-5 w-5 flex-shrink-0 rounded-md border border-gray-300 bg-white dark:border-white/20 dark:bg-[#323238]" />
 
         <span className="font-medium text-sm text-gray-700 dark:text-gray-200 truncate">
           {task.content}

@@ -146,10 +146,10 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
       onDragEnd={handleDragEndInternal}
       className={`border rounded-xl transition-all duration-150 select-none ${
         isDragging
-          ? 'bg-gray-50 border-dashed border-gray-300 opacity-40 shadow-none scale-[0.98] cursor-grabbing'
+          ? 'bg-gray-50 border-dashed border-gray-300 opacity-40 shadow-none scale-[0.98] cursor-grabbing dark:bg-[#232326] dark:border-white/10'
           : dragReady
-            ? 'bg-white cursor-grab hover:shadow-md hover:-translate-y-0.5'
-            : 'bg-white cursor-pointer hover:shadow-md hover:-translate-y-0.5'
+            ? 'bg-white cursor-grab hover:shadow-md hover:-translate-y-0.5 dark:bg-[#27272A] dark:hover:bg-[#323238] dark:hover:shadow-none'
+            : 'bg-white cursor-pointer hover:shadow-md hover:-translate-y-0.5 dark:bg-[#27272A] dark:hover:bg-[#323238] dark:hover:shadow-none'
       }`}
       style={{
         borderColor: isDragging ? undefined : '#ececec',
@@ -189,7 +189,7 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
         ))}
       </div>
 
-      <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115]">{task.content}</p>
+      <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115] dark:text-white">{task.content}</p>
 
       {task.dueDate && (
         <div className={`flex items-center gap-1.5 mt-2 text-[11.5px] ${overdue ? 'text-red-500' : 'text-[#9098a4]'}`}>

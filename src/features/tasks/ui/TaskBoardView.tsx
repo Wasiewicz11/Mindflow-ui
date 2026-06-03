@@ -61,7 +61,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
   return (
     <article
       onClick={() => onOpen(task)}
-      className="bg-white border rounded-xl transition-all duration-150 cursor-pointer"
+      className="bg-white border rounded-xl transition-all duration-150 cursor-pointer dark:bg-[#27272A]"
       style={{
         borderColor: '#ececec',
         padding: '12px 13px 11px',
@@ -97,7 +97,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
       </div>
 
       {/* title */}
-      <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115]">{task.content}</p>
+      <p className="text-[14px] font-medium leading-[1.4] text-[#0f1115] dark:text-white">{task.content}</p>
 
       {/* due date */}
       {task.dueDate && (
@@ -140,20 +140,20 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
       {/* header */}
       <div className="flex items-center justify-between" style={{ padding: '22px 0 8px' }}>
         <div className="flex items-center gap-2">
-          <span className="text-[13px] font-semibold text-[#0f1115] tracking-[-0.005em]">{project.name}</span>
+          <span className="text-[13px] font-semibold tracking-[-0.005em] text-[#0f1115] dark:text-white">{project.name}</span>
           <span className="text-[11px] text-[#9098a4]">{open.length}</span>
         </div>
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
           <button
             onClick={() => setAddingOpen(true)}
-            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef]"
+            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef] dark:hover:bg-[#323238]"
             style={{ width: 22, height: 22 }}
             title="Dodaj zadanie"
           >
             <PlusIcon />
           </button>
           <button
-            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef]"
+            className="flex items-center justify-center rounded-[5px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef] dark:hover:bg-[#323238]"
             style={{ width: 22, height: 22 }}
           >
             <MoreIcon />
@@ -165,7 +165,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
       <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2 pb-3 custom-scrollbar">
         {open.length === 0 && (
           <div
-            className="text-center text-[13px] text-[#b8bcc4] rounded-xl py-8"
+            className="rounded-xl py-8 text-center text-[13px] text-[#b8bcc4] dark:text-gray-500"
             style={{ border: '1.5px dashed #e3e3df' }}
           >
             Brak zadań
@@ -176,7 +176,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
 
         <button
           onClick={() => setAddingOpen(true)}
-          className="flex items-center gap-2 text-[13px] text-[#9098a4] rounded-xl border border-dashed border-transparent hover:border-[#e3e3df] transition-colors text-left"
+          className="flex items-center gap-2 rounded-xl border border-dashed border-transparent text-left text-[13px] text-[#9098a4] transition-colors hover:border-[#e3e3df] dark:hover:border-white/10 dark:hover:bg-[#232326]"
           style={{ padding: '9px 12px' }}
         >
           <PlusIcon /> Dodaj zadanie

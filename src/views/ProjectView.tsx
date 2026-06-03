@@ -58,22 +58,17 @@ export function ProjectView({ projectId, project, projects }: Props) {
 
         <div className="flex items-center gap-2">
           <div
-            className="flex dark:bg-white/5"
-            style={{ padding: 2, background: '#fff', border: '1px solid #ececec', borderRadius: 7 }}
+            className="flex rounded-[7px] border border-[#ececec] bg-white p-[2px] dark:border-white/10 dark:bg-[#27272A]"
           >
             {(['list', 'week', 'board'] as const).map(mode => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className="transition-all duration-150"
-                style={{
-                  padding: '4px 11px',
-                  borderRadius: 5,
-                  fontSize: 12.5,
-                  fontWeight: 500,
-                  background: viewMode === mode ? '#0f1115' : 'transparent',
-                  color: viewMode === mode ? '#fff' : '#5a606b',
-                }}
+                className={`rounded-[5px] px-[11px] py-1 text-[12.5px] font-medium transition-all duration-150 ${
+                  viewMode === mode
+                    ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]'
+                    : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'
+                }`}
               >
                 {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
               </button>

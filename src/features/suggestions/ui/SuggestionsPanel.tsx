@@ -1,33 +1,73 @@
 import { AiSuggestionCard } from './AiSuggestionCard';
-import type { ApiSuggestion } from '../model/suggestionModel';
+import type { ApiSuggestion, SuggestionMode, SuggestionQuota } from '../model/suggestionModel';
 
 interface SuggestionsPanelProps {
   suggestions: ApiSuggestion[];
+  quota: SuggestionQuota | null;
+  isGenerating: boolean;
+  lastMode: SuggestionMode | null;
+  onGenerate: () => void;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
 }
 
-export function SuggestionsPanel({ suggestions, onAccept, onReject }: SuggestionsPanelProps) {
-  if (suggestions.length === 0) return null;
+export function SuggestionsPanel({
+  suggestions,
+  quota,
+  isGenerating,
+  lastMode,
+  onGenerate,
+  onAccept,
+  onReject,
+}: SuggestionsPanelProps) {
+  const limitReached = quota ? quota.aiUsedToday >= quota.aiLimit : false;
 
   return (
     <section className="animate-fade-in">
-      <h2 className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white">
-        Sugestie AI
-        <span className="rounded-full bg-[#0f1115] px-2 py-0.5 text-[10px] font-semibold text-white dark:bg-white dark:text-[#0f1115]">
-          {suggestions.length}
-        </span>
-      </h2>
-      <div className="space-y-3">
-        {suggestions.map(suggestion => (
-          <AiSuggestionCard
-            key={suggestion.id}
-            suggestion={suggestion}
-            onAccept={onAccept}
-            onReject={onReject}
-          />
-        ))}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider text-gray-900 dark:text-white">
+          Sugestie AI
+          {suggestions.length > 0 && (
+            <span className="rounded-full bg-[#0f1115] px-2 py-0.5 text-[10px] font-semibold text-white dark:bg-white dark:text-[#0f1115]">
+              {suggestions.length}
+            </span>
+          )}
+        </h2>
+
+        <div className="flex items-center gap-3">
+          {quota && (
+            <span className="text-xs font-medium text-[#9098a4]">AI: {quota.aiUsedToday}/{quota.aiLimit} dziś</span>
+          )}
+          <button
+            onClick={onGenerate}
+            disabled={isGenerating}
+            className="inline-flex h-9 items-center justify-center rounded-xl bg-[#0f1115] px-4 text-sm font-medium text-white transition-[transform,opacity] duration-200 hover:-translate-y-px hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[#0f1115]/30 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-[#0f1115] dark:focus:ring-white/30 dark:focus:ring-offset-black"
+          >
+            {isGenerating ? 'Generuję…' : limitReached ? 'Wygeneruj (bez AI)' : 'Wygeneruj'}
+          </button>
+        </div>
       </div>
+
+      {lastMode === 'offline' && (
+        <p className="mb-3 rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-xs text-[#5a606b] dark:border-white/8 dark:bg-white/5 dark:text-gray-400">
+          Wykorzystano dzienny limit AI — to uproszczona wersja (bez analizy AI).
+        </p>
+      )}
+
+      {suggestions.length === 0 ? (
+        <p className="text-sm text-[#9098a4]">Brak sugestii na teraz. Kliknij „Wygeneruj", żeby przejrzeć swój dzień.</p>
+      ) : (
+        <div className="space-y-3">
+          {suggestions.map(suggestion => (
+            <AiSuggestionCard
+              key={suggestion.id}
+              suggestion={suggestion}
+              onAccept={onAccept}
+              onReject={onReject}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }

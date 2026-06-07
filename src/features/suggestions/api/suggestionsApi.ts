@@ -1,5 +1,5 @@
 import { apiFetch } from '../../../shared/api/client';
-import type { ApiSuggestion } from '../model/suggestionModel';
+import type { ApiSuggestion, GenerateResult, SuggestionQuota } from '../model/suggestionModel';
 
 export function getPendingSuggestions(): Promise<ApiSuggestion[]> {
   return apiFetch<ApiSuggestion[]>('/suggestions');
@@ -11,4 +11,12 @@ export function acceptSuggestion(id: string): Promise<void> {
 
 export function rejectSuggestion(id: string): Promise<void> {
   return apiFetch<void>(`/suggestions/${id}/reject`, { method: 'POST' });
+}
+
+export function generateSuggestions(): Promise<GenerateResult> {
+  return apiFetch<GenerateResult>('/suggestions/generate', { method: 'POST' });
+}
+
+export function getSuggestionQuota(): Promise<SuggestionQuota> {
+  return apiFetch<SuggestionQuota>('/suggestions/quota');
 }

@@ -1,13 +1,14 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoginScreen } from '../features/auth/ui';
 import { Sidebar, ThemeSelector } from '../features/layout/ui';
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
+import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 
 import { useAuth } from '../features/auth';
 import { useTasks } from '../features/tasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from '../features/spaces';
-import { getMe } from '../features/users';
+import { getMe, uploadAvatar } from '../features/users';
 import { getProjects, createProject, deleteProject, updateProject, ProjectSettingsModal } from '../features/projects';
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
@@ -22,8 +23,16 @@ type EffectiveTheme = 'light' | 'dark' | 'gray';
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
   const { tasks, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
+  const {
+    suggestions: aiSuggestions,
+    accept: acceptSuggestion,
+    reject: rejectSuggestion,
+  } = useSuggestions(isLoggedIn, refreshTasks);
 
   const [user, setUser] = useState<User | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
@@ -34,6 +43,7 @@ export function AppShell() {
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
+  const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const [theme, setTheme] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem('mindflow_theme');
@@ -203,9 +213,44 @@ export function AppShell() {
   const handleLogout = () => {
     logout();
     setUser(null);
+    setAvatarError(null);
+    setAvatarSuccess(null);
     localStorage.removeItem('mindflow_user');
     setNotes([]);
     setActiveTab('dashboard');
+  };
+
+  const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+
+    if (!file) return;
+
+    const allowedTypes = ['image/png', 'image/jpeg'];
+    if (!allowedTypes.includes(file.type)) {
+      setAvatarSuccess(null);
+      setAvatarError('Dozwolone są tylko pliki PNG, JPG i JPEG.');
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      setAvatarSuccess(null);
+      setAvatarError('Avatar może mieć maksymalnie 25 MB.');
+      return;
+    }
+
+    try {
+      setIsUploadingAvatar(true);
+      setAvatarError(null);
+      const updatedUser = await uploadAvatar(file);
+      setUser(updatedUser);
+      setAvatarSuccess('Avatar został zaktualizowany.');
+    } catch (error) {
+      setAvatarSuccess(null);
+      setAvatarError(error instanceof Error ? error.message.replace(/^HTTP \d+:\s*/, '') : 'Nie udało się zaktualizować avatara.');
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const todayStr = new Date().toISOString().split('T')[0];
@@ -336,6 +381,12 @@ export function AppShell() {
             <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
               {activeTab === 'dashboard' && (
                 <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
+                  <SuggestionsPanel
+                    suggestions={aiSuggestions}
+                    onAccept={acceptSuggestion}
+                    onReject={rejectSuggestion}
+                  />
+
                   <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                     {[
                       { label: 'Wszystkie zadania', value: tasks.filter(t => !t.isCompleted).length, color: 'text-gray-900 dark:text-white' },
@@ -502,12 +553,40 @@ export function AppShell() {
                             </div>
                           </div>
 
-                          <button
-                            onClick={handleLogout}
-                            className="inline-flex h-11 items-center justify-center rounded-xl border border-[#f3d4d4] bg-[#fff8f8] px-4 text-sm font-medium text-[#b93838] transition-[background-color,border-color,color,transform] duration-200 ease hover:-translate-y-px hover:border-[#efc3c3] hover:bg-[#fff1f1] focus:outline-none focus:ring-2 focus:ring-[#efc3c3] focus:ring-offset-2 focus:ring-offset-white dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus:ring-red-900/60 dark:focus:ring-offset-[#1C1C1E]"
-                          >
-                            Wyloguj się
-                          </button>
+                          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                            <input
+                              ref={avatarInputRef}
+                              type="file"
+                              accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+                              onChange={handleAvatarChange}
+                              className="hidden"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => avatarInputRef.current?.click()}
+                              disabled={isUploadingAvatar}
+                              className="inline-flex h-11 items-center justify-center rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] px-4 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,color,transform,opacity] duration-200 ease hover:-translate-y-px hover:border-[#d9d9d4] hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] focus:ring-offset-2 focus:ring-offset-white disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/8 dark:focus:ring-white/15 dark:focus:ring-offset-[#1C1C1E]"
+                            >
+                              {isUploadingAvatar ? 'Wgrywanie...' : 'Zmień avatar'}
+                            </button>
+                            <button
+                              onClick={handleLogout}
+                              className="inline-flex h-11 items-center justify-center rounded-xl border border-[#f3d4d4] bg-[#fff8f8] px-4 text-sm font-medium text-[#b93838] transition-[background-color,border-color,color,transform,opacity] duration-200 ease hover:-translate-y-px hover:border-[#efc3c3] hover:bg-[#fff1f1] focus:outline-none focus:ring-2 focus:ring-[#efc3c3] focus:ring-offset-2 focus:ring-offset-white dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus:ring-red-900/60 dark:focus:ring-offset-[#1C1C1E]"
+                            >
+                              Wyloguj się
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-[#f1f0ed] bg-[#fcfcfa] px-4 py-3 transition-colors duration-200 dark:border-white/8 dark:bg-white/[0.03]">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Avatar</p>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Obsługiwane formaty: PNG, JPG, JPEG. Maksymalny rozmiar: 25 MB. Przechowujemy tylko jedno zdjęcie na użytkownika i każde kolejne nadpisuje poprzednie.</p>
+                          {avatarError && (
+                            <p className="mt-2 text-sm text-[#b93838] dark:text-red-300">{avatarError}</p>
+                          )}
+                          {avatarSuccess && (
+                            <p className="mt-2 text-sm text-[#2f7a52] dark:text-emerald-300">{avatarSuccess}</p>
+                          )}
                         </div>
                       </section>
 

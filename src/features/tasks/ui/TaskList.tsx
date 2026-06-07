@@ -2,6 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import { TaskEditModal } from './TaskEditModal';
+import { TaskAddModal } from './TaskAddModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -38,8 +40,7 @@ const TaskList: React.FC<TaskListProps> = ({
   activeProjectId = null,
   showDueSubtasks = false
 }) => {
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPriorityOpen, setIsPriorityOpen] = useState(false);
+  const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
   const [closingTasks, setClosingTasks] = useState<Record<string, 'fading' | 'collapsing'>>({});
@@ -60,20 +61,6 @@ const TaskList: React.FC<TaskListProps> = ({
     window.addEventListener('keydown', prevent);
     return () => window.removeEventListener('keydown', prevent);
   }, []);
-
-  const [formData, setFormData] = useState<{ content: string, priority: TaskPriority, dueDate: string, projectId: string }>({
-    content: '',
-    priority: TaskPriority.P4,
-    dueDate: '',
-    projectId: ''
-  });
-
-  const getTodayStr = () => new Date().toISOString().split('T')[0];
-  const getTomorrowStr = () => {
-    const d = new Date();
-    d.setDate(d.getDate() + 1);
-    return d.toISOString().split('T')[0];
-  };
 
   const activeTasks = tasks.filter(t => !t.isCompleted);
   const completedTasks = tasks.filter(t => t.isCompleted);
@@ -137,43 +124,12 @@ const TaskList: React.FC<TaskListProps> = ({
   };
 
   const openAddModal = () => {
-    setEditingTask(null);
-    setFormData({
-      content: '',
-      priority: TaskPriority.P4,
-      dueDate: '',
-      projectId: activeProjectId || ''
-    });
-    setIsPriorityOpen(false);
-    setIsModalOpen(true);
+    setAddModalOpen(true);
   };
 
   const openEditModal = (task: Task) => {
     if (isSelectionMode) return;
     setEditingTask(task);
-    setFormData({
-      content: task.content,
-      priority: task.priority,
-      dueDate: task.dueDate || '',
-      projectId: task.project_id || ''
-    });
-    setIsPriorityOpen(false);
-    setIsModalOpen(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (editingTask) {
-      onEdit(editingTask.id, {
-        content: formData.content,
-        priority: formData.priority,
-        dueDate: formData.dueDate || undefined,
-        project_id: formData.projectId || null
-      });
-    } else {
-      onAdd(formData.content, formData.priority, formData.dueDate || undefined, formData.projectId || undefined);
-    }
-    setIsModalOpen(false);
   };
 
   const toggleSelection = (id: string, shiftKey = false) => {
@@ -551,143 +507,26 @@ const TaskList: React.FC<TaskListProps> = ({
 
       {floatingToolbar}
 
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/20 dark:bg-black/40 backdrop-blur-sm transition-opacity animate-fade-in" onClick={() => setIsModalOpen(false)}></div>
-          <div className="bg-white dark:bg-[#1C1C1E] rounded-2xl shadow-xl w-full max-w-sm p-6 relative animate-scale-in z-10 transform origin-center border border-gray-100 dark:border-white/5">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
-              {editingTask ? 'Edytuj zadanie' : 'Nowe zadanie'}
-            </h3>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Treść</label>
-                <input
-                  type="text"
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-4 py-2 text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 outline-none transition-all"
-                  placeholder="Co trzeba zrobić?"
-                  required
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="relative">
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Priorytet</label>
-                  <button
-                    type="button"
-                    onClick={() => setIsPriorityOpen(!isPriorityOpen)}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3 py-2 text-sm flex items-center justify-between text-gray-900 dark:text-white focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 outline-none transition-all h-[38px]"
-                  >
-                    <div className="flex items-center space-x-2">
-                      {renderPriorityFlag(formData.priority)}
-                      <span className="text-gray-700 dark:text-gray-300">{getPriorityLabel(formData.priority)}</span>
-                    </div>
-                    <svg className={`w-4 h-4 text-gray-400 transition-transform ${isPriorityOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" /></svg>
-                  </button>
-
-                  {isPriorityOpen && (
-                    <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-[#2C2C2E] border border-gray-100 dark:border-white/10 rounded-xl shadow-lg z-20 overflow-hidden animate-fade-in">
-                      {(Object.values(TaskPriority)).map(p => (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => { setFormData({ ...formData, priority: p }); setIsPriorityOpen(false); }}
-                          className={`w-full px-3 py-2 text-sm flex items-center space-x-2 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors ${formData.priority === p ? 'bg-gray-50 dark:bg-white/5 font-medium' : 'text-gray-600 dark:text-gray-400'}`}
-                        >
-                          {renderPriorityFlag(p)}
-                          <span>{getPriorityLabel(p)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Termin</label>
-
-                  <div className="flex space-x-1.5 mb-2">
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, dueDate: getTodayStr() })}
-                      className={`flex-1 py-1.5 text-[10px] font-medium rounded-lg transition-all border ${formData.dueDate === getTodayStr() ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-gray-900 dark:border-white' : 'bg-white dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10'}`}
-                    >
-                      Dzisiaj
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, dueDate: getTomorrowStr() })}
-                      className={`flex-1 py-1.5 text-[10px] font-medium rounded-lg transition-all border ${formData.dueDate === getTomorrowStr() ? 'bg-gray-900 dark:bg-white text-white dark:text-black border-gray-900 dark:border-white' : 'bg-white dark:bg-white/5 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/10'}`}
-                    >
-                      Jutro
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, dueDate: '' })}
-                      className="px-2 py-1.5 text-[10px] font-medium rounded-lg transition-all border bg-white dark:bg-white/5 text-gray-400 dark:text-gray-500 border-gray-100 dark:border-white/10 hover:text-red-500 dark:hover:text-red-400 hover:border-red-100 dark:hover:border-red-900/30"
-                      title="Wyczyść datę"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <input
-                    type="date"
-                    value={formData.dueDate}
-                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 outline-none transition-all"
-                  />
-                </div>
-              </div>
-
-              {projects.length > 0 && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Projekt</label>
-                  <select
-                    value={formData.projectId}
-                    onChange={(e) => setFormData({ ...formData, projectId: e.target.value })}
-                    className="w-full bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl px-3 py-2 text-sm text-gray-900 dark:text-white focus:bg-white dark:focus:bg-white/10 focus:ring-2 focus:ring-gray-200 dark:focus:ring-white/10 outline-none transition-all appearance-none"
-                  >
-                    <option value="" className="dark:bg-[#1C1C1E]">Brak (Ogólne)</option>
-                    {projects.map(project => (
-                      <option key={project.id} value={project.id} className="dark:bg-[#1C1C1E]">{project.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              <div className="flex items-center pt-4">
-                {editingTask && (
-                  <button
-                    type="button"
-                    onClick={() => { onDelete(editingTask.id); setIsModalOpen(false); }}
-                    className="text-sm font-medium text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 px-3 py-2 rounded-xl transition-colors mr-auto"
-                  >
-                    Usuń
-                  </button>
-                )}
-
-                <div className="flex space-x-3 ml-auto">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/5 rounded-xl transition-colors"
-                  >
-                    Anuluj
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-black rounded-xl hover:bg-gray-800 dark:hover:bg-gray-200 transition-colors shadow-sm hover:shadow-md"
-                  >
-                    Zapisz
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
+      {editingTask && (
+        <TaskEditModal
+          task={editingTask}
+          projects={projects}
+          onSave={updates => onEdit(editingTask.id, updates)}
+          onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
+          onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onClose={() => setEditingTask(null)}
+        />
       )}
+
+      {addModalOpen && (
+        <TaskAddModal
+          projects={projects}
+          initialProjectId={activeProjectId ?? undefined}
+          onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
+          onClose={() => setAddModalOpen(false)}
+        />
+      )}
+
     </div>
   );
 };

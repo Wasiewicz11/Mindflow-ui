@@ -29,8 +29,9 @@ export function ProjectView({ projectId, project, projects }: Props) {
     _projectId?: string,
     status?: TaskStatus,
     description?: string,
+    estimatedHours?: number,
   ) => {
-    await addTask(content, priority, dueDate, status, description);
+    await addTask(content, priority, dueDate, status, description, estimatedHours);
   };
 
   const handleBulkEdit = (ids: string[], updates: Partial<Task>) => {

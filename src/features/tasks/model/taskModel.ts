@@ -8,6 +8,7 @@ export interface ApiTask {
   priority?: TaskPriorityType;
   status?: string;
   dueDate?: string;
+  estimatedHours?: number;
   projectId?: string;
   createdAt?: string;
   tags?: string[];
@@ -30,6 +31,7 @@ export function mapApiTask(task: ApiTask): Task {
     status,
     isCompleted: status === 'Completed',
     dueDate: task.dueDate,
+    estimatedHours: task.estimatedHours,
     project_id: task.projectId ?? null,
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
     tags: task.tags,
@@ -48,6 +50,7 @@ export function toCreateTaskDto(input: {
   description?: string;
   priority?: TaskPriorityType;
   dueDate?: string;
+  estimatedHours?: number;
   tags?: string[];
   subtasks?: Subtask[];
 }): CreateTaskDto {
@@ -58,6 +61,7 @@ export function toCreateTaskDto(input: {
     description: input.description,
     priority: input.priority,
     dueDate: input.dueDate,
+    estimatedHours: input.estimatedHours,
     tags: input.tags,
     subtasks: input.subtasks,
   };
@@ -78,6 +82,10 @@ export function toUpdateTaskDto(updates: Partial<Task>): UpdateTaskDto {
     }
   }
   if (updates.clearDueDate !== undefined) dto.clearDueDate = updates.clearDueDate;
+  if (Object.prototype.hasOwnProperty.call(updates, 'estimatedHours')) {
+    if (updates.estimatedHours != null) dto.estimatedHours = updates.estimatedHours;
+    else dto.clearEstimatedHours = true;
+  }
   if (updates.project_id !== undefined) dto.projectId = updates.project_id ?? undefined;
   if (updates.description !== undefined) dto.description = updates.description;
   if (updates.tags !== undefined) dto.tags = updates.tags;

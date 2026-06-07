@@ -25,8 +25,12 @@ export function AppShell() {
   const { tasks, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
   const {
     suggestions: aiSuggestions,
+    quota: aiQuota,
+    isGenerating: aiGenerating,
+    lastMode: aiLastMode,
     accept: acceptSuggestion,
     reject: rejectSuggestion,
+    generate: generateAiSuggestions,
   } = useSuggestions(isLoggedIn, refreshTasks);
 
   const [user, setUser] = useState<User | null>(null);
@@ -383,6 +387,10 @@ export function AppShell() {
                 <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
                   <SuggestionsPanel
                     suggestions={aiSuggestions}
+                    quota={aiQuota}
+                    isGenerating={aiGenerating}
+                    lastMode={aiLastMode}
+                    onGenerate={generateAiSuggestions}
                     onAccept={acceptSuggestion}
                     onReject={rejectSuggestion}
                   />

@@ -105,9 +105,9 @@ export function AppShell() {
     void Promise.resolve().then(fetchSpaces);
   }, [isLoggedIn, fetchSpaces]);
 
-  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[]) => {
+  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[], estimatedHours?: number) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    return addTask(content, finalProjectId, status, description, priority, dueDate, tags, subtasks);
+    return addTask(content, finalProjectId, status, description, priority, dueDate, tags, subtasks, estimatedHours);
   };
 
   const handleEditTask = async (id: string, updates: Partial<Task>) => {

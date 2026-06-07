@@ -77,9 +77,23 @@ function StatusIcon() {
   );
 }
 
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 8v4l2.5 2" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
 function stringArraysEqual(a: string[] = [], b: string[] = []) {
   if (a.length !== b.length) return false;
   return a.every((value, index) => value === b[index]);
+}
+
+function parseEstimatedHours(value: string): number | undefined {
+  const parsed = Number(value);
+  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
@@ -88,6 +102,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [priority, setPriority]     = useState(task.priority);
   const [status, setStatus]         = useState<TaskStatus>((task.status && task.status in STATUS_OPTIONS) ? task.status : 'NotStarted');
   const [dueDate, setDueDate]       = useState(task.dueDate ?? '');
+  const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours != null ? String(task.estimatedHours) : '');
   const [projectId, setProjectId]   = useState(task.project_id ?? '');
   const [description, setDescription] = useState(task.description ?? '');
   const [tags, setTags]             = useState<string[]>(task.tags ?? []);
@@ -110,6 +125,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     setPriority(nextTask.priority);
     setStatus((nextTask.status && nextTask.status in STATUS_OPTIONS) ? nextTask.status : 'NotStarted');
     setDueDate(nextTask.dueDate ?? '');
+    setEstimatedHours(nextTask.estimatedHours != null ? String(nextTask.estimatedHours) : '');
     setProjectId(nextTask.project_id ?? '');
     setDescription(nextTask.description ?? '');
     setTags(nextTask.tags ?? []);
@@ -183,6 +199,11 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     if (dueDate !== (loadedTask.dueDate ?? '')) {
       if (dueDate) updates.dueDate = dueDate;
       else updates.clearDueDate = true;
+    }
+
+    const parsedHours = parseEstimatedHours(estimatedHours);
+    if (parsedHours !== loadedTask.estimatedHours) {
+      updates.estimatedHours = parsedHours;
     }
 
     if (description !== (loadedTask.description ?? '')) {
@@ -583,6 +604,25 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Estimated hours */}
+            <div className={ROW} style={{ cursor: 'default' }}>
+              <span className={LABEL}><ClockIcon /> Czas</span>
+              <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.5"
+                  value={estimatedHours}
+                  onChange={e => setEstimatedHours(e.target.value)}
+                  placeholder="—"
+                  className="w-16 bg-transparent outline-none text-[13px]"
+                  style={{ color: estimatedHours ? '#0f1115' : '#b0b5be' }}
+                />
+                {parseEstimatedHours(estimatedHours) != null && <span className="text-[12px] text-[#9098a4]">h</span>}
               </div>
             </div>
 

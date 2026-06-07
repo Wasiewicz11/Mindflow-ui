@@ -11,7 +11,7 @@ interface Props {
   initialPriority?: TaskPriority;
   initialDueDate?: string;
   initialProjectId?: string;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string, estimatedHours?: number) => void;
   onClose: () => void;
 }
 
@@ -40,6 +40,14 @@ function FlagSmall({ color }: { color: string }) {
 function StatusIcon() {
   return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3" strokeLinecap="round"/></svg>;
 }
+function ClockIcon() {
+  return <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l2.5 2" strokeLinecap="round"/></svg>;
+}
+
+function parseEstimatedHours(value: string): number | undefined {
+  const parsed = Number(value);
+  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+}
 
 export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPriority = TaskPriority.P4, initialDueDate = '', initialProjectId = '', onAdd, onClose }: Props) {
   const [content, setContent]         = useState('');
@@ -47,6 +55,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
   const [priority, setPriority]       = useState<TaskPriority>(initialPriority);
   const [status, setStatus]           = useState<TaskStatus>(initialStatus);
   const [dueDate, setDueDate]         = useState(initialDueDate);
+  const [estimatedHours, setEstimatedHours] = useState('');
   const [projectId, setProjectId]     = useState(initialProjectId);
 
   const [showPriorityPicker, setShowPriorityPicker] = useState(false);
@@ -69,7 +78,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
 
   function handleSave() {
     if (!content.trim()) return;
-    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status, description || undefined);
+    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status, description || undefined, parseEstimatedHours(estimatedHours));
     onClose();
   }
 
@@ -260,6 +269,25 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Estimated hours */}
+            <div className={ROW} style={{ cursor: 'default' }}>
+              <span className={LABEL}><ClockIcon /> Czas</span>
+              <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input
+                  type="number"
+                  inputMode="decimal"
+                  min="0"
+                  step="0.5"
+                  value={estimatedHours}
+                  onChange={e => setEstimatedHours(e.target.value)}
+                  placeholder="—"
+                  className="w-16 bg-transparent outline-none text-[13px]"
+                  style={{ color: estimatedHours ? '#0f1115' : '#b0b5be' }}
+                />
+                {parseEstimatedHours(estimatedHours) != null && <span className="text-[12px] text-[#9098a4]">h</span>}
               </div>
             </div>
           </div>

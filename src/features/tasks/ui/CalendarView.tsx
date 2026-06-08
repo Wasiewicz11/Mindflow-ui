@@ -1163,7 +1163,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     }
   }
 
-  async function deleteStandaloneBlock(blockId: string) {
+  async function deleteBlock(blockId: string) {
     setBlocks(prev => {
       const next = { ...prev };
       delete next[blockId];
@@ -1602,6 +1602,18 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               {formatRemaining(blockEnd - currentMinutes)} do końca
             </span>
           )}
+        </span>
+        <span
+          role="button"
+          tabIndex={0}
+          aria-label="Usuń z kalendarza"
+          title="Usuń z kalendarza"
+          onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onDragStart={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          className="absolute right-1 top-1 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-white/75 text-[#5a606b] shadow-sm transition-[opacity,background-color,color] duration-200 ease hover:bg-white hover:text-[#0f1115] lg:opacity-0 lg:group-hover:opacity-100"
+        >
+          <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </span>
         <span
           role="presentation"
@@ -2061,7 +2073,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           <button
             type="button"
             role="menuitem"
-            onClick={() => deleteStandaloneBlock(blockContextMenu.blockId)}
+            onClick={() => deleteBlock(blockContextMenu.blockId)}
             className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-red-600 transition-colors duration-200 ease hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20"
           >
             <Trash2 size={13} strokeWidth={2} />

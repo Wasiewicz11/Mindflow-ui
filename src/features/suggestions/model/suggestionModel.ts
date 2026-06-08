@@ -43,7 +43,7 @@ export function useSuggestions(enabled: boolean, onApplied?: () => void) {
   const [suggestions, setSuggestions] = useState<ApiSuggestion[]>([]);
   const [quota, setQuota] = useState<SuggestionQuota | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [lastMode, setLastMode] = useState<SuggestionMode | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
@@ -66,9 +66,15 @@ export function useSuggestions(enabled: boolean, onApplied?: () => void) {
     setIsGenerating(true);
     try {
       const result = await generateSuggestions();
-      setLastMode(result.mode);
       setQuota({ aiUsedToday: result.aiUsedToday, aiLimit: result.aiLimit });
       setSuggestions(await getPendingSuggestions());
+      if (result.created === 0) {
+        setNotice('Brak nowych sugestii — wszystko na teraz przejrzane.');
+      } else if (result.mode === 'offline') {
+        setNotice('Wykorzystano dzienny limit AI — to uproszczona wersja (bez analizy AI).');
+      } else {
+        setNotice(null);
+      }
     } catch (e) {
       console.error('Nie udało się wygenerować sugestii', e);
     } finally {
@@ -97,5 +103,5 @@ export function useSuggestions(enabled: boolean, onApplied?: () => void) {
     }
   }, [refresh]);
 
-  return { suggestions, quota, isGenerating, lastMode, accept, reject, generate, refresh };
+  return { suggestions, quota, isGenerating, notice, accept, reject, generate, refresh };
 }

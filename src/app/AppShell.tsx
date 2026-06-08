@@ -27,7 +27,7 @@ export function AppShell() {
     suggestions: aiSuggestions,
     quota: aiQuota,
     isGenerating: aiGenerating,
-    lastMode: aiLastMode,
+    notice: aiNotice,
     accept: acceptSuggestion,
     reject: rejectSuggestion,
     generate: generateAiSuggestions,
@@ -399,7 +399,7 @@ export function AppShell() {
                     suggestions={aiSuggestions}
                     quota={aiQuota}
                     isGenerating={aiGenerating}
-                    lastMode={aiLastMode}
+                    notice={aiNotice}
                     onGenerate={generateAiSuggestions}
                     onAccept={acceptSuggestion}
                     onReject={rejectSuggestion}

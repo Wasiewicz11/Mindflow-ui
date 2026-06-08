@@ -1,11 +1,11 @@
 import { AiSuggestionCard } from './AiSuggestionCard';
-import type { ApiSuggestion, SuggestionMode, SuggestionQuota } from '../model/suggestionModel';
+import type { ApiSuggestion, SuggestionQuota } from '../model/suggestionModel';
 
 interface SuggestionsPanelProps {
   suggestions: ApiSuggestion[];
   quota: SuggestionQuota | null;
   isGenerating: boolean;
-  lastMode: SuggestionMode | null;
+  notice: string | null;
   onGenerate: () => void;
   onAccept: (id: string) => void;
   onReject: (id: string) => void;
@@ -15,7 +15,7 @@ export function SuggestionsPanel({
   suggestions,
   quota,
   isGenerating,
-  lastMode,
+  notice,
   onGenerate,
   onAccept,
   onReject,
@@ -48,9 +48,9 @@ export function SuggestionsPanel({
         </div>
       </div>
 
-      {lastMode === 'offline' && (
+      {notice && (
         <p className="mb-3 rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-xs text-[#5a606b] dark:border-white/8 dark:bg-white/5 dark:text-gray-400">
-          Wykorzystano dzienny limit AI — to uproszczona wersja (bez analizy AI).
+          {notice}
         </p>
       )}
 

@@ -890,6 +890,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   const [dragState, setDragState] = useState<DragState>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [schedulingTaskId, setSchedulingTaskId] = useState<string | null>(null);
   const modeTouchedRef = useRef(false);
   const [query, setQuery] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
@@ -1352,6 +1353,12 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   function handleGridTap(e: React.MouseEvent<HTMLDivElement>, date: string) {
     if ((e.target as HTMLElement).closest('[data-calendar-block="true"]')) return;
     const startMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END - MIN_BLOCK);
+    if (schedulingTaskId) {
+      const existing = getBlockForTask(schedulingTaskId);
+      scheduleTask(schedulingTaskId, date, startMinutes, existing?.durationMinutes ?? DEFAULT_BLOCK);
+      setSchedulingTaskId(null);
+      return;
+    }
     setAddingSlot({
       date,
       startMinutes,
@@ -1902,7 +1909,10 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             <button
               key={task.id}
               draggable={!mobile}
-              onClick={() => { setEditingTask(task); if (mobile) setMobileDrawerOpen(false); }}
+              onClick={() => {
+                if (mobile) { setSchedulingTaskId(task.id); setMobileDrawerOpen(false); }
+                else setEditingTask(task);
+              }}
               onDragStart={(e) => {
                 e.dataTransfer.effectAllowed = 'move';
                 e.dataTransfer.setData('application/mindflow-task', task.id);
@@ -1978,6 +1988,21 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               </button>
             </div>
           </div>
+
+          {schedulingTaskId && (
+            <div className="lg:hidden flex items-center gap-2 rounded-lg bg-[#0f1115] px-3 py-2 text-white dark:bg-white dark:text-[#18181B]">
+              <CalendarDays size={15} className="flex-none opacity-80" />
+              <span className="min-w-0 flex-1 truncate text-[13px] font-medium">
+                Wybierz miejsce: {taskById.get(schedulingTaskId)?.content ?? 'zadanie'}
+              </span>
+              <button
+                onClick={() => setSchedulingTaskId(null)}
+                className="flex-none rounded-md px-2 py-1 text-[12px] font-semibold text-white/80 transition-colors duration-200 ease hover:bg-white/15 hover:text-white dark:text-[#18181B]/70 dark:hover:bg-black/10 dark:hover:text-[#18181B]"
+              >
+                Anuluj
+              </button>
+            </div>
+          )}
 
           <div className="min-h-0 flex-1 overflow-auto custom-scrollbar pb-6">
             {mode === 'month' ? renderMonth() : renderTimeGrid()}

@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 import type { User, Space, Project } from '../../../shared/types';
 import { BrandMark } from '../../../shared/ui/BrandMark';
 
-type ActiveTab = SidebarProps['activeTab'];
+type ActiveTab = SidebarContentProps['activeTab'];
 
-interface SidebarProps {
+export interface SidebarContentProps {
   activeTab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings';
   setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'calendar' | 'settings') => void;
   user: User | null;
@@ -21,13 +21,15 @@ interface SidebarProps {
   onDeleteSpace: (id: string) => void;
   onOpenSpaceSettings: (spaceId: string) => void;
   onOpenJoinSpace: () => void;
+  /** Fired after any navigation action (project select / tab change) — drawer closes on mobile. */
+  onNavigate?: () => void;
 }
 
 const PROJECT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#9CA3AF'];
 
-const Sidebar: React.FC<SidebarProps> = ({
+export const SidebarContent: React.FC<SidebarContentProps> = ({
   activeTab, setActiveTab, user,
-  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onOpenProjectSettings, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace
+  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onOpenProjectSettings, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace, onNavigate
 }) => {
   const [imgError, setImgError] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState<string | null>(null);
@@ -130,6 +132,18 @@ const Sidebar: React.FC<SidebarProps> = ({
     setDragOverTarget(null);
   };
 
+  const handleSelectTab = (tab: SidebarContentProps['activeTab']) => {
+    setActiveTab(tab);
+    if (tab === 'tasks') onSelectProject(null);
+    onNavigate?.();
+  };
+
+  const handleSelectProject = (projectId: string) => {
+    setActiveTab('tasks');
+    onSelectProject(projectId);
+    onNavigate?.();
+  };
+
   const renderProjectForm = (spaceId: string | null) => {
     if (isAddingProject !== (spaceId || 'none')) return null;
     return (
@@ -170,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       className={`group relative flex items-center pl-4 transition-opacity duration-150 ${draggingProjectId === project.id ? 'opacity-40' : 'opacity-100'}`}
     >
       <button
-        onClick={() => { setActiveTab('tasks'); onSelectProject(project.id); }}
+        onClick={() => handleSelectProject(project.id)}
         className={`relative w-full rounded-lg px-3 py-2 pr-16 text-sm transition-all duration-200 cursor-pointer active:cursor-grabbing ${
           activeProjectId === project.id && activeTab === 'tasks'
             ? 'bg-gray-100 dark:bg-white/10 text-gray-900 dark:text-white font-medium translate-x-1'
@@ -210,8 +224,6 @@ const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <>
-      <div className="hidden lg:flex h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10" style={{ width: 220 }}>
-
       {/* LOGO */}
       <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
         <BrandMark markClassName="h-[18px] w-[18px]" />
@@ -223,7 +235,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         {menuItems.map(item => (
           <button
             key={item.id}
-            onClick={() => { setActiveTab(item.id); if (item.id === 'tasks') onSelectProject(null); }}
+            onClick={() => handleSelectTab(item.id)}
             className={`w-full cursor-pointer flex items-center text-left rounded-md text-[13.5px] transition-colors duration-150 ${
               isNavActive(item.id)
                 ? 'font-semibold text-[#0f1115] dark:text-white'
@@ -369,7 +381,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* USER PROFILE - PINNED BOTTOM */}
       <div className="flex-none w-full px-4 pt-4 mt-2 border-t border-gray-100/50 dark:border-white/5">
         <button
-          onClick={() => setActiveTab('settings')}
+          onClick={() => handleSelectTab('settings')}
           className={`w-full flex items-center p-3 rounded-xl transition-all duration-300 ease-out group ${
             activeTab === 'settings'
               ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm scale-[1.02]'
@@ -395,10 +407,8 @@ const Sidebar: React.FC<SidebarProps> = ({
         </button>
       </div>
 
-      </div>
-
       {pendingDeleteProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
           <div
             className="absolute inset-0 bg-[#0f1115]/20 backdrop-blur-sm animate-fade-in dark:bg-black/40"
             onClick={() => setPendingDeleteProject(null)}
@@ -435,6 +445,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
     </>
+  );
+};
+
+const Sidebar: React.FC<SidebarContentProps> = (props) => {
+  return (
+    <div className="hidden lg:flex h-full bg-white/80 dark:bg-[#1C1C1E]/80 backdrop-blur-xl border-r border-gray-100/50 dark:border-white/5 flex-col py-6 relative z-10" style={{ width: 220 }}>
+      <SidebarContent {...props} />
+    </div>
   );
 };
 

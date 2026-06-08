@@ -1243,16 +1243,18 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         />
 
         {!activeProjectId && projects.length > 0 && (
-          <FilterSelect
-            label="Projekt"
-            value={filterProjectId}
-            onChange={setFilterProjectId}
-            options={[
-              { value: 'all', label: 'Wszystkie projekty' },
-              ...projects.map(p => ({ value: p.id, label: p.name, dot: p.color || '#9aa0aa' })),
-              { value: '__none__', label: 'Bez projektu' },
-            ]}
-          />
+          <div className="hidden lg:block">
+            <FilterSelect
+              label="Projekt"
+              value={filterProjectId}
+              onChange={setFilterProjectId}
+              options={[
+                { value: 'all', label: 'Wszystkie projekty' },
+                ...projects.map(p => ({ value: p.id, label: p.name, dot: p.color || '#9aa0aa' })),
+                { value: '__none__', label: 'Bez projektu' },
+              ]}
+            />
+          </div>
         )}
 
         {hasActiveFilter && (

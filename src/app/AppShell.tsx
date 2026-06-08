@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoginScreen } from '../features/auth/ui';
-import { Sidebar, ThemeSelector, AgendaOverlay, AgendaPositionSelector, type AgendaPosition } from '../features/layout/ui';
+import { Sidebar, MobileTasksNav, ThemeSelector, AgendaOverlay, AgendaPositionSelector, type AgendaPosition } from '../features/layout/ui';
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
@@ -43,6 +43,7 @@ export function AppShell() {
   const isLoading = false;
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null);
+  const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
 
   const [spaces, setSpaces] = useState<Space[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -286,6 +287,13 @@ export function AppShell() {
   });
   const importantTasks = tasks.filter(t => !t.isCompleted && t.priority === TaskPriority.P1 && (!t.dueDate || t.dueDate > todayStr));
 
+  const activeSpaceProjectIds = activeSpaceId
+    ? new Set(projects.filter(p => p.space_id === activeSpaceId).map(p => p.id))
+    : null;
+  const matchesActiveSpace = (task: Task) => !activeSpaceProjectIds || (!!task.project_id && activeSpaceProjectIds.has(task.project_id));
+  const spaceTasks = activeSpaceProjectIds ? tasks.filter(matchesActiveSpace) : tasks;
+  const spaceSortedTasks = activeSpaceProjectIds ? sortedAllTasks.filter(matchesActiveSpace) : sortedAllTasks;
+
   if (!isAuthReady) {
     return (
       <div className="flex min-h-[100dvh] items-center justify-center bg-[#FDFDFD] text-[#0f1115] dark:bg-[#000000] dark:text-white">
@@ -355,6 +363,11 @@ export function AppShell() {
             projectId={activeProjectId}
             project={activeProject}
             projects={projects}
+            spaces={spaces}
+            activeSpaceId={activeSpaceId}
+            taskCountByProjectId={activeTaskCountByProjectId}
+            onSelectSpace={setActiveSpaceId}
+            onSelectProject={setActiveProjectId}
           />
         )}
 
@@ -453,36 +466,20 @@ export function AppShell() {
 
               {activeTab === 'tasks' && (
                 <>
-                  {projects.length > 0 && (
-                    <div className="lg:hidden -mx-6 px-4 mb-4 overflow-x-auto flex gap-2 scrollbar-none" style={{ WebkitOverflowScrolling: 'touch' }}>
-                      <button
-                        onClick={() => setActiveProjectId(null)}
-                        className="flex-none text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-                        style={{ background: '#0f1115', color: '#fff' }}
-                      >
-                        Wszystkie
-                      </button>
-                      {projects.map(p => (
-                        <button
-                          key={p.id}
-                          onClick={() => setActiveProjectId(p.id)}
-                          className="flex-none flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full transition-colors whitespace-nowrap"
-                          style={{ background: '#f1f0ed', color: '#5a606b' }}
-                        >
-                          <span className="rounded-full flex-none" style={{ width: 6, height: 6, background: p.color || '#9aa0aa' }} />
-                          {p.name}
-                          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-medium text-[#9098a4]">
-                            {activeTaskCountByProjectId[p.id] ?? 0}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <MobileTasksNav
+                    spaces={spaces}
+                    projects={projects}
+                    activeSpaceId={activeSpaceId}
+                    activeProjectId={activeProjectId}
+                    taskCountByProjectId={activeTaskCountByProjectId}
+                    onSelectSpace={setActiveSpaceId}
+                    onSelectProject={setActiveProjectId}
+                  />
 
                   <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
                     {taskViewMode === 'list' && (
                       <TaskListGrouped
-                        tasks={sortedAllTasks}
+                        tasks={spaceSortedTasks}
                         projects={projects}
                         onToggle={handleToggleTask}
                         onEdit={handleEditTask}
@@ -497,7 +494,7 @@ export function AppShell() {
                     {taskViewMode === 'week' && (
                       <div className="h-[calc(100vh-200px)]">
                         <TaskWeekView
-                          tasks={sortedAllTasks}
+                          tasks={spaceSortedTasks}
                           projects={projects}
                           onEdit={handleEditTask}
                           onToggle={handleToggleTask}
@@ -508,7 +505,7 @@ export function AppShell() {
                     )}
                     {taskViewMode === 'board' && (
                       <TaskBoardView
-                        tasks={tasks}
+                        tasks={spaceTasks}
                         projects={projects}
                         onEdit={handleEditTask}
                         onToggle={handleToggleTask}

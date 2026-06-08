@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useProjectTasks } from '../features/tasks';
 import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask } from '../features/tasks/ui';
-import type { Project, Task, TaskPriority, TaskStatus } from '../shared/types';
+import { MobileTasksNav } from '../features/layout/ui';
+import type { Project, Space, Task, TaskPriority, TaskStatus } from '../shared/types';
 
 type ViewMode = 'list' | 'week' | 'board';
 
@@ -9,9 +10,14 @@ interface Props {
   projectId: string;
   project: Project;
   projects: Project[];
+  spaces: Space[];
+  activeSpaceId: string | null;
+  taskCountByProjectId: Record<string, number>;
+  onSelectSpace: (id: string | null) => void;
+  onSelectProject: (id: string | null) => void;
 }
 
-export function ProjectView({ projectId, project, projects }: Props) {
+export function ProjectView({ projectId, project, projects, spaces, activeSpaceId, taskCountByProjectId, onSelectSpace, onSelectProject }: Props) {
   const { tasks, isLoading, addTask, editTask, removeTask, toggleTask } = useProjectTasks(projectId);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
@@ -71,6 +77,18 @@ export function ProjectView({ projectId, project, projects }: Props) {
           </div>
         </div>
       </header>
+
+      <div className="flex-none px-6">
+        <MobileTasksNav
+          spaces={spaces}
+          projects={projects}
+          activeSpaceId={activeSpaceId}
+          activeProjectId={projectId}
+          taskCountByProjectId={taskCountByProjectId}
+          onSelectSpace={onSelectSpace}
+          onSelectProject={onSelectProject}
+        />
+      </div>
 
       <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24 ${viewMode === 'week' ? 'h-full -mx-6 px-6' : viewMode === 'board' ? 'h-full' : ''}`}>
         {viewMode === 'list' && (

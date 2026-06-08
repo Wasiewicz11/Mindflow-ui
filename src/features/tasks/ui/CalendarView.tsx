@@ -8,10 +8,12 @@ import {
   ChevronRight,
   Filter,
   ListFilter,
+  ListTodo,
   PanelRightClose,
   PanelRightOpen,
   Search,
   Trash2,
+  X,
 } from 'lucide-react';
 import type { Project, Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
@@ -779,6 +781,7 @@ function CalendarBlockEditModal({
         className="relative z-10 w-full flex flex-col"
         style={{
           maxWidth: 420,
+          maxHeight: '90vh',
           background: '#fff',
           border: '1px solid #e8e8e4',
           borderRadius: 18,
@@ -800,7 +803,7 @@ function CalendarBlockEditModal({
           </button>
         </div>
 
-        <div className="px-5 py-4">
+        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4">
           <textarea
             ref={titleRef}
             value={title}
@@ -872,13 +875,22 @@ function CalendarBlockEditModal({
   );
 }
 
+const MOBILE_QUERY = '(max-width: 1023px)';
+
+function getIsMobile() {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
+}
+
 export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete }: CalendarViewProps) {
-  const [mode, setMode] = useState<CalendarMode>('week');
+  const [isMobile, setIsMobile] = useState(getIsMobile);
+  const [mode, setMode] = useState<CalendarMode>(() => (getIsMobile() ? 'day' : 'week'));
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [now, setNow] = useState(() => new Date());
   const [blocks, setBlocks] = useState<Record<string, CalendarBlock>>({});
   const [dragState, setDragState] = useState<DragState>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const modeTouchedRef = useRef(false);
   const [query, setQuery] = useState('');
   const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([]);
@@ -914,6 +926,21 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   }, []);
 
   useEffect(() => {
+    if (mode === 'month') return;
+    const todayInRange = fromKey <= todayKey && todayKey <= toKey;
+    if (!todayInRange) return;
+    const id = window.requestAnimationFrame(() => {
+      const grid = gridRef.current;
+      if (!grid) return;
+      const headerHeight = 56;
+      const target = headerHeight + currentTimeTop - grid.clientHeight * 0.28;
+      grid.scrollTo({ top: Math.max(0, target), behavior: 'auto' });
+    });
+    return () => window.cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, anchorDate, fromKey, toKey, todayKey]);
+
+  useEffect(() => {
     let cancelled = false;
 
     getCalendarBlocks(fromKey, toKey)
@@ -938,6 +965,26 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       cancelled = true;
     };
   }, [fromKey, toKey]);
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobile(event.matches);
+      if (!modeTouchedRef.current) {
+        setMode(prev => {
+          if (event.matches) return prev === 'week' ? 'day' : prev;
+          return prev === 'day' ? 'week' : prev;
+        });
+      }
+    };
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
+  }, []);
+
+  const selectMode = useCallback((next: CalendarMode) => {
+    modeTouchedRef.current = true;
+    setMode(next);
+  }, []);
 
   useEffect(() => {
     let intervalId: number | undefined;
@@ -1302,6 +1349,16 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     setSlotSelection(null);
   }
 
+  function handleGridTap(e: React.MouseEvent<HTMLDivElement>, date: string) {
+    if ((e.target as HTMLElement).closest('[data-calendar-block="true"]')) return;
+    const startMinutes = clamp(roundToQuarter(getClickMinutes(e)), DAY_START, DAY_END - MIN_BLOCK);
+    setAddingSlot({
+      date,
+      startMinutes,
+      durationMinutes: Math.min(DEFAULT_BLOCK, DAY_END - startMinutes),
+    });
+  }
+
   function handleDrop(e: React.DragEvent<HTMLDivElement>, date: string) {
     e.preventDefault();
     const draggedBlock = getDraggedBlock(e);
@@ -1569,19 +1626,23 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     );
   };
 
+  const weekGridClass = mode === 'week'
+    ? 'grid-cols-7 min-w-[700px] sm:min-w-[760px] lg:min-w-0'
+    : 'grid-cols-1';
+
   const renderTimeGrid = () => (
-    <div className="flex min-w-[760px] flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
-      <div className="w-16 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] dark:border-white/8 dark:bg-[#232326]">
+    <div className="flex h-full flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+      <div className="w-12 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] sm:w-16 dark:border-white/8 dark:bg-[#232326]">
         <div className="h-14 border-b border-[#f1f0ed] dark:border-white/8" />
         {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, index) => (
-          <div key={index} className="relative h-[72px] pr-3 text-right text-[11px] font-medium text-[#9098a4]">
+          <div key={index} className="relative h-[72px] pr-1.5 text-right text-[10.5px] font-medium text-[#9098a4] sm:pr-3 sm:text-[11px]">
             {formatMinutes(DAY_START + index * 60)}
           </div>
         ))}
       </div>
 
-      <div className="min-w-0 flex-1 overflow-auto custom-scrollbar" ref={gridRef}>
-        <div className={`grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${mode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`}>
+      <div className={`min-w-0 flex-1 overflow-auto custom-scrollbar ${mode === 'week' ? 'snap-x lg:snap-none' : ''}`} ref={gridRef}>
+        <div className={`grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${weekGridClass}`}>
           {days.map(day => {
             const key = toDateKey(day);
             return (
@@ -1594,14 +1655,14 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             );
           })}
         </div>
-        <div className={`grid ${mode === 'day' ? 'grid-cols-1' : 'grid-cols-7'}`} style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_HEIGHT }}>
+        <div className={`grid ${weekGridClass}`} style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_HEIGHT }}>
           {days.map(day => {
             const key = toDateKey(day);
             const selectionSlot = slotSelection?.date === key ? getSelectionSlot(slotSelection) : null;
             return (
               <div
                 key={key}
-                className="relative cursor-crosshair select-none border-r border-[#f1f0ed] bg-white last:border-r-0 dark:border-white/8 dark:bg-[#27272A]"
+                className={`relative select-none border-r border-[#f1f0ed] bg-white last:border-r-0 dark:border-white/8 dark:bg-[#27272A] ${isMobile ? 'cursor-pointer' : 'cursor-crosshair'} ${mode === 'week' ? 'snap-start' : ''}`}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.dataTransfer.dropEffect = dragState?.type === 'move' && dragState.duplicate ? 'copy' : 'move';
@@ -1611,9 +1672,10 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropPreview(null);
                 }}
                 onDrop={(e) => handleDrop(e, key)}
-                onMouseDown={(e) => handleGridMouseDown(e, key)}
-                onMouseMove={(e) => handleGridMouseMove(e, key)}
-                onMouseUp={(e) => handleGridMouseUp(e, key)}
+                onClick={isMobile ? (e) => handleGridTap(e, key) : undefined}
+                onMouseDown={isMobile ? undefined : (e) => handleGridMouseDown(e, key)}
+                onMouseMove={isMobile ? undefined : (e) => handleGridMouseMove(e, key)}
+                onMouseUp={isMobile ? undefined : (e) => handleGridMouseUp(e, key)}
               >
                 {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, index) => (
                   <div key={index} className="h-[72px] border-b border-[#f1f0ed] dark:border-white/8" />
@@ -1671,7 +1733,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   );
 
   const renderMonth = () => (
-    <div className="grid min-h-[680px] grid-cols-7 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+    <div className="grid min-h-[560px] min-w-[640px] grid-cols-7 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm sm:min-h-[680px] sm:min-w-0 dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
       {days.map(day => {
         const key = toDateKey(day);
         const dayTasks = activeTasks.filter(task => task.dueDate === key || Object.values(blocks).some(block => block.taskId === task.id && block.date === key));
@@ -1768,20 +1830,129 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     </div>
   );
 
+  const renderDrawerContent = (mobile: boolean) => (
+    <>
+      <div className="border-b border-[#f1f0ed] p-4 dark:border-white/8">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0f1115] dark:text-white">
+            <ListFilter size={16} /> Zadania do zaplanowania
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-[#f7f7f4] px-2 py-1 text-[11px] font-medium text-[#9098a4] dark:bg-[#323238]">{filteredTasks.length}</span>
+            {mobile && (
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:hover:bg-[#323238] dark:hover:text-white dark:focus:ring-white/10"
+                title="Zamknij"
+              >
+                <X size={16} />
+              </button>
+            )}
+          </div>
+        </div>
+        <label className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#FDFDFD] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326] dark:focus-within:border-white/15 dark:focus-within:bg-[#323238]">
+          <Search size={15} className="text-[#9098a4]" />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Szukaj zadań..." className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white" />
+        </label>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {renderFilterMenu({
+            id: 'projects',
+            label: 'Projekty',
+            summary: selectedProjectSummary,
+            options: projectOptions,
+            values: selectedProjectIds,
+            onToggle: value => toggleArrayValue(selectedProjectIds, value, setSelectedProjectIds),
+            onClear: () => setSelectedProjectIds([]),
+            className: 'col-span-2',
+          })}
+          {renderFilterMenu({
+            id: 'priorities',
+            label: 'Priorytet',
+            summary: selectedPrioritySummary,
+            options: (Object.keys(PRIORITY_META) as TaskPriority[]).map(priority => ({
+              id: priority,
+              label: priority,
+              color: getPriorityMeta(priority).fg,
+            })),
+            values: selectedPriorities,
+            onToggle: value => toggleArrayValue(selectedPriorities, value, setSelectedPriorities),
+            onClear: () => setSelectedPriorities([]),
+          })}
+          {renderFilterMenu({
+            id: 'statuses',
+            label: 'Status',
+            summary: selectedStatusSummary,
+            options: (Object.keys(STATUS_LABEL) as TaskStatus[]).map(status => ({
+              id: status,
+              label: getStatusLabel(status),
+            })),
+            values: selectedStatuses,
+            onToggle: value => toggleArrayValue(selectedStatuses, value, setSelectedStatuses),
+            onClear: () => setSelectedStatuses([]),
+          })}
+        </div>
+      </div>
+
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 custom-scrollbar">
+        {filteredTasks.map(task => {
+          const project = projects.find(p => p.id === task.project_id);
+          const meta = getPriorityMeta(task.priority);
+          const block = getBlockForTask(task.id);
+          return (
+            <button
+              key={task.id}
+              draggable={!mobile}
+              onClick={() => { setEditingTask(task); if (mobile) setMobileDrawerOpen(false); }}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('application/mindflow-task', task.id);
+                if (block) e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
+                setDragState({ type: 'sidebar', taskId: task.id });
+              }}
+              onDragEnd={() => setDragState(null)}
+              className="group w-full rounded-lg border border-[#e8e8e4] bg-white p-3 text-left transition-[background,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:bg-[#f7f7f4] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:hover:bg-[#323238] dark:hover:shadow-none dark:focus:ring-white/10"
+            >
+              <div className="mb-2 flex items-start gap-2">
+                <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: meta.fg, background: meta.bg }}>{meta.label}</span>
+                <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug tracking-[-0.01em] text-[#0f1115] dark:text-white">{task.content}</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#9098a4]">
+                <span className="flex items-center gap-1"><Filter size={11} />{getStatusLabel(task.status)}</span>
+                {project && <span className="truncate">{project.name}</span>}
+                {block && <span>{block.date} · {durationLabel(block.durationMinutes)}</span>}
+              </div>
+            </button>
+          );
+        })}
+        {filteredTasks.length === 0 && (
+          <div className="rounded-[18px] border border-dashed border-[#e8e8e4] p-6 text-center text-[13px] font-medium text-[#9098a4] dark:border-white/10">
+            Brak zadań dla wybranych filtrów.
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-[#f1f0ed] p-3 text-[11px] font-medium leading-relaxed text-[#9098a4] dark:border-white/8">
+        {mobile
+          ? 'Dotknij wolnego miejsca w siatce, aby dodać blok 1 godz. Dotknij zadania, aby je otworzyć.'
+          : 'Przeciągnij zadanie na dzień lub godzinę. W widoku dnia i tygodnia blok dostaje domyślnie 1 godz. i można go przesuwać oraz rozciągać.'}
+      </div>
+    </>
+  );
+
   return (
     <>
       <div className="flex h-full min-h-0 gap-4">
         <section className="flex min-w-0 flex-1 flex-col gap-4">
           <div className="flex flex-none flex-wrap items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">
                 <CalendarDays size={14} /> Kalendarz i timeblocking
               </div>
-              <h2 className="text-2xl font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">{title}</h2>
+              <h2 className="truncate text-xl font-semibold tracking-[-0.02em] text-[#0f1115] sm:text-2xl dark:text-white">{title}</h2>
             </div>
 
-            <div className="flex items-center gap-2">
-              <button onClick={() => setAnchorDate(new Date())} className="rounded-lg border border-[#e8e8e4] bg-white px-3 py-2 text-[13px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-200 dark:hover:bg-[#323238] dark:focus:ring-white/10">Dzisiaj</button>
+            <div className="flex w-full items-center gap-2 lg:w-auto">
+              <button onClick={() => setAnchorDate(new Date())} className="rounded-lg border border-[#e8e8e4] bg-white px-3 py-2 text-[13px] font-medium text-[#3a3f47] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-200 dark:hover:bg-[#323238] dark:focus:ring-white/10">Dziś</button>
               <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1 dark:border-white/10 dark:bg-[#27272A]">
                 <button onClick={() => shiftDate(-1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Poprzedni okres"><ChevronLeft size={17} /></button>
                 <button onClick={() => shiftDate(1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Następny okres"><ChevronRight size={17} /></button>
@@ -1790,15 +1961,20 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                 {(['day', 'week', 'month'] as CalendarMode[]).map(item => (
                   <button
                     key={item}
-                    onClick={() => setMode(item)}
-                    className={`rounded-lg px-3 py-1.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/10 ${mode === item ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'}`}
+                    onClick={() => selectMode(item)}
+                    className={`rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 sm:px-3 dark:focus:ring-white/10 ${mode === item ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'}`}
                   >
-                    {{ day: 'Dzień', week: 'Tydzień', month: 'Miesiąc' }[item]}
+                    <span className="hidden sm:inline">{{ day: 'Dzień', week: 'Tydzień', month: 'Miesiąc' }[item]}</span>
+                    <span className="sm:hidden">{{ day: 'D', week: 'T', month: 'M' }[item]}</span>
                   </button>
                 ))}
               </div>
-              <button onClick={() => setDrawerOpen(open => !open)} className="flex h-10 w-10 items-center justify-center rounded-lg border border-[#e8e8e4] bg-white text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10" title="Lista zadań">
-                {drawerOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
+              <button
+                onClick={() => (isMobile ? setMobileDrawerOpen(true) : setDrawerOpen(open => !open))}
+                className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e8e4] bg-white text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 lg:ml-0 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10"
+                title="Zadania do zaplanowania"
+              >
+                {isMobile ? <ListTodo size={17} /> : drawerOpen ? <PanelRightClose size={17} /> : <PanelRightOpen size={17} />}
               </button>
             </div>
           </div>
@@ -1818,99 +1994,37 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
             overflow: drawerOpen ? 'visible' : 'hidden',
           }}
         >
-          <div className="border-b border-[#f1f0ed] p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[13px] font-semibold text-[#0f1115] dark:text-white">
-                <ListFilter size={16} /> Zadania do zaplanowania
-              </div>
-              <span className="rounded-full bg-[#f7f7f4] px-2 py-1 text-[11px] font-medium text-[#9098a4]">{filteredTasks.length}</span>
-            </div>
-            <label className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#FDFDFD] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326] dark:focus-within:border-white/15 dark:focus-within:bg-[#323238]">
-              <Search size={15} className="text-[#9098a4]" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Szukaj zadań..." className="min-w-0 flex-1 bg-transparent text-[13px] text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white" />
-            </label>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              {renderFilterMenu({
-                id: 'projects',
-                label: 'Projekty',
-                summary: selectedProjectSummary,
-                options: projectOptions,
-                values: selectedProjectIds,
-                onToggle: value => toggleArrayValue(selectedProjectIds, value, setSelectedProjectIds),
-                onClear: () => setSelectedProjectIds([]),
-                className: 'col-span-2',
-              })}
-              {renderFilterMenu({
-                id: 'priorities',
-                label: 'Priorytet',
-                summary: selectedPrioritySummary,
-                options: (Object.keys(PRIORITY_META) as TaskPriority[]).map(priority => ({
-                  id: priority,
-                  label: priority,
-                  color: getPriorityMeta(priority).fg,
-                })),
-                values: selectedPriorities,
-                onToggle: value => toggleArrayValue(selectedPriorities, value, setSelectedPriorities),
-                onClear: () => setSelectedPriorities([]),
-              })}
-              {renderFilterMenu({
-                id: 'statuses',
-                label: 'Status',
-                summary: selectedStatusSummary,
-                options: (Object.keys(STATUS_LABEL) as TaskStatus[]).map(status => ({
-                  id: status,
-                  label: getStatusLabel(status),
-                })),
-                values: selectedStatuses,
-                onToggle: value => toggleArrayValue(selectedStatuses, value, setSelectedStatuses),
-                onClear: () => setSelectedStatuses([]),
-              })}
-            </div>
-          </div>
-
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3 custom-scrollbar">
-            {filteredTasks.map(task => {
-              const project = projects.find(p => p.id === task.project_id);
-              const meta = getPriorityMeta(task.priority);
-              const block = getBlockForTask(task.id);
-              return (
-                <button
-                  key={task.id}
-                  draggable
-                  onClick={() => setEditingTask(task)}
-                  onDragStart={(e) => {
-                    e.dataTransfer.effectAllowed = 'move';
-                    e.dataTransfer.setData('application/mindflow-task', task.id);
-                    if (block) e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
-                    setDragState({ type: 'sidebar', taskId: task.id });
-                  }}
-                  onDragEnd={() => setDragState(null)}
-                  className="group w-full rounded-lg border border-[#e8e8e4] bg-white p-3 text-left transition-[background,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:bg-[#f7f7f4] hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:hover:bg-[#323238] dark:hover:shadow-none dark:focus:ring-white/10"
-                >
-                  <div className="mb-2 flex items-start gap-2">
-                    <span className="mt-0.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold" style={{ color: meta.fg, background: meta.bg }}>{meta.label}</span>
-                    <span className="min-w-0 flex-1 text-[13px] font-medium leading-snug tracking-[-0.01em] text-[#0f1115] dark:text-white">{task.content}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-[#9098a4]">
-                    <span className="flex items-center gap-1"><Filter size={11} />{getStatusLabel(task.status)}</span>
-                    {project && <span className="truncate">{project.name}</span>}
-                    {block && <span>{block.date} · {durationLabel(block.durationMinutes)}</span>}
-                  </div>
-                </button>
-              );
-            })}
-            {filteredTasks.length === 0 && (
-              <div className="rounded-[18px] border border-dashed border-[#e8e8e4] p-6 text-center text-[13px] font-medium text-[#9098a4] dark:border-white/10">
-                Brak zadań dla wybranych filtrów.
-              </div>
-            )}
-          </div>
-
-          <div className="border-t border-[#f1f0ed] p-3 text-[11px] font-medium leading-relaxed text-[#9098a4]">
-            Przeciągnij zadanie na dzień lub godzinę. W widoku dnia i tygodnia blok dostaje domyślnie 1 godz. i można go przesuwać oraz rozciągać.
-          </div>
+          {renderDrawerContent(false)}
         </aside>
       </div>
+
+      {createPortal(
+        <div
+          className="fixed inset-0 z-[55] lg:hidden"
+          style={{ pointerEvents: mobileDrawerOpen ? 'auto' : 'none' }}
+          aria-hidden={!mobileDrawerOpen}
+        >
+          <div
+            className="absolute inset-0 backdrop-blur-[2px] transition-opacity duration-200 ease"
+            style={{ background: 'rgba(15,17,21,.18)', opacity: mobileDrawerOpen ? 1 : 0 }}
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+          <div
+            className="absolute inset-x-0 bottom-0 flex max-h-[82vh] flex-col rounded-t-[18px] border-t border-[#e8e8e4] bg-white shadow-[0_-24px_48px_-12px_rgba(15,17,21,.22)] transition-transform duration-[0.22s] dark:border-white/10 dark:bg-[#27272A]"
+            style={{
+              transform: mobileDrawerOpen ? 'translateY(0)' : 'translateY(100%)',
+              transitionTimingFunction: 'cubic-bezier(0.34,1.2,0.64,1)',
+              paddingBottom: 'env(safe-area-inset-bottom)',
+            }}
+          >
+            <div className="flex-none pt-2.5 pb-1">
+              <div className="mx-auto h-1 w-9 rounded-full bg-[#e3e3df] dark:bg-white/15" />
+            </div>
+            {renderDrawerContent(true)}
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {blockContextMenu && blocks[blockContextMenu.blockId] && createPortal(
         <div

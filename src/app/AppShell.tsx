@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoginScreen } from '../features/auth/ui';
-import { Sidebar, ThemeSelector } from '../features/layout/ui';
+import { Sidebar, ThemeSelector, AgendaOverlay, AgendaPositionSelector, type AgendaPosition } from '../features/layout/ui';
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
@@ -55,6 +55,16 @@ export function AppShell() {
     return 'system';
   });
   const [systemPrefersDark, setSystemPrefersDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
+
+  const [agendaPosition, setAgendaPosition] = useState<AgendaPosition>(() => {
+    const stored = localStorage.getItem('mindflow_agenda_position');
+    if (stored === 'bottom-right' || stored === 'bottom-left' || stored === 'top-right' || stored === 'top-left') return stored;
+    return 'bottom-right';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mindflow_agenda_position', agendaPosition);
+  }, [agendaPosition]);
 
   const effectiveTheme: EffectiveTheme =
     theme === 'system'
@@ -608,6 +618,17 @@ export function AppShell() {
                           <ThemeSelector theme={theme} setTheme={setTheme} />
                         </div>
                       </section>
+
+                      <section className="px-6 py-5">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                          <div className="max-w-md">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Przegląd dnia</p>
+                            <p className="mt-1 text-base font-semibold text-[#0f1115] dark:text-white">Pozycja widżetu</p>
+                            <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Widżet pokazuje aktualny blok z kalendarza, ile zostało do jego końca oraz następny blok. Możesz go zwinąć do zakładki przy krawędzi.</p>
+                          </div>
+                          <AgendaPositionSelector position={agendaPosition} setPosition={setAgendaPosition} />
+                        </div>
+                      </section>
                     </div>
                   </div>
                 </div>
@@ -646,6 +667,8 @@ export function AppShell() {
           />
         );
       })()}
+
+      <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} />
     </div>
   );
 }

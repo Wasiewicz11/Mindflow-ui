@@ -13,6 +13,7 @@ export interface TodayAgenda {
   now: Date;
   current: AgendaItem | null;
   next: AgendaItem | null;
+  items: AgendaItem[];
 }
 
 interface RawBlock {
@@ -90,24 +91,22 @@ export function useTodayCalendar(enabled: boolean, tasks: Task[]): TodayAgenda {
 
   const taskById = useMemo(() => new Map(tasks.map(task => [task.id, task.content])), [tasks]);
 
+  const items = useMemo<AgendaItem[]>(() => {
+    return blocks
+      .map(block => ({
+        id: block.id,
+        title: (block.taskId && taskById.get(block.taskId)) || block.title || 'Blok czasu',
+        start: block.start,
+        end: block.end,
+      }))
+      .sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [blocks, taskById]);
+
   return useMemo(() => {
-    const resolve = (block: RawBlock): AgendaItem => ({
-      id: block.id,
-      title: (block.taskId && taskById.get(block.taskId)) || block.title || 'Blok czasu',
-      start: block.start,
-      end: block.end,
-    });
-
     const t = now.getTime();
-    const current = blocks.find(block => block.start.getTime() <= t && t < block.end.getTime());
-    const next = blocks
-      .filter(block => block.start.getTime() > t)
-      .sort((a, b) => a.start.getTime() - b.start.getTime())[0];
+    const current = items.find(item => item.start.getTime() <= t && t < item.end.getTime()) ?? null;
+    const next = items.find(item => item.start.getTime() > t) ?? null;
 
-    return {
-      now,
-      current: current ? resolve(current) : null,
-      next: next ? resolve(next) : null,
-    };
-  }, [blocks, now, taskById]);
+    return { now, current, next, items };
+  }, [items, now]);
 }

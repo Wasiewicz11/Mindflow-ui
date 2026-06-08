@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { useTodayCalendar } from '../../tasks/model/useTodayCalendar';
+import { useBlockNotifications } from '../../tasks/model/useBlockNotifications';
 import type { Task } from '../../../shared/types';
 
 export type AgendaPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
@@ -39,7 +40,8 @@ function untilLabel(minutes: number) {
 }
 
 export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) {
-  const { now, current, next } = useTodayCalendar(enabled, tasks);
+  const { now, current, next, items } = useTodayCalendar(enabled, tasks);
+  useBlockNotifications(enabled, items, now);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
 
   useEffect(() => {

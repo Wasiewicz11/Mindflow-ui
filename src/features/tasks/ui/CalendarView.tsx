@@ -200,6 +200,13 @@ function durationLabel(minutes: number) {
   return m ? `${h} godz. ${m} min` : `${h} godz.`;
 }
 
+function formatRemaining(minutes: number) {
+  const total = Math.max(0, minutes);
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}`;
+}
+
 function toLocalIsoWithOffset(date: string, minutes: number) {
   const [year, month, day] = date.split('-').map(Number);
   const localDate = new Date(year, month - 1, day, Math.floor(minutes / 60), minutes % 60, 0, 0);
@@ -1463,6 +1470,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     const title = task?.content ?? block.title ?? 'Blok czasu';
     const top = ((block.startMinutes - DAY_START) / 60) * HOUR_HEIGHT;
     const height = Math.max(42, (block.durationMinutes / 60) * HOUR_HEIGHT);
+    const blockEnd = block.startMinutes + block.durationMinutes;
+    const isActiveNow = block.date === todayKey && currentMinutes >= block.startMinutes && currentMinutes < blockEnd;
 
     return (
       <button
@@ -1520,6 +1529,15 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           </span>
           {project && <span className="mt-auto block truncate text-[10.5px] font-medium text-[#5a606b]">{project.name}</span>}
           {!task && <span className="mt-auto block truncate text-[10.5px] font-semibold text-[#0f766e]">Blok czasu</span>}
+          {isActiveNow && (
+            <span
+              className="mt-auto flex items-center gap-1 self-start rounded-full px-1.5 py-0.5 text-[10px] font-semibold leading-none tabular-nums text-white"
+              style={{ background: meta.fg }}
+            >
+              <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" strokeLinecap="round" /></svg>
+              {formatRemaining(blockEnd - currentMinutes)} do końca
+            </span>
+          )}
         </span>
         <span
           role="presentation"

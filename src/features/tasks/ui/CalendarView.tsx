@@ -6,6 +6,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Eye,
+  EyeOff,
   Filter,
   ListFilter,
   ListTodo,
@@ -887,6 +889,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [now, setNow] = useState(() => new Date());
   const [blocks, setBlocks] = useState<Record<string, CalendarBlock>>({});
+  const [showGoogleEvents, setShowGoogleEvents] = useState<boolean>(
+    () => localStorage.getItem('mindflow_show_google_events') !== 'false',
+  );
   const [dragState, setDragState] = useState<DragState>(null);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -1069,8 +1074,16 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   const visibleBlocks = useMemo(() => {
     const dayKeys = new Set(days.map(toDateKey));
-    return Object.values(blocks).filter(block => dayKeys.has(block.date) && (!block.taskId || taskById.has(block.taskId)));
-  }, [blocks, days, taskById]);
+    return Object.values(blocks).filter(block =>
+      dayKeys.has(block.date)
+      && (!block.taskId || taskById.has(block.taskId))
+      && (showGoogleEvents || block.provider !== 'google'));
+  }, [blocks, days, taskById, showGoogleEvents]);
+
+  const hasGoogleBlocks = useMemo(
+    () => Object.values(blocks).some(block => block.provider === 'google'),
+    [blocks],
+  );
 
   function getBlockForTask(taskId: string) {
     return Object.values(blocks)
@@ -1524,7 +1537,49 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       ? getStatusLabel(selectedStatuses[0])
       : `${selectedStatuses.length} statusy`;
 
+  const renderGoogleBlock = (block: CalendarBlock) => {
+    const top = ((block.startMinutes - DAY_START) / 60) * HOUR_HEIGHT;
+    const height = Math.max(42, (block.durationMinutes / 60) * HOUR_HEIGHT);
+    const title = block.title ?? 'Wydarzenie Google';
+    return (
+      <div
+        key={block.id}
+        data-calendar-block="true"
+        title={`${title} · Google Calendar`}
+        className="absolute left-1 right-1 cursor-default overflow-hidden rounded-lg border border-dashed border-[#9aa6c4] pl-2.5 text-left dark:border-[#5b6b8f]"
+        style={{
+          top,
+          height,
+          borderLeft: '3px solid #4285F4',
+          color: '#3a3f47',
+          backgroundColor: 'rgba(66,133,244,0.07)',
+          backgroundImage:
+            'repeating-linear-gradient(135deg, rgba(66,133,244,0.10) 0, rgba(66,133,244,0.10) 5px, transparent 5px, transparent 11px)',
+        }}
+      >
+        <span className="flex h-full min-h-0 flex-col px-1.5 py-1.5">
+          <span className="flex items-center gap-1">
+            <svg viewBox="0 0 24 24" width="11" height="11" aria-hidden className="shrink-0">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z" />
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84A11 11 0 0 0 12 23z" />
+              <path fill="#FBBC05" d="M5.84 14.1a6.6 6.6 0 0 1 0-4.2V7.06H2.18a11 11 0 0 0 0 9.88l3.66-2.84z" />
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z" />
+            </svg>
+            <span className="block break-words text-[12px] font-semibold leading-tight tracking-[-0.01em] text-[#27324d] dark:text-[#c7d2ea]">
+              {title}
+            </span>
+          </span>
+          <span className="mt-1 block text-[10.5px] font-medium leading-snug text-[#5a6b8f]">
+            {formatMinutes(block.startMinutes)}-{formatMinutes(block.startMinutes + block.durationMinutes)}
+          </span>
+          <span className="mt-auto block text-[10px] font-semibold uppercase tracking-[0.05em] text-[#5b6b8f] dark:text-[#8a97b8]">Google</span>
+        </span>
+      </div>
+    );
+  };
+
   const renderBlock = (block: CalendarBlock) => {
+    if (block.provider === 'google') return renderGoogleBlock(block);
     const task = block.taskId ? taskById.get(block.taskId) : undefined;
     if (block.taskId && !task) return null;
     const project = task ? projects.find(p => p.id === task.project_id) : undefined;
@@ -1991,6 +2046,22 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   </button>
                 ))}
               </div>
+              {hasGoogleBlocks && (
+                <button
+                  onClick={() => setShowGoogleEvents(v => {
+                    localStorage.setItem('mindflow_show_google_events', String(!v));
+                    return !v;
+                  })}
+                  aria-pressed={showGoogleEvents}
+                  title={showGoogleEvents ? 'Ukryj wydarzenia Google' : 'Pokaż wydarzenia Google'}
+                  className={`flex h-10 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/10 ${showGoogleEvents
+                    ? 'border-[#cdd7ee] bg-[#eef3fd] text-[#2c4a8a] dark:border-[#3b4a6e] dark:bg-[#1e2536] dark:text-[#aebfe6]'
+                    : 'border-[#e8e8e4] bg-white text-[#5a606b] hover:bg-[#f7f7f4] dark:border-white/10 dark:bg-[#27272A] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                >
+                  {showGoogleEvents ? <Eye size={15} /> : <EyeOff size={15} />}
+                  <span className="hidden sm:inline">Google</span>
+                </button>
+              )}
               <button
                 onClick={() => (isMobile ? setMobileDrawerOpen(true) : setDrawerOpen(open => !open))}
                 className="ml-auto flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-[#e8e8e4] bg-white text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 lg:ml-0 dark:border-white/10 dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:focus:ring-white/10"

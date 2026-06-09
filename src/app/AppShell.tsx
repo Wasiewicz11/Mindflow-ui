@@ -4,6 +4,7 @@ import { Sidebar, MobileTasksNav, ThemeSelector, AgendaOverlay, AgendaPositionSe
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
+import { GoogleCalendarSettings } from '../features/integrations';
 
 import { useAuth } from '../features/auth';
 import { useTasks } from '../features/tasks';
@@ -49,6 +50,23 @@ export function AppShell() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [notes, setNotes] = useState<Note[]>([]);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
+  const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('google');
+    if (!result) return;
+    const message = result === 'connected'
+      ? 'Połączono z Google Calendar. Wydarzenia będą się synchronizować.'
+      : 'Nie udało się połączyć z Google Calendar. Spróbuj ponownie.';
+    params.delete('google');
+    const query = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    void Promise.resolve().then(() => {
+      setActiveTab('settings');
+      setGoogleNotice(message);
+    });
+  }, []);
 
   const [theme, setTheme] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem('mindflow_theme');
@@ -625,6 +643,15 @@ export function AppShell() {
                           </div>
                           <AgendaPositionSelector position={agendaPosition} setPosition={setAgendaPosition} />
                         </div>
+                      </section>
+
+                      <section className="px-6 py-5">
+                        {googleNotice && (
+                          <div className="mb-4 rounded-xl border border-[#e8e8e4] bg-[#fcfcfa] px-4 py-3 text-sm text-[#5a606b] dark:border-white/8 dark:bg-white/[0.03] dark:text-gray-300">
+                            {googleNotice}
+                          </div>
+                        )}
+                        <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
                       </section>
                     </div>
                   </div>

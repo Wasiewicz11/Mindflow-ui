@@ -232,8 +232,9 @@ function mapApiBlock(block: ApiCalendarBlock): CalendarBlock {
     date: toDateKey(start),
     startMinutes: start.getHours() * 60 + start.getMinutes(),
     durationMinutes: block.durationMinutes,
-    provider: block.provider,
-    syncStatus: block.syncStatus,
+    // API serializes the enum in PascalCase ("Google"/"Local"); normalize to our lowercase union
+    provider: (block.provider?.toLowerCase() as CalendarProvider) ?? 'local',
+    syncStatus: (block.syncStatus?.toLowerCase() as CalendarSyncStatus) ?? 'local',
   };
 }
 

@@ -1552,9 +1552,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           height,
           borderLeft: '3px solid #4285F4',
           color: '#3a3f47',
-          backgroundColor: 'rgba(66,133,244,0.07)',
+          backgroundColor: 'rgba(66,133,244,0.10)',
           backgroundImage:
-            'repeating-linear-gradient(135deg, rgba(66,133,244,0.10) 0, rgba(66,133,244,0.10) 5px, transparent 5px, transparent 11px)',
+            'repeating-linear-gradient(135deg, rgba(66,133,244,0.16) 0, rgba(66,133,244,0.16) 5px, transparent 5px, transparent 11px)',
         }}
       >
         <span className="flex h-full min-h-0 flex-col px-1.5 py-1.5">
@@ -1706,17 +1706,19 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   const renderTimeGrid = () => (
     <div className="flex h-full flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
-      <div className="w-12 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] sm:w-16 dark:border-white/8 dark:bg-[#232326]">
-        <div className="h-14 border-b border-[#f1f0ed] dark:border-white/8" />
-        {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, index) => (
-          <div key={index} className="relative h-[72px] pr-1.5 text-right text-[10.5px] font-medium text-[#9098a4] sm:pr-3 sm:text-[11px]">
-            {formatMinutes(DAY_START + index * 60)}
-          </div>
-        ))}
-      </div>
-
       <div className={`min-w-0 flex-1 overflow-auto custom-scrollbar ${mode === 'week' ? 'snap-x lg:snap-none' : ''}`} ref={gridRef}>
-        <div className={`grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${weekGridClass}`}>
+        <div className="flex">
+          <div className="sticky left-0 z-40 w-12 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] sm:w-16 dark:border-white/8 dark:bg-[#232326]">
+            <div className="sticky top-0 z-[45] h-14 border-b border-[#f1f0ed] bg-[#f7f7f4] dark:border-white/8 dark:bg-[#232326]" />
+            {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, index) => (
+              <div key={index} className="relative h-[72px] pr-1.5 text-right text-[10.5px] font-medium text-[#9098a4] sm:pr-3 sm:text-[11px]">
+                {formatMinutes(DAY_START + index * 60)}
+              </div>
+            ))}
+          </div>
+
+          <div className="flex-1">
+            <div className={`sticky top-0 z-[35] grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${weekGridClass}`}>
           {days.map(day => {
             const key = toDateKey(day);
             return (
@@ -1801,6 +1803,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
               </div>
             );
           })}
+            </div>
+          </div>
         </div>
       </div>
     </div>

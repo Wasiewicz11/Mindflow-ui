@@ -1,5 +1,5 @@
 import * as signalR from '@microsoft/signalr';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import {
   CalendarDays,
@@ -236,6 +236,50 @@ function mapApiBlock(block: ApiCalendarBlock): CalendarBlock {
     provider: (block.provider?.toLowerCase() as CalendarProvider) ?? 'local',
     syncStatus: (block.syncStatus?.toLowerCase() as CalendarSyncStatus) ?? 'local',
   };
+}
+
+type BlockColumn = { index: number; count: number };
+
+// Lay overlapping blocks side by side: group blocks that overlap (transitively),
+// assign each the first free lane, and give the whole group the same column count.
+function getDayBlockLayout(dayBlocks: CalendarBlock[]): Map<string, BlockColumn> {
+  const sorted = [...dayBlocks].sort(
+    (a, b) => a.startMinutes - b.startMinutes || b.durationMinutes - a.durationMinutes,
+  );
+  const result = new Map<string, BlockColumn>();
+  let group: { id: string; col: number }[] = [];
+  let laneEnds: number[] = [];
+  let groupMaxEnd = -1;
+
+  const flush = () => {
+    const count = laneEnds.length;
+    for (const item of group) result.set(item.id, { index: item.col, count });
+    group = [];
+    laneEnds = [];
+    groupMaxEnd = -1;
+  };
+
+  for (const block of sorted) {
+    const end = block.startMinutes + block.durationMinutes;
+    if (group.length && block.startMinutes >= groupMaxEnd) flush();
+    let col = laneEnds.findIndex(laneEnd => laneEnd <= block.startMinutes);
+    if (col === -1) {
+      col = laneEnds.length;
+      laneEnds.push(end);
+    } else {
+      laneEnds[col] = end;
+    }
+    group.push({ id: block.id, col });
+    groupMaxEnd = Math.max(groupMaxEnd, end);
+  }
+  if (group.length) flush();
+  return result;
+}
+
+function blockColumnStyle(layout?: BlockColumn): CSSProperties {
+  if (!layout || layout.count <= 1) return { left: 4, right: 4 };
+  const widthPct = 100 / layout.count;
+  return { left: `calc(${layout.index * widthPct}% + 2px)`, width: `calc(${widthPct}% - 4px)` };
 }
 
 function getWeekDays(anchor: Date) {
@@ -1538,7 +1582,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       ? getStatusLabel(selectedStatuses[0])
       : `${selectedStatuses.length} statusy`;
 
-  const renderGoogleBlock = (block: CalendarBlock) => {
+  const renderGoogleBlock = (block: CalendarBlock, layout?: BlockColumn) => {
     const top = ((block.startMinutes - DAY_START) / 60) * HOUR_HEIGHT;
     const height = Math.max(42, (block.durationMinutes / 60) * HOUR_HEIGHT);
     const title = block.title ?? 'Wydarzenie Google';
@@ -1547,8 +1591,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         key={block.id}
         data-calendar-block="true"
         title={`${title} · Google Calendar`}
-        className="absolute left-1 right-1 cursor-default overflow-hidden rounded-lg border border-dashed border-[#9aa6c4] pl-2.5 text-left dark:border-[#5b6b8f]"
+        className="absolute cursor-default overflow-hidden rounded-lg border border-dashed border-[#9aa6c4] pl-2.5 text-left dark:border-[#5b6b8f]"
         style={{
+          ...blockColumnStyle(layout),
           top,
           height,
           borderLeft: '3px solid #4285F4',
@@ -1579,8 +1624,8 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     );
   };
 
-  const renderBlock = (block: CalendarBlock) => {
-    if (block.provider === 'google') return renderGoogleBlock(block);
+  const renderBlock = (block: CalendarBlock, layout?: BlockColumn) => {
+    if (block.provider === 'google') return renderGoogleBlock(block, layout);
     const task = block.taskId ? taskById.get(block.taskId) : undefined;
     if (block.taskId && !task) return null;
     const project = task ? projects.find(p => p.id === task.project_id) : undefined;
@@ -1628,8 +1673,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           setDragState(null);
           setDropPreview(null);
         }}
-        className="group absolute left-1 right-1 overflow-hidden rounded-lg border text-left shadow-sm transition-[opacity,transform,box-shadow] duration-200 ease hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
+        className="group absolute overflow-hidden rounded-lg border text-left shadow-sm transition-[opacity,transform,box-shadow] duration-200 ease hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20"
         style={{
+          ...blockColumnStyle(layout),
           top,
           height,
           color: meta.fg,
@@ -1787,7 +1833,11 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                     </span>
                   </div>
                 )}
-                {visibleBlocks.filter(block => block.date === key).map(renderBlock)}
+                {(() => {
+                  const dayBlocks = visibleBlocks.filter(block => block.date === key);
+                  const layout = getDayBlockLayout(dayBlocks);
+                  return dayBlocks.map(block => renderBlock(block, layout.get(block.id)));
+                })()}
                 {key === todayKey && showCurrentTimeIndicator && (
                   <div
                     className="pointer-events-none absolute left-0 right-0 z-30"

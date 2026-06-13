@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Calendar, Check, RefreshCw } from 'lucide-react';
 import { useGoogleCalendar } from '../model/useGoogleCalendar';
 
@@ -7,14 +8,38 @@ interface GoogleCalendarSettingsProps {
 }
 
 export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsProps) {
-  const { status, loading, busy, connect, disconnect, sync } = useGoogleCalendar(isLoggedIn);
+  const { status, calendars, loading, busy, connect, disconnect, sync, loadCalendars, selectSourceCalendar } =
+    useGoogleCalendar(isLoggedIn);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const [pendingCalendarId, setPendingCalendarId] = useState<string | null>(null);
+
+  const connected = !loading && status?.connected;
+
+  useEffect(() => {
+    if (!connected) return;
+    void Promise.resolve().then(loadCalendars);
+  }, [connected, loadCalendars]);
 
   const handleSync = async () => {
     setSyncMessage(null);
     const result = await sync();
     setSyncMessage(result ? `Zsynchronizowano (${result.changes} zmian).` : 'Nie udało się zsynchronizować.');
   };
+
+  const handleCalendarChange = (calendarId: string) => {
+    if (!calendarId || calendarId === status?.sourceCalendarId) return;
+    setPendingCalendarId(calendarId);
+  };
+
+  const confirmCalendarChange = async () => {
+    if (!pendingCalendarId) return;
+    const target = pendingCalendarId;
+    setPendingCalendarId(null);
+    setSyncMessage(null);
+    await selectSourceCalendar(target);
+  };
+
+  const pendingCalendarName = calendars.find(c => c.id === pendingCalendarId)?.summary ?? 'wybrany kalendarz';
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -33,7 +58,7 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
           <span className="text-sm text-[#9098a4]">Sprawdzanie połączenia…</span>
         )}
 
-        {!loading && status?.connected && (
+        {connected && (
           <>
             <div className="flex items-center gap-2 rounded-xl border border-[#dbece1] bg-[#f4fbf6] px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
               <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2f7a52] text-white">
@@ -41,9 +66,27 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
               </span>
               <div className="min-w-0 text-left">
                 <p className="text-[13px] font-semibold text-[#1f5c3c] dark:text-emerald-200">Połączono</p>
-                {status.email && <p className="truncate text-[12px] text-[#3f7a5a] dark:text-emerald-300/80">{status.email}</p>}
+                {status?.email && <p className="truncate text-[12px] text-[#3f7a5a] dark:text-emerald-300/80">{status.email}</p>}
               </div>
             </div>
+
+            {calendars.length > 0 && (
+              <label className="flex flex-col gap-1 text-left">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Synchronizowany kalendarz</span>
+                <select
+                  value={status?.sourceCalendarId ?? ''}
+                  onChange={(e) => handleCalendarChange(e.target.value)}
+                  disabled={busy}
+                  className="h-10 min-w-[220px] rounded-xl border border-[#e8e8e4] bg-white px-3 text-sm font-medium text-[#0f1115] transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-[#27272A] dark:text-white dark:focus:ring-white/15"
+                >
+                  {calendars.map(cal => (
+                    <option key={cal.id} value={cal.id}>
+                      {(cal.summary ?? cal.id) + (cal.primary ? ' (główny)' : '')}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -64,7 +107,7 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
               </button>
             </div>
 
-            {!status.pushEnabled && (
+            {!status?.pushEnabled && (
               <span className="max-w-[260px] text-right text-[11px] leading-snug text-[#9098a4]">
                 Powiadomienia push wyłączone (brak publicznego webhooka) — zmiany dociągaj ręcznie.
               </span>
@@ -84,6 +127,37 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
           </button>
         )}
       </div>
+
+      {pendingCalendarId && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 p-4" onClick={() => setPendingCalendarId(null)}>
+          <div
+            className="w-full max-w-sm rounded-[18px] border border-[#e8e8e4] bg-white p-5 shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#1C1C1E]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-base font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">Zmienić synchronizowany kalendarz?</p>
+            <p className="mt-2 text-sm leading-relaxed text-[#5a606b] dark:text-gray-400">
+              Wszystkie wydarzenia z obecnego kalendarza <strong>znikną z Mindflow</strong>, a w ich miejsce załadujemy wydarzenia z „{pendingCalendarName}". Bloki utworzone w Mindflow zostają nietknięte.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingCalendarId(null)}
+                className="inline-flex h-10 items-center justify-center rounded-xl border border-[#e8e8e4] bg-white px-4 text-sm font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:border-white/10 dark:bg-[#27272A] dark:text-white dark:hover:bg-[#323238]"
+              >
+                Anuluj
+              </button>
+              <button
+                type="button"
+                onClick={confirmCalendarChange}
+                className="inline-flex h-10 items-center justify-center rounded-xl bg-[#0f1115] px-4 text-sm font-medium text-white transition-colors duration-200 ease hover:bg-[#23262d] dark:bg-white dark:text-[#18181B] dark:hover:bg-[#e8e8e4]"
+              >
+                Zmień i zsynchronizuj
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

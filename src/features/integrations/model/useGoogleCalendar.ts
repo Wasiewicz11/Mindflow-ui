@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   disconnectGoogleCalendar,
+  getGoogleCalendars,
   getGoogleCalendarStatus,
   getGoogleConnectUrl,
+  setGoogleSourceCalendar,
   syncGoogleCalendar,
+  type GoogleCalendarListItem,
   type GoogleCalendarStatus,
 } from '../api/googleCalendarApi';
 
 export function useGoogleCalendar(isLoggedIn: boolean) {
   const [status, setStatus] = useState<GoogleCalendarStatus | null>(null);
+  const [calendars, setCalendars] = useState<GoogleCalendarListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -62,5 +66,24 @@ export function useGoogleCalendar(isLoggedIn: boolean) {
     }
   }, []);
 
-  return { status, loading, busy, refresh, connect, disconnect, sync };
+  const loadCalendars = useCallback(async () => {
+    try {
+      const list = await getGoogleCalendars();
+      setCalendars(list);
+    } catch {
+      setCalendars([]);
+    }
+  }, []);
+
+  const selectSourceCalendar = useCallback(async (calendarId: string) => {
+    setBusy(true);
+    try {
+      await setGoogleSourceCalendar(calendarId);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  }, [refresh]);
+
+  return { status, calendars, loading, busy, refresh, connect, disconnect, sync, loadCalendars, selectSourceCalendar };
 }

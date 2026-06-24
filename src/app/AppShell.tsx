@@ -423,7 +423,13 @@ export function AppShell() {
               )}
             </header>
 
-            <div className="flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24">
+            <div
+              className={`min-h-0 flex-1 custom-scrollbar px-6 ${
+                activeTab === 'calendar'
+                  ? 'overflow-hidden pb-28 lg:pb-6'
+                  : 'overflow-y-auto pb-36 lg:pb-24'
+              }`}
+            >
               {activeTab === 'dashboard' && (
                 <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
                   <SuggestionsPanel
@@ -538,7 +544,7 @@ export function AppShell() {
               )}
 
               {activeTab === 'calendar' && (
-                <div className="h-[calc(100vh-190px)] animate-fade-in">
+                <div className="h-full min-h-0 animate-fade-in">
                   <CalendarView
                     tasks={sortedAllTasks}
                     projects={projects}

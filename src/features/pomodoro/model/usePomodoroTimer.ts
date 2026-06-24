@@ -9,6 +9,7 @@ import {
 } from './pomodoroModel';
 import { notifyPomodoroPhaseComplete, primePomodoroNotifications } from './pomodoroNotifications';
 import { loadPomodoroSession, savePomodoroSession } from './pomodoroStorage';
+import { deletePomodoroSession, upsertPomodoroSession } from '../api/pomodoroApi';
 
 export function usePomodoroTimer(
   settings: PomodoroSettings,
@@ -17,9 +18,61 @@ export function usePomodoroTimer(
   const [session, setSession] = useState<PomodoroSession | null>(loadPomodoroSession);
   const handledRequestRef = useRef<string | null>(null);
   const completingKeyRef = useRef<string | null>(null);
+  const remoteSignatureRef = useRef<string | null>(null);
+  const hasPublishedRemoteSessionRef = useRef(false);
+  const remoteRetryAfterRef = useRef(0);
+  const remoteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     savePomodoroSession(session);
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) {
+      if (!hasPublishedRemoteSessionRef.current) return;
+      hasPublishedRemoteSessionRef.current = false;
+      remoteSignatureRef.current = null;
+      remoteSyncQueueRef.current = remoteSyncQueueRef.current
+        .catch(() => undefined)
+        .then(() => deletePomodoroSession())
+        .catch(error => console.warn('Failed to clear remote Pomodoro session', error));
+      return;
+    }
+
+    if (session.isComplete) {
+      hasPublishedRemoteSessionRef.current = false;
+      remoteSignatureRef.current = null;
+      remoteSyncQueueRef.current = remoteSyncQueueRef.current
+        .catch(() => undefined)
+        .then(() => deletePomodoroSession())
+        .catch(error => console.warn('Failed to clear completed remote Pomodoro session', error));
+      return;
+    }
+
+    const signature = JSON.stringify({
+      id: session.id,
+      taskId: session.taskId,
+      title: session.title,
+      phase: session.phase,
+      totalSeconds: session.totalSeconds,
+      remainingSeconds: session.isRunning ? null : session.remainingSeconds,
+      isRunning: session.isRunning,
+      endsAt: session.endsAt,
+    });
+    if (signature === remoteSignatureRef.current) return;
+    if (Date.now() < remoteRetryAfterRef.current) return;
+
+    remoteSignatureRef.current = signature;
+    hasPublishedRemoteSessionRef.current = true;
+    remoteSyncQueueRef.current = remoteSyncQueueRef.current
+      .catch(() => undefined)
+      .then(() => upsertPomodoroSession(session))
+      .then(() => undefined)
+      .catch(error => {
+        console.warn('Failed to sync Pomodoro session', error);
+        if (remoteSignatureRef.current === signature) remoteSignatureRef.current = null;
+        remoteRetryAfterRef.current = Date.now() + 30_000;
+      });
   }, [session]);
 
   useEffect(() => {

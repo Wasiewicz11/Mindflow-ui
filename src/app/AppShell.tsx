@@ -4,7 +4,7 @@ import { Sidebar, MobileTasksNav, ThemeSelector, AgendaOverlay, AgendaPositionSe
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
-import { GoogleCalendarSettings } from '../features/integrations';
+import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
 
 import { useAuth } from '../features/auth';
 import { useTasks } from '../features/tasks';
@@ -67,6 +67,31 @@ export function AppShell() {
       setGoogleNotice(message);
     });
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    let cancelled = false;
+    const repairGoogleCalendar = async () => {
+      try {
+        await syncGoogleCalendar();
+      } catch {
+        try {
+          const status = await getGoogleCalendarStatus();
+          if (!cancelled && status.requiresReconnect) {
+            setGoogleNotice('Połączenie z Google Calendar wygasło. Połącz konto ponownie w ustawieniach.');
+          }
+        } catch {
+          // Login should not fail because an optional integration is temporarily unavailable.
+        }
+      }
+    };
+
+    void repairGoogleCalendar();
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
 
   const [theme, setTheme] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem('mindflow_theme');

@@ -6,6 +6,14 @@ export interface GoogleCalendarStatus {
   connectedAt?: string | null;
   pushEnabled: boolean;
   sourceCalendarId?: string | null;
+  requiresReconnect: boolean;
+  watchExpiresAt?: string | null;
+  lastSyncedAt?: string | null;
+}
+
+export interface GoogleCalendarSyncResult {
+  changes: number;
+  pushed: number;
 }
 
 export interface GoogleCalendarListItem {
@@ -27,8 +35,17 @@ export function disconnectGoogleCalendar(): Promise<void> {
   return apiFetch<void>('/integrations/google/calendar', { method: 'DELETE' });
 }
 
-export function syncGoogleCalendar(): Promise<{ changes: number }> {
-  return apiFetch<{ changes: number }>('/integrations/google/calendar/sync', { method: 'POST' });
+let syncPromise: Promise<GoogleCalendarSyncResult> | null = null;
+
+export function syncGoogleCalendar(): Promise<GoogleCalendarSyncResult> {
+  if (syncPromise) return syncPromise;
+
+  syncPromise = apiFetch<GoogleCalendarSyncResult>('/integrations/google/calendar/sync', { method: 'POST' })
+    .finally(() => {
+      syncPromise = null;
+    });
+
+  return syncPromise;
 }
 
 export function getGoogleCalendars(): Promise<GoogleCalendarListItem[]> {

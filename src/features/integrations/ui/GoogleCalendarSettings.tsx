@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Calendar, Check, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Calendar, Check, RefreshCw } from 'lucide-react';
 import { useGoogleCalendar } from '../model/useGoogleCalendar';
 
 interface GoogleCalendarSettingsProps {
@@ -8,22 +8,29 @@ interface GoogleCalendarSettingsProps {
 }
 
 export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsProps) {
-  const { status, calendars, loading, busy, connect, disconnect, sync, loadCalendars, selectSourceCalendar } =
+  const { status, calendars, loading, busy, error, connect, disconnect, sync, loadCalendars, selectSourceCalendar } =
     useGoogleCalendar(isLoggedIn);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
   const [pendingCalendarId, setPendingCalendarId] = useState<string | null>(null);
 
   const connected = !loading && status?.connected;
+  const reconnectRequired = Boolean(connected && status?.requiresReconnect);
+  const pushNeedsAttention = Boolean(connected && !reconnectRequired && !status?.pushEnabled);
+  const lastSyncedLabel = status?.lastSyncedAt
+    ? new Intl.DateTimeFormat('pl-PL', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(status.lastSyncedAt))
+    : null;
 
   useEffect(() => {
-    if (!connected) return;
+    if (!connected || reconnectRequired) return;
     void Promise.resolve().then(loadCalendars);
-  }, [connected, loadCalendars]);
+  }, [connected, reconnectRequired, loadCalendars]);
 
   const handleSync = async () => {
     setSyncMessage(null);
     const result = await sync();
-    setSyncMessage(result ? `Zsynchronizowano (${result.changes} zmian).` : 'Nie udało się zsynchronizować.');
+    if (result) {
+      setSyncMessage(`Gotowe: ${result.changes} zmian z Google, ${result.pushed} wysłanych bloków.`);
+    }
   };
 
   const handleCalendarChange = (calendarId: string) => {
@@ -60,17 +67,43 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
 
         {connected && (
           <>
-            <div className="flex items-center gap-2 rounded-xl border border-[#dbece1] bg-[#f4fbf6] px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#2f7a52] text-white">
-                <Check size={12} strokeWidth={3} />
+            <div className={`flex max-w-[320px] items-start gap-2 rounded-xl border px-3 py-2 ${
+              reconnectRequired
+                ? 'border-[#f3d4d4] bg-[#fff8f8] dark:border-red-900/40 dark:bg-red-950/20'
+                : pushNeedsAttention
+                  ? 'border-[oklch(0.88_0.04_55)] bg-[oklch(0.96_0.03_55)] dark:border-amber-900/40 dark:bg-amber-950/20'
+                  : 'border-[#dbece1] bg-[#f4fbf6] dark:border-emerald-900/40 dark:bg-emerald-950/20'
+            }`}>
+              <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white ${
+                reconnectRequired ? 'bg-[#b93838]' : pushNeedsAttention ? 'bg-[oklch(0.70_0.16_55)]' : 'bg-[#2f7a52]'
+              }`}>
+                {reconnectRequired || pushNeedsAttention
+                  ? <AlertTriangle size={12} strokeWidth={2.5} />
+                  : <Check size={12} strokeWidth={3} />}
               </span>
               <div className="min-w-0 text-left">
-                <p className="text-[13px] font-semibold text-[#1f5c3c] dark:text-emerald-200">Połączono</p>
-                {status?.email && <p className="truncate text-[12px] text-[#3f7a5a] dark:text-emerald-300/80">{status.email}</p>}
+                <p className={`text-[13px] font-semibold ${
+                  reconnectRequired
+                    ? 'text-[#9f2f2f] dark:text-red-200'
+                    : pushNeedsAttention
+                      ? 'text-[oklch(0.48_0.12_55)] dark:text-amber-200'
+                      : 'text-[#1f5c3c] dark:text-emerald-200'
+                }`}>
+                  {reconnectRequired ? 'Połączenie wygasło' : pushNeedsAttention ? 'Synchronizacja wymaga uwagi' : 'Połączono i synchronizuje'}
+                </p>
+                {status?.email && <p className="truncate text-[12px] text-[#5a606b] dark:text-gray-400">{status.email}</p>}
+                {reconnectRequired && (
+                  <p className="mt-1 text-[12px] leading-snug text-[#9f2f2f] dark:text-red-300">
+                    Google odrzucił zapisany dostęp. Połącz konto ponownie, aby wznowić synchronizację.
+                  </p>
+                )}
+                {lastSyncedLabel && !reconnectRequired && (
+                  <p className="mt-1 text-[11px] text-[#9098a4]">Ostatnia synchronizacja: {lastSyncedLabel}</p>
+                )}
               </div>
             </div>
 
-            {calendars.length > 0 && (
+            {!reconnectRequired && calendars.length > 0 && (
               <label className="flex flex-col gap-1 text-left">
                 <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Synchronizowany kalendarz</span>
                 <select
@@ -88,15 +121,26 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
               </label>
             )}
 
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSync}
-                disabled={busy}
-                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,color,transform,opacity] duration-200 ease hover:-translate-y-px hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/8 dark:focus:ring-white/15"
-              >
-                <RefreshCw size={14} className={busy ? 'animate-spin' : undefined} /> Synchronizuj teraz
-              </button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {reconnectRequired ? (
+                <button
+                  type="button"
+                  onClick={connect}
+                  disabled={busy}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-[#0f1115] px-3 text-sm font-medium text-white transition-[background-color,transform,opacity] duration-200 ease hover:-translate-y-px hover:bg-[#23262d] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-[#18181B] dark:hover:bg-[#e8e8e4]"
+                >
+                  <RefreshCw size={14} className={busy ? 'animate-spin' : undefined} /> Połącz ponownie
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleSync}
+                  disabled={busy}
+                  className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,color,transform,opacity] duration-200 ease hover:-translate-y-px hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/8 dark:focus:ring-white/15"
+                >
+                  <RefreshCw size={14} className={busy ? 'animate-spin' : undefined} /> Synchronizuj teraz
+                </button>
+              )}
               <button
                 type="button"
                 onClick={disconnect}
@@ -107,12 +151,12 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
               </button>
             </div>
 
-            {!status?.pushEnabled && (
+            {pushNeedsAttention && (
               <span className="max-w-[260px] text-right text-[11px] leading-snug text-[#9098a4]">
-                Powiadomienia push wyłączone (brak publicznego webhooka) — zmiany dociągaj ręcznie.
+                Kanał powiadomień wygasł lub jest wyłączony. „Synchronizuj teraz” spróbuje go odnowić.
               </span>
             )}
-            {syncMessage && <span className="text-right text-[12px] text-[#5a606b] dark:text-gray-400">{syncMessage}</span>}
+            {syncMessage && <span className="text-right text-[12px] text-[#2f7a52] dark:text-emerald-300">{syncMessage}</span>}
           </>
         )}
 
@@ -126,6 +170,7 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
             <Calendar size={16} /> Połącz z Google Calendar
           </button>
         )}
+        {error && <span className="max-w-[300px] text-right text-[12px] text-[#b93838] dark:text-red-300">{error}</span>}
       </div>
 
       {pendingCalendarId && createPortal(

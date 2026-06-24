@@ -30,6 +30,7 @@ import {
   type CalendarSyncStatus,
 } from '../api/calendarApi';
 import { TaskEditModal } from './TaskEditModal';
+import { TomatoIcon, type PomodoroLaunchRequest } from '../../pomodoro';
 
 type CalendarMode = 'day' | 'week' | 'month';
 type FilterMenu = 'projects' | 'priorities' | 'statuses' | null;
@@ -66,6 +67,7 @@ interface CalendarViewProps {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
+  onStartFocus: (request: PomodoroLaunchRequest) => void;
 }
 
 type CalendarAddSlot = {
@@ -928,7 +930,7 @@ function getIsMobile() {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 }
 
-export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete }: CalendarViewProps) {
+export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete, onStartFocus }: CalendarViewProps) {
   const [isMobile, setIsMobile] = useState(getIsMobile);
   const [mode, setMode] = useState<CalendarMode>(() => (getIsMobile() ? 'day' : 'week'));
   const [anchorDate, setAnchorDate] = useState(() => new Date());
@@ -1056,16 +1058,22 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
   useEffect(() => {
     if (!blockContextMenu) return;
 
-    const close = () => setBlockContextMenu(null);
+    const closeOnOutsideInteraction = (event: Event) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-block-context-menu="true"]')) return;
+      setBlockContextMenu(null);
+    };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') close();
+      if (event.key === 'Escape') setBlockContextMenu(null);
     };
 
-    window.addEventListener('click', close);
+    document.addEventListener('pointerdown', closeOnOutsideInteraction, true);
+    document.addEventListener('contextmenu', closeOnOutsideInteraction, true);
     window.addEventListener('keydown', handleKeyDown);
 
     return () => {
-      window.removeEventListener('click', close);
+      document.removeEventListener('pointerdown', closeOnOutsideInteraction, true);
+      document.removeEventListener('contextmenu', closeOnOutsideInteraction, true);
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [blockContextMenu]);
@@ -1235,6 +1243,36 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     } catch (error) {
       console.error('Failed to delete calendar block', error);
     }
+  }
+
+  function startFocusForBlock(blockId: string) {
+    const block = blocks[blockId];
+    if (!block) return;
+    const task = block.taskId ? taskById.get(block.taskId) : undefined;
+    const startAt = new Date(`${block.date}T00:00:00`);
+    startAt.setMinutes(block.startMinutes);
+    const endAt = new Date(startAt.getTime() + block.durationMinutes * 60_000);
+    const isActiveNow = now.getTime() >= startAt.getTime() && now.getTime() < endAt.getTime();
+
+    onStartFocus({
+      requestId: `${block.id}-${Date.now()}`,
+      taskId: block.taskId,
+      title: task?.content ?? block.title ?? 'Blok czasu',
+      taskEndsAt: isActiveNow ? endAt.toISOString() : undefined,
+    });
+    setBlockContextMenu(null);
+  }
+
+  function openBlockContextMenu(event: React.MouseEvent, blockId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    const menuWidth = 176;
+    const menuHeight = blocks[blockId]?.provider === 'google' ? 52 : 98;
+    setBlockContextMenu({
+      blockId,
+      x: clamp(event.clientX, 8, window.innerWidth - menuWidth - 8),
+      y: clamp(event.clientY, 8, window.innerHeight - menuHeight - 8),
+    });
   }
 
   async function scheduleTask(taskId: string, date: string, startMinutes: number, duration = DEFAULT_BLOCK) {
@@ -1591,6 +1629,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
         key={block.id}
         data-calendar-block="true"
         title={`${title} · Google Calendar`}
+        onContextMenu={(e) => openBlockContextMenu(e, block.id)}
         className="absolute cursor-default overflow-hidden rounded-lg border border-dashed border-[#9aa6c4] pl-2.5 text-left dark:border-[#5b6b8f]"
         style={{
           ...blockColumnStyle(layout),
@@ -1652,10 +1691,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           else setEditingBlock(block);
         }}
         onContextMenu={(e) => {
-          if (task) return;
-          e.preventDefault();
-          e.stopPropagation();
-          setBlockContextMenu({ blockId: block.id, x: e.clientX, y: e.clientY });
+          openBlockContextMenu(e, block.id);
         }}
         onDragStart={(e) => {
           suppressBlockClickUntilRef.current = Date.now() + 800;
@@ -1911,11 +1947,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                   key={block.id}
                   draggable
                   onClick={() => setEditingBlock(block)}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setBlockContextMenu({ blockId: block.id, x: e.clientX, y: e.clientY });
-                  }}
+                  onContextMenu={(e) => openBlockContextMenu(e, block.id)}
                   onDragStart={(e) => {
                     e.dataTransfer.effectAllowed = e.altKey ? 'copyMove' : 'move';
                     e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
@@ -1938,6 +1970,10 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
                     key={task.id}
                     draggable
                     onClick={() => setEditingTask(task)}
+                    onContextMenu={(e) => {
+                      if (!block) return;
+                      openBlockContextMenu(e, block.id);
+                    }}
                     onDragStart={(e) => {
                       e.dataTransfer.setData('application/mindflow-task', task.id);
                       if (block) e.dataTransfer.setData('application/mindflow-calendar-block', block.id);
@@ -2192,19 +2228,34 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       {blockContextMenu && blocks[blockContextMenu.blockId] && createPortal(
         <div
           role="menu"
-          className="fixed z-[60] min-w-[150px] rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] dark:border-white/10 dark:bg-[#27272A] dark:shadow-none"
+          data-block-context-menu="true"
+          className="fixed z-[60] min-w-[168px] animate-calendar-reveal rounded-[10px] border border-[#e8e8e4] bg-white p-1 shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] dark:border-white/10 dark:bg-[#27272A] dark:shadow-none"
           style={{ left: blockContextMenu.x, top: blockContextMenu.y }}
           onClick={e => e.stopPropagation()}
         >
           <button
             type="button"
             role="menuitem"
-            onClick={() => deleteBlock(blockContextMenu.blockId)}
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-red-600 transition-colors duration-200 ease hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+            onClick={() => startFocusForBlock(blockContextMenu.blockId)}
+            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[oklch(0.96_0.03_25)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/20 dark:text-white dark:hover:bg-[oklch(0.62_0.18_25)]/10"
           >
-            <Trash2 size={13} strokeWidth={2} />
-            Usuń
+            <TomatoIcon className="h-4 w-4" />
+            Focus
           </button>
+          {blocks[blockContextMenu.blockId].provider === 'local' && (
+            <>
+              <div className="mx-1 my-1 h-px bg-[#f1f0ed] dark:bg-white/8" />
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => deleteBlock(blockContextMenu.blockId)}
+                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[13px] font-medium text-red-600 transition-colors duration-200 ease hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500/20"
+              >
+                <Trash2 size={13} strokeWidth={2} />
+                Usuń
+              </button>
+            </>
+          )}
         </div>,
         document.body
       )}

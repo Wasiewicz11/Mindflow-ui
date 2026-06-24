@@ -5,6 +5,15 @@ import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, Q
 import { NotesGrid } from '../features/notes/ui';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
+import {
+  loadPomodoroSettings,
+  PomodoroOverlay,
+  PomodoroSettings,
+  savePomodoroSettings,
+  TomatoIcon,
+  type PomodoroLaunchRequest,
+  type PomodoroSettingsValue,
+} from '../features/pomodoro';
 
 import { useAuth } from '../features/auth';
 import { useTasks } from '../features/tasks';
@@ -51,6 +60,13 @@ export function AppShell() {
   const [notes, setNotes] = useState<Note[]>([]);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [googleNotice, setGoogleNotice] = useState<string | null>(null);
+  const [settingsSection, setSettingsSection] = useState<'account' | 'pomodoro'>('account');
+  const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettingsValue>(loadPomodoroSettings);
+  const [pomodoroLaunchRequest, setPomodoroLaunchRequest] = useState<PomodoroLaunchRequest | null>(null);
+
+  useEffect(() => {
+    savePomodoroSettings(pomodoroSettings);
+  }, [pomodoroSettings]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -585,6 +601,7 @@ export function AppShell() {
                     onEdit={handleEditTask}
                     onToggle={handleToggleTask}
                     onDelete={handleDeleteTask}
+                    onStartFocus={setPomodoroLaunchRequest}
                   />
                 </div>
               )}
@@ -597,7 +614,25 @@ export function AppShell() {
 
               {activeTab === 'settings' && (
                 <div className="mx-auto w-full max-w-3xl animate-fade-in">
+                  <div className="mb-3 flex w-fit rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] p-1 dark:border-white/10 dark:bg-[#232326]">
+                    <button
+                      type="button"
+                      onClick={() => setSettingsSection('account')}
+                      className={`rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'account' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                    >
+                      Konto i wygląd
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsSection('pomodoro')}
+                      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'pomodoro' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                    >
+                      <TomatoIcon className="h-4 w-4" /> Pomodoro
+                    </button>
+                  </div>
                   <div className="overflow-visible rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] transition-colors duration-300 dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
+                    {settingsSection === 'account' ? (
+                      <>
                     <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia konta</p>
                       <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Profil i wygląd</h2>
@@ -693,6 +728,17 @@ export function AppShell() {
                         <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
                       </section>
                     </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia timera</p>
+                          <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Pomodoro</h2>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Dopasuj rytm skupienia i przerw do swojego sposobu pracy.</p>
+                        </div>
+                        <PomodoroSettings settings={pomodoroSettings} onChange={setPomodoroSettings} />
+                      </>
+                    )}
                   </div>
                 </div>
               )}
@@ -731,6 +777,7 @@ export function AppShell() {
         );
       })()}
 
+      <PomodoroOverlay settings={pomodoroSettings} launchRequest={pomodoroLaunchRequest} />
       <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} />
     </div>
   );

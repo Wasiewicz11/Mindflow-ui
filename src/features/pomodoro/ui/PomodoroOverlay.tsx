@@ -9,6 +9,7 @@ import {
   type PomodoroSettings,
 } from '../model/pomodoroModel';
 import { usePomodoroTimer } from '../model/usePomodoroTimer';
+import { usePomodoroRemainingSeconds } from '../model/usePomodoroRemainingSeconds';
 import { TomatoIcon } from './TomatoIcon';
 
 interface PomodoroOverlayProps {
@@ -25,6 +26,75 @@ function phaseDotClass(phase: PomodoroPhase, active: boolean) {
   if (phase === 'focus') return active ? 'bg-[oklch(0.62_0.18_25)]' : 'bg-[oklch(0.62_0.18_25)]/45';
   if (phase === 'longBreak') return active ? 'bg-[#0f1115] dark:bg-white' : 'bg-[#9098a4]/45';
   return active ? 'bg-[#9098a4]' : 'bg-[#c0c5cc]/60';
+}
+
+interface PomodoroClockProps {
+  endsAt: string | null;
+  fallbackSeconds: number;
+  isComplete: boolean;
+  isRunning: boolean;
+  phase: PomodoroPhase;
+  totalSeconds: number;
+}
+
+function PomodoroClock({
+  endsAt,
+  fallbackSeconds,
+  isComplete,
+  isRunning,
+  phase,
+  totalSeconds,
+}: PomodoroClockProps) {
+  const remainingSeconds = usePomodoroRemainingSeconds({
+    endsAt,
+    fallbackSeconds,
+    isRunning,
+    precision: 'second',
+  });
+  const progress = totalSeconds > 0
+    ? Math.min(1, Math.max(0, 1 - remainingSeconds / totalSeconds))
+    : 1;
+  const radius = 126;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div className="relative flex h-[min(34vh,320px)] w-[min(34vh,320px)] min-h-[250px] min-w-[250px] items-center justify-center">
+      <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 300 300" aria-hidden="true">
+        <circle cx="150" cy="150" r={radius} fill="none" stroke="currentColor" strokeWidth="7" className="text-[#e8e8e4] dark:text-white/8" />
+        <circle
+          cx="150"
+          cy="150"
+          r={radius}
+          fill="none"
+          stroke="oklch(0.62 0.18 25)"
+          strokeWidth="7"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - progress)}
+          className="transition-[stroke-dashoffset] duration-200 ease"
+        />
+      </svg>
+      <div className="relative flex flex-col items-center text-center">
+        <TomatoIcon className="mb-2 h-10 w-10" />
+        <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9098a4]">{isComplete ? 'Gotowe' : POMODORO_PHASE_META[phase].label}</span>
+        <span className="mt-1 text-[clamp(3.4rem,6vw,5.6rem)] font-semibold leading-none tracking-[-0.06em] tabular-nums text-[#0f1115] dark:text-white">{formatPomodoroTime(remainingSeconds)}</span>
+        <span className="mt-2 text-[12px] font-medium text-[#9098a4]">
+          {isComplete ? 'Plan na ten blok został ukończony' : isRunning ? 'Sesja trwa' : 'Gotowe do startu'}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+function PomodoroMiniTime({ endsAt, fallbackSeconds, isRunning }: Pick<PomodoroClockProps, 'endsAt' | 'fallbackSeconds' | 'isRunning'>) {
+  const remainingSeconds = usePomodoroRemainingSeconds({
+    endsAt,
+    fallbackSeconds,
+    isRunning,
+    precision: 'minute',
+  });
+
+  return <>{Math.max(0, Math.ceil(remainingSeconds / 60))} min</>;
 }
 
 export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProps) {
@@ -45,11 +115,6 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
 
   if (!session) return null;
 
-  const progress = session.totalSeconds > 0
-    ? Math.min(1, Math.max(0, 1 - session.remainingSeconds / session.totalSeconds))
-    : 1;
-  const radius = 126;
-  const circumference = 2 * Math.PI * radius;
   const visibleSchedule = session.schedule ?? fallbackSchedule.map((item, index) => ({
     ...item,
     id: `fallback-${index}`,
@@ -75,7 +140,11 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
     >
       <TomatoIcon className="h-5 w-5" />
       <span className="tabular-nums text-[12px] font-semibold text-[#0f1115] dark:text-white">
-        {Math.max(0, Math.ceil(session.remainingSeconds / 60))} min
+        <PomodoroMiniTime
+          endsAt={session.endsAt}
+          fallbackSeconds={session.remainingSeconds}
+          isRunning={session.isRunning}
+        />
       </span>
     </button>
   );
@@ -125,31 +194,14 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col items-center justify-center py-4">
-            <div className="relative flex h-[min(34vh,320px)] w-[min(34vh,320px)] min-h-[250px] min-w-[250px] items-center justify-center">
-              <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 300 300" aria-hidden="true">
-                <circle cx="150" cy="150" r={radius} fill="none" stroke="currentColor" strokeWidth="7" className="text-[#e8e8e4] dark:text-white/8" />
-                <circle
-                  cx="150"
-                  cy="150"
-                  r={radius}
-                  fill="none"
-                  stroke="oklch(0.62 0.18 25)"
-                  strokeWidth="7"
-                  strokeLinecap="round"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={circumference * (1 - progress)}
-                  className="transition-[stroke-dashoffset] duration-200 ease"
-                />
-              </svg>
-              <div className="relative flex flex-col items-center text-center">
-                <TomatoIcon className="mb-2 h-10 w-10" />
-                <span className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#9098a4]">{session.isComplete ? 'Gotowe' : POMODORO_PHASE_META[session.phase].label}</span>
-                <span className="mt-1 text-[clamp(3.4rem,6vw,5.6rem)] font-semibold leading-none tracking-[-0.06em] tabular-nums text-[#0f1115] dark:text-white">{formatPomodoroTime(session.remainingSeconds)}</span>
-                <span className="mt-2 text-[12px] font-medium text-[#9098a4]">
-                  {session.isComplete ? 'Plan na ten blok został ukończony' : session.isRunning ? 'Sesja trwa' : 'Gotowe do startu'}
-                </span>
-              </div>
-            </div>
+            <PomodoroClock
+              endsAt={session.endsAt}
+              fallbackSeconds={session.remainingSeconds}
+              isComplete={session.isComplete}
+              isRunning={session.isRunning}
+              phase={session.phase}
+              totalSeconds={session.totalSeconds}
+            />
           </div>
 
           <div className="flex items-center justify-center gap-2.5">

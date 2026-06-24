@@ -99,27 +99,39 @@ export function usePomodoroTimer(
     if (!session?.isRunning || !session.endsAt || session.isComplete) return;
 
     const completionKey = `${session.id}-${session.scheduleIndex}-${session.phase}-${session.endsAt}`;
-    const tick = () => {
-      const endMs = new Date(session.endsAt!).getTime();
-      const remainingSeconds = Math.max(0, Math.ceil((endMs - Date.now()) / 1000));
+    const endMs = new Date(session.endsAt).getTime();
+    if (!Number.isFinite(endMs)) return;
 
-      if (remainingSeconds > 0) {
-        setSession(current => {
-          if (!current || current.id !== session.id || current.remainingSeconds === remainingSeconds) return current;
-          return { ...current, remainingSeconds, updatedAt: new Date().toISOString() };
-        });
+    let timeoutId: number | null = null;
+    const completePhase = () => {
+      const remainingMs = endMs - Date.now();
+      if (remainingMs > 0) {
+        timeoutId = window.setTimeout(completePhase, remainingMs + 20);
         return;
       }
-
       if (completingKeyRef.current === completionKey) return;
+
       completingKeyRef.current = completionKey;
       notifyPomodoroPhaseComplete(session.phase, session.title);
-      setSession(current => current ? reconcilePomodoroSession(current) : null);
+      setSession(current => {
+        if (!current || current.id !== session.id || current.endsAt !== session.endsAt) return current;
+        return reconcilePomodoroSession(current);
+      });
     };
 
-    tick();
-    const intervalId = window.setInterval(tick, 250);
-    return () => window.clearInterval(intervalId);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && Date.now() >= endMs) completePhase();
+    };
+
+    timeoutId = window.setTimeout(completePhase, Math.max(0, endMs - Date.now()) + 20);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
+
+    return () => {
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleVisibilityChange);
+    };
   }, [session?.endsAt, session?.id, session?.isComplete, session?.isRunning, session?.phase, session?.scheduleIndex, session?.title]);
 
   const start = useCallback(() => {

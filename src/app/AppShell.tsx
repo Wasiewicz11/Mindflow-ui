@@ -56,9 +56,11 @@ export function AppShell() {
     const params = new URLSearchParams(window.location.search);
     const result = params.get('google');
     if (!result) return;
-    const message = result === 'connected'
-      ? 'Połączono z Google Calendar. Wydarzenia będą się synchronizować.'
-      : 'Nie udało się połączyć z Google Calendar. Spróbuj ponownie.';
+    const message = result === 'select-calendar'
+      ? 'Konto Google zostało połączone. Wybierz kalendarz, który chcesz synchronizować.'
+      : result === 'connected'
+        ? 'Połączono z Google Calendar. Wydarzenia będą się synchronizować.'
+        : 'Nie udało się połączyć z Google Calendar. Spróbuj ponownie.';
     params.delete('google');
     const query = params.toString();
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
@@ -76,14 +78,20 @@ export function AppShell() {
       try {
         await syncGoogleCalendar();
       } catch {
-        try {
-          const status = await getGoogleCalendarStatus();
-          if (!cancelled && status.requiresReconnect) {
-            setGoogleNotice('Połączenie z Google Calendar wygasło. Połącz konto ponownie w ustawieniach.');
-          }
-        } catch {
-          // Login should not fail because an optional integration is temporarily unavailable.
+        // The status below explains whether reconnecting is required.
+      }
+
+      try {
+        const status = await getGoogleCalendarStatus();
+        if (cancelled) return;
+
+        if (status.requiresReconnect) {
+          setGoogleNotice('Połączenie z Google Calendar wygasło. Połącz konto ponownie w ustawieniach.');
+        } else if (status.connected && !status.sourceCalendarId) {
+          setGoogleNotice('Wybierz kalendarz Google, który chcesz synchronizować.');
         }
+      } catch {
+        // Login should not fail because an optional integration is temporarily unavailable.
       }
     };
 

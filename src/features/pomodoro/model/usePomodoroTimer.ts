@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   advancePomodoroSession,
+  createGlobalPomodoroSession,
   createPomodoroSession,
   reconcilePomodoroSession,
   type PomodoroLaunchRequest,
@@ -185,6 +186,23 @@ export function usePomodoroTimer(
     setSession(current => current ? advancePomodoroSession(current, nowMs, current.settings.autoStartNextSession) : null);
   }, []);
 
+  const startGlobalCycle = useCallback((focusSessionCount: number) => {
+    void primePomodoroNotifications();
+    const nowMs = Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+    setSession(current => {
+      if (current && !current.isComplete) return current;
+
+      const nextSession = createGlobalPomodoroSession(settingsRef.current, focusSessionCount, nowMs);
+      return {
+        ...nextSession,
+        isRunning: true,
+        endsAt: nextSession.schedule?.[0]?.endsAt ?? new Date(nowMs + nextSession.remainingSeconds * 1000).toISOString(),
+        updatedAt: nowIso,
+      };
+    });
+  }, []);
+
   const setMinimized = useCallback((isMinimized: boolean) => {
     setSession(current => current ? { ...current, isMinimized, updatedAt: new Date().toISOString() } : null);
   }, []);
@@ -197,6 +215,7 @@ export function usePomodoroTimer(
     pause,
     resetPhase,
     skip,
+    startGlobalCycle,
     setMinimized,
     stop,
   };

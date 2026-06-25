@@ -119,6 +119,54 @@ export function buildTaskSchedule(
   return items;
 }
 
+export function buildFocusSessionSchedule(
+  focusSessionCount: number,
+  settings: PomodoroSettings,
+  startsAtMs = Date.now(),
+): PomodoroScheduleItem[] {
+  const safeFocusSessionCount = Math.min(24, Math.max(1, Math.round(focusSessionCount)));
+  const items: PomodoroScheduleItem[] = [];
+  let cursorMs = startsAtMs;
+  let completedFocusSessions = 0;
+
+  for (let focusIndex = 0; focusIndex < safeFocusSessionCount; focusIndex += 1) {
+    const focusDurationSeconds = phaseDurationSeconds('focus', settings);
+    const focusEndMs = cursorMs + focusDurationSeconds * 1000;
+
+    items.push({
+      id: `${items.length}-focus-${cursorMs}`,
+      phase: 'focus',
+      durationSeconds: focusDurationSeconds,
+      startsAt: new Date(cursorMs).toISOString(),
+      endsAt: new Date(focusEndMs).toISOString(),
+    });
+
+    cursorMs = focusEndMs;
+    completedFocusSessions += 1;
+
+    const hasNextFocusSession = focusIndex < safeFocusSessionCount - 1;
+    if (!hasNextFocusSession) break;
+
+    const breakPhase: PomodoroPhase = completedFocusSessions % settings.sessionsBeforeLongBreak === 0
+      ? 'longBreak'
+      : 'shortBreak';
+    const breakDurationSeconds = phaseDurationSeconds(breakPhase, settings);
+    const breakEndMs = cursorMs + breakDurationSeconds * 1000;
+
+    items.push({
+      id: `${items.length}-${breakPhase}-${cursorMs}`,
+      phase: breakPhase,
+      durationSeconds: breakDurationSeconds,
+      startsAt: new Date(cursorMs).toISOString(),
+      endsAt: new Date(breakEndMs).toISOString(),
+    });
+
+    cursorMs = breakEndMs;
+  }
+
+  return items;
+}
+
 export function createPomodoroSession(
   request: PomodoroLaunchRequest,
   settings: PomodoroSettings,
@@ -138,6 +186,37 @@ export function createPomodoroSession(
     settings: { ...settings },
     phase: firstItem?.phase ?? 'focus',
     schedule: schedule.length > 0 ? schedule : null,
+    scheduleIndex: 0,
+    completedFocusSessions: 0,
+    totalSeconds,
+    remainingSeconds: totalSeconds,
+    isRunning: false,
+    isComplete: false,
+    isMinimized: false,
+    endsAt: null,
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+}
+
+export function createGlobalPomodoroSession(
+  settings: PomodoroSettings,
+  focusSessionCount: number,
+  nowMs = Date.now(),
+): PomodoroSession {
+  const schedule = buildFocusSessionSchedule(focusSessionCount, settings, nowMs);
+  const firstItem = schedule[0];
+  const totalSeconds = firstItem?.durationSeconds ?? settings.focusMinutes * 60;
+  const nowIso = new Date(nowMs).toISOString();
+
+  return {
+    version: 1,
+    id: typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${nowMs}-${Math.random().toString(36).slice(2)}`,
+    taskId: null,
+    title: 'Skupienie',
+    settings: { ...settings },
+    phase: firstItem?.phase ?? 'focus',
+    schedule,
     scheduleIndex: 0,
     completedFocusSessions: 0,
     totalSeconds,

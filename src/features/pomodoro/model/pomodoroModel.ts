@@ -6,6 +6,7 @@ export interface PomodoroSettings {
   longBreakMinutes: number;
   sessionsBeforeLongBreak: number;
   autoStartNextSession: boolean;
+  soundVolume: number;
 }
 
 export interface PomodoroLaunchRequest {
@@ -50,6 +51,7 @@ export const DEFAULT_POMODORO_SETTINGS: PomodoroSettings = {
   longBreakMinutes: 15,
   sessionsBeforeLongBreak: 4,
   autoStartNextSession: false,
+  soundVolume: 0.55,
 };
 
 export const POMODORO_PHASE_META: Record<PomodoroPhase, { label: string; shortLabel: string }> = {

@@ -22,6 +22,11 @@ export function usePomodoroTimer(
   const hasPublishedRemoteSessionRef = useRef(false);
   const remoteRetryAfterRef = useRef(0);
   const remoteSyncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const settingsRef = useRef(settings);
+
+  useEffect(() => {
+    settingsRef.current = settings;
+  }, [settings]);
 
   useEffect(() => {
     savePomodoroSession(session);
@@ -112,7 +117,7 @@ export function usePomodoroTimer(
       if (completingKeyRef.current === completionKey) return;
 
       completingKeyRef.current = completionKey;
-      notifyPomodoroPhaseComplete(session.phase, session.title);
+      notifyPomodoroPhaseComplete(session.phase, session.title, settingsRef.current.soundVolume);
       setSession(current => {
         if (!current || current.id !== session.id || current.endsAt !== session.endsAt) return current;
         return reconcilePomodoroSession(current);

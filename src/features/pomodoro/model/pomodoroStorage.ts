@@ -14,6 +14,12 @@ function boundedInteger(value: unknown, fallback: number, min: number, max: numb
   return Math.min(max, Math.max(min, Math.round(parsed)));
 }
 
+function boundedNumber(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, parsed));
+}
+
 export function normalizePomodoroSettings(value: Partial<PomodoroSettings> | null | undefined): PomodoroSettings {
   return {
     focusMinutes: boundedInteger(value?.focusMinutes, DEFAULT_POMODORO_SETTINGS.focusMinutes, 1, 180),
@@ -28,6 +34,7 @@ export function normalizePomodoroSettings(value: Partial<PomodoroSettings> | nul
     autoStartNextSession: typeof value?.autoStartNextSession === 'boolean'
       ? value.autoStartNextSession
       : DEFAULT_POMODORO_SETTINGS.autoStartNextSession,
+    soundVolume: boundedNumber(value?.soundVolume, DEFAULT_POMODORO_SETTINGS.soundVolume, 0, 1),
   };
 }
 

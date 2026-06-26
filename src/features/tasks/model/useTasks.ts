@@ -9,15 +9,32 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 
 export function useTasks(isLoggedIn: boolean) {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const fetchTasks = useCallback(async () => {
-    const all = await getTasks();
-    setTasks(all.map(mapApiTask));
+    if (!hasLoadedRef.current) setIsLoading(true);
+    try {
+      const all = await getTasks();
+      setTasks(all.map(mapApiTask));
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    } finally {
+      hasLoadedRef.current = true;
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn) {
+      hasLoadedRef.current = false;
+      void Promise.resolve().then(() => {
+        setTasks([]);
+        setIsLoading(false);
+      });
+      return;
+    }
 
     void Promise.resolve().then(fetchTasks);
 
@@ -82,5 +99,5 @@ export function useTasks(isLoggedIn: boolean) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return { tasks, addTask, editTask, removeTask, refreshTasks: fetchTasks };
+  return { tasks, isLoading, addTask, editTask, removeTask, refreshTasks: fetchTasks };
 }

@@ -3,6 +3,7 @@ import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskEditModal } from './TaskEditModal';
+import { WeekViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)' },
@@ -17,9 +18,10 @@ interface TaskWeekViewProps {
   onToggle: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
   onDelete?: (id: string) => void;
+  isLoading?: boolean;
 }
 
-const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdit, onToggle, onAdd, onDelete }) => {
+const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdit, onToggle, onAdd, onDelete, isLoading = false }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -255,6 +257,8 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
       </div>
     );
   };
+
+  if (isLoading) return <WeekViewSkeleton />;
 
   return (
     <>

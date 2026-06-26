@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Project, Space } from '../../../shared/types';
+import { MobileTasksNavSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 interface MobileTasksNavProps {
   spaces: Space[];
@@ -9,6 +10,7 @@ interface MobileTasksNavProps {
   taskCountByProjectId: Record<string, number>;
   onSelectSpace: (id: string | null) => void;
   onSelectProject: (id: string | null) => void;
+  isLoading?: boolean;
 }
 
 function LayersIcon() {
@@ -49,6 +51,7 @@ export function MobileTasksNav({
   taskCountByProjectId,
   onSelectSpace,
   onSelectProject,
+  isLoading = false,
 }: MobileTasksNavProps) {
   const [spaceMenuOpen, setSpaceMenuOpen] = useState(false);
   const spaceRef = useRef<HTMLDivElement>(null);
@@ -69,6 +72,7 @@ export function MobileTasksNav({
     };
   }, [spaceMenuOpen]);
 
+  if (isLoading) return <MobileTasksNavSkeleton />;
   if (spaces.length === 0 && projects.length === 0) return null;
 
   const activeSpace = activeSpaceId ? spaces.find(s => s.id === activeSpaceId) ?? null : null;

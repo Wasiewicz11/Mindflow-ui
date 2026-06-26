@@ -87,6 +87,7 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
           taskCountByProjectId={taskCountByProjectId}
           onSelectSpace={onSelectSpace}
           onSelectProject={onSelectProject}
+          isLoading={isLoading}
         />
       </div>
 
@@ -117,6 +118,7 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
               onToggle={toggleTask}
               onAdd={handleAdd}
               onDelete={removeTask}
+              isLoading={isLoading}
             />
           </div>
         )}
@@ -130,15 +132,18 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
             onToggle={toggleTask}
             onDelete={removeTask}
             onAdd={handleAdd}
+            isLoading={isLoading}
           />
         )}
       </div>
 
-      <QuickAddTask
-        activeProjectId={projectId}
-        projects={projects}
-        onAdd={handleAdd}
-      />
+      {!isLoading && (
+        <QuickAddTask
+          activeProjectId={projectId}
+          projects={projects}
+          onAdd={handleAdd}
+        />
+      )}
     </div>
   );
 }

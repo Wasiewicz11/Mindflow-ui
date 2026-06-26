@@ -31,6 +31,7 @@ import {
 } from '../api/calendarApi';
 import { TaskEditModal } from './TaskEditModal';
 import { TomatoIcon, type PomodoroLaunchRequest } from '../../pomodoro';
+import { CalendarSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 type CalendarMode = 'day' | 'week' | 'month';
 type FilterMenu = 'projects' | 'priorities' | 'statuses' | null;
@@ -68,6 +69,7 @@ interface CalendarViewProps {
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   onStartFocus: (request: PomodoroLaunchRequest) => void;
+  isLoading?: boolean;
 }
 
 type CalendarAddSlot = {
@@ -930,12 +932,13 @@ function getIsMobile() {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 }
 
-export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete, onStartFocus }: CalendarViewProps) {
+export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete, onStartFocus, isLoading = false }: CalendarViewProps) {
   const [isMobile, setIsMobile] = useState(getIsMobile);
   const [mode, setMode] = useState<CalendarMode>(() => (getIsMobile() ? 'day' : 'week'));
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [now, setNow] = useState(() => new Date());
   const [blocks, setBlocks] = useState<Record<string, CalendarBlock>>({});
+  const [isBlocksLoading, setIsBlocksLoading] = useState(true);
   const [showGoogleEvents, setShowGoogleEvents] = useState<boolean>(
     () => localStorage.getItem('mindflow_show_google_events') !== 'false',
   );
@@ -995,6 +998,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
 
   useEffect(() => {
     let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setIsBlocksLoading(true);
+    });
 
     getCalendarBlocks(fromKey, toKey)
       .then(apiBlocks => {
@@ -1012,6 +1018,9 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
       })
       .catch(error => {
         console.error('Failed to fetch calendar blocks', error);
+      })
+      .finally(() => {
+        if (!cancelled) setIsBlocksLoading(false);
       });
 
     return () => {
@@ -1137,6 +1146,10 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
     () => Object.values(blocks).some(block => block.provider === 'google'),
     [blocks],
   );
+
+  const isCalendarLoading = isLoading || isBlocksLoading;
+
+  if (isCalendarLoading) return <CalendarSkeleton />;
 
   function getBlockForTask(taskId: string) {
     return Object.values(blocks)

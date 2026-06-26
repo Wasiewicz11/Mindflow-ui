@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getTasksForProject, createTask, updateTask, deleteTask } from '../api/tasksApi';
 import type { Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { mapApiTask, toCreateTaskDto, toUpdateTaskDto } from '../model/taskModel';
@@ -6,15 +6,27 @@ import { mapApiTask, toCreateTaskDto, toUpdateTaskDto } from '../model/taskModel
 export function useProjectTasks(projectId: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
 
   const fetchTasks = useCallback(async () => {
-    setIsLoading(true);
+    if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const apiTasks = await getTasksForProject(projectId);
       setTasks(apiTasks.map(mapApiTask));
+    } catch (error) {
+      console.error('Failed to fetch project tasks:', error);
     } finally {
+      hasLoadedRef.current = true;
       setIsLoading(false);
     }
+  }, [projectId]);
+
+  useEffect(() => {
+    hasLoadedRef.current = false;
+    void Promise.resolve().then(() => {
+      setIsLoading(true);
+      setTasks([]);
+    });
   }, [projectId]);
 
   useEffect(() => {

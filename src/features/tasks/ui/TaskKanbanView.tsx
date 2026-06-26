@@ -3,6 +3,7 @@ import type { Task, TaskStatus, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskAddModal } from './TaskAddModal';
 import { TaskEditModal } from './TaskEditModal';
+import { BoardViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 const STATUSES = [
   { key: 'NotStarted' as const, label: 'Nie rozpoczęto', accent: 'oklch(0.75 0.01 260)', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -212,9 +213,10 @@ interface Props {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
+  isLoading?: boolean;
 }
 
-export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onToggle, onDelete, onAdd }: Props) {
+export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onToggle, onDelete, onAdd, isLoading = false }: Props) {
   const [groupBy, setGroupBy] = useState<'status' | 'priority'>('status');
   const [search, setSearch] = useState('');
   const [dragOverKey, setDragOverKey] = useState<string | null>(null);
@@ -271,6 +273,8 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onTog
   }
 
   const columns = groupBy === 'status' ? STATUSES : PRIORITIES;
+
+  if (isLoading) return <BoardViewSkeleton columns={groupBy === 'status' ? 3 : 4} />;
 
   return (
     <>

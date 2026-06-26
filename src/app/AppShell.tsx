@@ -23,6 +23,7 @@ import { getProjects, createProject, deleteProject, updateProject, ProjectSettin
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
 import { BrandMark } from '../shared/ui/BrandMark';
+import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton } from '../shared/ui/LoadingSkeletons';
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
@@ -32,11 +33,12 @@ type EffectiveTheme = 'light' | 'dark' | 'gray';
 
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
-  const { tasks, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
+  const { tasks, isLoading: isTasksLoading, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
   const {
     suggestions: aiSuggestions,
     quota: aiQuota,
     isGenerating: aiGenerating,
+    isLoading: isSuggestionsLoading,
     notice: aiNotice,
     accept: acceptSuggestion,
     reject: rejectSuggestion,
@@ -50,7 +52,10 @@ export function AppShell() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
-  const isLoading = false;
+  const [isUserLoading, setIsUserLoading] = useState(false);
+  const [isStructureLoading, setIsStructureLoading] = useState(false);
+  const hasLoadedUserRef = useRef(false);
+  const hasLoadedStructureRef = useRef(false);
   const [spaceSettingsId, setSpaceSettingsId] = useState<string | null>(null);
   const [projectSettingsId, setProjectSettingsId] = useState<string | null>(null);
   const [activeSpaceId, setActiveSpaceId] = useState<string | null>(null);
@@ -160,11 +165,39 @@ export function AppShell() {
   }, [effectiveTheme, theme]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
-    getMe().then(setUser).catch(() => {});
+    if (!isLoggedIn) {
+      hasLoadedUserRef.current = false;
+      void Promise.resolve().then(() => {
+        setUser(null);
+        setIsUserLoading(false);
+      });
+      return;
+    }
+
+    let cancelled = false;
+    if (!hasLoadedUserRef.current) setIsUserLoading(true);
+
+    getMe()
+      .then(nextUser => {
+        if (!cancelled) setUser(nextUser);
+      })
+      .catch(error => {
+        console.error('Failed to fetch user profile:', error);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          hasLoadedUserRef.current = true;
+          setIsUserLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [isLoggedIn]);
 
   const fetchSpaces = useCallback(async () => {
+    if (!hasLoadedStructureRef.current) setIsStructureLoading(true);
     try {
       const apiSpaces = await getSpaces();
       const mappedSpaces = apiSpaces.map(s => ({ ...s, color: '#9CA3AF' }));
@@ -175,11 +208,22 @@ export function AppShell() {
       setProjects(allProjects.flat());
     } catch (e) {
       console.error('Failed to fetch spaces/projects', e);
+    } finally {
+      hasLoadedStructureRef.current = true;
+      setIsStructureLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn) {
+      hasLoadedStructureRef.current = false;
+      void Promise.resolve().then(() => {
+        setSpaces([]);
+        setProjects([]);
+        setIsStructureLoading(false);
+      });
+      return;
+    }
     void Promise.resolve().then(fetchSpaces);
   }, [isLoggedIn, fetchSpaces]);
 
@@ -360,6 +404,8 @@ export function AppShell() {
   const matchesActiveSpace = (task: Task) => !activeSpaceProjectIds || (!!task.project_id && activeSpaceProjectIds.has(task.project_id));
   const spaceTasks = activeSpaceProjectIds ? tasks.filter(matchesActiveSpace) : tasks;
   const spaceSortedTasks = activeSpaceProjectIds ? sortedAllTasks.filter(matchesActiveSpace) : sortedAllTasks;
+  const isWorkspaceLoading = isTasksLoading || isStructureLoading;
+  const isAppDataLoading = isWorkspaceLoading || isUserLoading;
 
   if (!isAuthReady) {
     return (
@@ -395,8 +441,8 @@ export function AppShell() {
         <span className="text-[10px] font-medium">Wiedza</span>
       </button>
       <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 dark:bg-white/10">
-          {user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
+        <div className={`w-6 h-6 rounded-full overflow-hidden ${isUserLoading ? 'animate-pulse bg-[#f1f0ed] dark:bg-white/10' : 'bg-gray-100 dark:bg-white/10'}`}>
+          {!isUserLoading && user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
         </div>
         <span className="text-[10px] font-medium">Profil</span>
       </button>
@@ -422,6 +468,7 @@ export function AppShell() {
         onDeleteSpace={handleDeleteSpace}
         onOpenSpaceSettings={(id) => setSpaceSettingsId(id)}
         onOpenJoinSpace={() => {}}
+        isLoading={isAppDataLoading}
       />
 
       <main className="flex-1 overflow-hidden relative flex flex-col">
@@ -441,21 +488,25 @@ export function AppShell() {
         {!showProjectView && (
           <>
             <header className="flex-none px-6 pt-8 pb-4 lg:py-8 flex flex-col lg:flex-row lg:items-end justify-between animate-fade-in gap-4">
-              <div>
-                <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
-                  {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
-                  {activeTab === 'notes' && 'Twoja baza wiedzy.'}
-                  {activeTab === 'tasks' && 'Wszystkie zadania.'}
-                  {activeTab === 'calendar' && 'Kalendarz.'}
-                  {activeTab === 'settings' && 'Ustawienia.'}
-                </h1>
-                <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
-                  {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
-                  {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
-                  {activeTab === 'calendar' && 'Planuj dzień, tydzień i miesiąc z timeblockingiem.'}
-                  {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
-                </p>
-              </div>
+              {activeTab === 'dashboard' && isAppDataLoading ? (
+                <AppHeaderSkeleton />
+              ) : (
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                    {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
+                    {activeTab === 'notes' && 'Twoja baza wiedzy.'}
+                    {activeTab === 'tasks' && 'Wszystkie zadania.'}
+                    {activeTab === 'calendar' && 'Kalendarz.'}
+                    {activeTab === 'settings' && 'Ustawienia.'}
+                  </h1>
+                  <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
+                    {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
+                    {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
+                    {activeTab === 'calendar' && 'Planuj dzień, tydzień i miesiąc z timeblockingiem.'}
+                    {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
+                  </p>
+                </div>
+              )}
 
               {activeTab === 'tasks' && (
                 <div className="mf-segmented">
@@ -481,10 +532,15 @@ export function AppShell() {
             >
               {activeTab === 'dashboard' && (
                 <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
+                  {isAppDataLoading ? (
+                    <DashboardSkeleton />
+                  ) : (
+                    <>
                   <SuggestionsPanel
                     suggestions={aiSuggestions}
                     quota={aiQuota}
                     isGenerating={aiGenerating}
+                    isLoading={isSuggestionsLoading}
                     notice={aiNotice}
                     onGenerate={generateAiSuggestions}
                     onAccept={acceptSuggestion}
@@ -508,14 +564,14 @@ export function AppShell() {
                   {todayTasks.length > 0 && (
                     <div>
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Na dziś / Zaległe</h2>
-                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} showDueSubtasks />
+                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} showDueSubtasks />
                     </div>
                   )}
 
                   {importantTasks.length > 0 && (
                     <div>
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ważne (P1)</h2>
-                      <TaskList tasks={importantTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isLoading} />
+                      <TaskList tasks={importantTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} />
                     </div>
                   )}
 
@@ -526,13 +582,15 @@ export function AppShell() {
                     </div>
                   )}
 
-                  {todayTasks.length === 0 && importantTasks.length === 0 && notes.length === 0 && !isLoading && (
+                  {todayTasks.length === 0 && importantTasks.length === 0 && notes.length === 0 && !isAppDataLoading && (
                     <div className="flex flex-col items-center justify-center py-24 animate-fade-in">
                       <div className="w-16 h-16 rounded-2xl bg-gray-100 dark:bg-white/5 flex items-center justify-center mb-4">
                         <svg className="w-8 h-8 text-gray-300 dark:text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </div>
                       <p className="text-gray-400 dark:text-gray-500 font-medium">Wszystko gotowe. Dodaj pierwsze zadanie!</p>
                     </div>
+                  )}
+                    </>
                   )}
                 </div>
               )}
@@ -547,6 +605,7 @@ export function AppShell() {
                     taskCountByProjectId={activeTaskCountByProjectId}
                     onSelectSpace={setActiveSpaceId}
                     onSelectProject={setActiveProjectId}
+                    isLoading={isWorkspaceLoading}
                   />
 
                   <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
@@ -560,7 +619,7 @@ export function AppShell() {
                         onAdd={handleAddTask}
                         onBulkEdit={handleBulkEdit}
                         onClearCompleted={handleClearCompleted}
-                        isLoading={isLoading}
+                        isLoading={isWorkspaceLoading}
                         activeProjectId={null}
                       />
                     )}
@@ -573,6 +632,7 @@ export function AppShell() {
                           onToggle={handleToggleTask}
                           onAdd={handleAddTask}
                           onDelete={handleDeleteTask}
+                          isLoading={isWorkspaceLoading}
                         />
                       </div>
                     )}
@@ -584,11 +644,12 @@ export function AppShell() {
                         onToggle={handleToggleTask}
                         onDelete={handleDeleteTask}
                         onAdd={handleAddTask}
+                        isLoading={isWorkspaceLoading}
                       />
                     )}
                   </div>
 
-                  <QuickAddTask activeProjectId={null} projects={projects} onAdd={handleAddTask} />
+                  {!isWorkspaceLoading && <QuickAddTask activeProjectId={null} projects={projects} onAdd={handleAddTask} />}
                 </>
               )}
 
@@ -602,13 +663,18 @@ export function AppShell() {
                     onToggle={handleToggleTask}
                     onDelete={handleDeleteTask}
                     onStartFocus={setPomodoroLaunchRequest}
+                    isLoading={isWorkspaceLoading}
                   />
                 </div>
               )}
 
               {activeTab === 'notes' && (
                 <div className="animate-fade-in">
-                  <NotesGrid notes={notes} onAdd={handleAddNote} onEdit={handleEditNote} onDelete={handleDeleteNote} isLoading={false} />
+                  {isAppDataLoading ? (
+                    <NotesSkeleton />
+                  ) : (
+                    <NotesGrid notes={notes} onAdd={handleAddNote} onEdit={handleEditNote} onDelete={handleDeleteNote} isLoading={false} />
+                  )}
                 </div>
               )}
 
@@ -631,7 +697,9 @@ export function AppShell() {
                     </button>
                   </div>
                   <div className="overflow-visible rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] transition-colors duration-300 dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
-                    {settingsSection === 'account' ? (
+                    {settingsSection === 'account' && isUserLoading ? (
+                      <SettingsSkeleton framed={false} />
+                    ) : settingsSection === 'account' ? (
                       <>
                     <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia konta</p>
@@ -778,7 +846,7 @@ export function AppShell() {
       })()}
 
       <PomodoroOverlay settings={pomodoroSettings} launchRequest={pomodoroLaunchRequest} />
-      <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} />
+      <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} isLoading={isWorkspaceLoading} />
     </div>
   );
 }

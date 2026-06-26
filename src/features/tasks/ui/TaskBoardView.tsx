@@ -3,6 +3,7 @@ import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { TaskAddModal } from './TaskAddModal';
 import { TaskEditModal } from './TaskEditModal';
+import { BoardViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -17,6 +18,7 @@ interface Props {
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  isLoading?: boolean;
 }
 
 const PRIORITY: Record<TaskPriority, { label: string; fg: string; bg: string }> = {
@@ -200,7 +202,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
   );
 }
 
-export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onAdd }: Props) {
+export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onAdd, isLoading = false }: Props) {
   const [search, setSearch] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -220,6 +222,8 @@ export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onA
     ...projects.map(p => ({ ...p })),
     ...(noProjectTasks.length > 0 ? [{ id: '__none__', name: 'Bez projektu', color: '#9aa0aa', space_id: null }] : []),
   ];
+
+  if (isLoading) return <BoardViewSkeleton columns={Math.max(3, Math.min(projects.length || 4, 5))} />;
 
   if (columns.length === 0) {
     return (

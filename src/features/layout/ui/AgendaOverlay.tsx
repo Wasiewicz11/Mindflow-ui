@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { useTodayCalendar } from '../../tasks/model/useTodayCalendar';
 import { useBlockNotifications } from '../../tasks/model/useBlockNotifications';
 import type { Task } from '../../../shared/types';
+import { SkeletonBlock } from '../../../shared/ui/LoadingSkeletons';
 
 export type AgendaPosition = 'bottom-right' | 'bottom-left' | 'top-right' | 'top-left';
 
@@ -11,6 +12,7 @@ interface AgendaOverlayProps {
   enabled: boolean;
   tasks: Task[];
   position: AgendaPosition;
+  isLoading?: boolean;
 }
 
 const COLLAPSED_KEY = 'mindflow_agenda_collapsed';
@@ -39,8 +41,8 @@ function untilLabel(minutes: number) {
   return m ? `za ${h} godz. ${m} min` : `za ${h} godz.`;
 }
 
-export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) {
-  const { now, current, next, items } = useTodayCalendar(enabled, tasks);
+export function AgendaOverlay({ enabled, tasks, position, isLoading: isDataLoading = false }: AgendaOverlayProps) {
+  const { now, current, next, items, isLoading: isAgendaLoading } = useTodayCalendar(enabled, tasks);
   useBlockNotifications(enabled, items, now);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSED_KEY) === '1');
 
@@ -52,6 +54,7 @@ export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) 
 
   const pos = POSITIONS[position];
   const isRight = pos.edge === 'right';
+  const isLoading = isDataLoading || isAgendaLoading;
 
   const remainingMinutes = current ? Math.max(0, Math.round((current.end.getTime() - now.getTime()) / 60_000)) : 0;
   const progress = current
@@ -86,7 +89,13 @@ export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) 
           </div>
 
           <div className="px-3.5 pb-3">
-            {current ? (
+            {isLoading ? (
+              <div role="status" aria-label="Ladowanie aktualnego bloku" className="space-y-2">
+                <SkeletonBlock className="h-4 w-4/5" />
+                <SkeletonBlock className="h-3 w-3/5" />
+                <SkeletonBlock className="h-1 w-full rounded-full" />
+              </div>
+            ) : current ? (
               <>
                 <p className="truncate text-[13px] font-semibold text-[#0f1115] dark:text-white">{current.title}</p>
                 <div className="mt-1 flex items-center gap-1.5 text-[11.5px] text-[#5a606b] dark:text-gray-400">
@@ -109,7 +118,12 @@ export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) 
 
           <div className="border-t border-[#f1f0ed] px-3.5 py-2.5 dark:border-white/8">
             <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[#9098a4]">Następne</span>
-            {next ? (
+            {isLoading ? (
+              <div role="status" aria-label="Ladowanie nastepnego bloku" className="mt-2 space-y-2">
+                <SkeletonBlock className="h-3 w-5/6" />
+                <SkeletonBlock className="h-3 w-1/2" />
+              </div>
+            ) : next ? (
               <>
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <p className="truncate text-[12.5px] font-medium text-[#0f1115] dark:text-gray-100">{next.title}</p>
@@ -136,7 +150,9 @@ export function AgendaOverlay({ enabled, tasks, position }: AgendaOverlayProps) 
         }}
       >
         <Clock size={13} className="flex-none text-[#5a606b] dark:text-gray-300" />
-        {current ? (
+        {isLoading ? (
+          <SkeletonBlock className="h-3 w-8" />
+        ) : current ? (
           <span className="tabular-nums text-[11.5px] font-semibold text-[#0f1115] dark:text-white">{remainingLabel(remainingMinutes)}</span>
         ) : isRight ? (
           <ChevronLeft size={13} className="text-[#9098a4]" />

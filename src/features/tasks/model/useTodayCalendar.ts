@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getCalendarBlocks } from '../api/calendarApi';
 import type { Task } from '../../../shared/types';
 
@@ -14,6 +14,7 @@ export interface TodayAgenda {
   current: AgendaItem | null;
   next: AgendaItem | null;
   items: AgendaItem[];
+  isLoading: boolean;
 }
 
 interface RawBlock {
@@ -34,6 +35,8 @@ function dateKey(date: Date) {
 export function useTodayCalendar(enabled: boolean, tasks: Task[]): TodayAgenda {
   const [blocks, setBlocks] = useState<RawBlock[]>([]);
   const [now, setNow] = useState(() => new Date());
+  const [isLoading, setIsLoading] = useState(enabled);
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
     let intervalId: number | undefined;
@@ -55,12 +58,17 @@ export function useTodayCalendar(enabled: boolean, tasks: Task[]): TodayAgenda {
 
   useEffect(() => {
     if (!enabled) {
-      void Promise.resolve().then(() => setBlocks([]));
+      hasLoadedRef.current = false;
+      void Promise.resolve().then(() => {
+        setBlocks([]);
+        setIsLoading(false);
+      });
       return;
     }
     let cancelled = false;
 
     const load = () => {
+      if (!hasLoadedRef.current) setIsLoading(true);
       getCalendarBlocks(dayKey, dayKey)
         .then(apiBlocks => {
           if (cancelled) return;
@@ -75,7 +83,13 @@ export function useTodayCalendar(enabled: boolean, tasks: Task[]): TodayAgenda {
             };
           }));
         })
-        .catch(error => console.error('Failed to load today calendar', error));
+        .catch(error => console.error('Failed to load today calendar', error))
+        .finally(() => {
+          if (!cancelled) {
+            hasLoadedRef.current = true;
+            setIsLoading(false);
+          }
+        });
     };
 
     load();
@@ -107,6 +121,6 @@ export function useTodayCalendar(enabled: boolean, tasks: Task[]): TodayAgenda {
     const current = items.find(item => item.start.getTime() <= t && t < item.end.getTime()) ?? null;
     const next = items.find(item => item.start.getTime() > t) ?? null;
 
-    return { now, current, next, items };
-  }, [items, now]);
+    return { now, current, next, items, isLoading };
+  }, [items, now, isLoading]);
 }

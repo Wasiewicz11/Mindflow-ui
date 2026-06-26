@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   acceptSuggestion,
   generateSuggestions,
@@ -43,21 +43,35 @@ export function useSuggestions(enabled: boolean, onApplied?: () => void) {
   const [suggestions, setSuggestions] = useState<ApiSuggestion[]>([]);
   const [quota, setQuota] = useState<SuggestionQuota | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const hasLoadedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     if (!enabled) return;
+    if (!hasLoadedRef.current) setIsLoading(true);
     try {
       const [list, q] = await Promise.all([getPendingSuggestions(), getSuggestionQuota()]);
       setSuggestions(list);
       setQuota(q);
     } catch (e) {
       console.error('Nie udało się pobrać sugestii AI', e);
+    } finally {
+      hasLoadedRef.current = true;
+      setIsLoading(false);
     }
   }, [enabled]);
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      hasLoadedRef.current = false;
+      void Promise.resolve().then(() => {
+        setSuggestions([]);
+        setQuota(null);
+        setIsLoading(false);
+      });
+      return;
+    }
     void Promise.resolve().then(refresh);
   }, [enabled, refresh]);
 
@@ -103,5 +117,5 @@ export function useSuggestions(enabled: boolean, onApplied?: () => void) {
     }
   }, [refresh]);
 
-  return { suggestions, quota, isGenerating, notice, accept, reject, generate, refresh };
+  return { suggestions, quota, isGenerating, isLoading, notice, accept, reject, generate, refresh };
 }

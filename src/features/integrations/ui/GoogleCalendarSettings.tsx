@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, Calendar, Check, RefreshCw } from 'lucide-react';
 import { useGoogleCalendar } from '../model/useGoogleCalendar';
+import { GoogleCalendarSettingsSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
 interface GoogleCalendarSettingsProps {
   isLoggedIn: boolean;
@@ -49,6 +50,8 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
 
   const pendingCalendarName = calendars.find(c => c.id === pendingCalendarId)?.summary ?? 'wybrany kalendarz';
 
+  if (loading) return <GoogleCalendarSettingsSkeleton />;
+
   return (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
       <div className="max-w-md">
@@ -62,10 +65,6 @@ export function GoogleCalendarSettings({ isLoggedIn }: GoogleCalendarSettingsPro
       </div>
 
       <div className="flex flex-col items-stretch gap-2 sm:items-end">
-        {loading && (
-          <span className="text-sm text-[#9098a4]">Sprawdzanie połączenia…</span>
-        )}
-
         {connected && (
           <>
             <div className={`flex max-w-[320px] items-start gap-2 rounded-xl border px-3 py-2 ${

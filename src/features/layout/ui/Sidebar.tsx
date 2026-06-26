@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { User, Space, Project } from '../../../shared/types';
 import { BrandMark } from '../../../shared/ui/BrandMark';
+import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkeletons';
 
 type ActiveTab = SidebarContentProps['activeTab'];
 
@@ -23,13 +24,14 @@ export interface SidebarContentProps {
   onOpenJoinSpace: () => void;
   /** Fired after any navigation action (project select / tab change) — drawer closes on mobile. */
   onNavigate?: () => void;
+  isLoading?: boolean;
 }
 
 const PROJECT_COLORS = ['#3B82F6', '#10B981', '#8B5CF6', '#F59E0B', '#EF4444', '#9CA3AF'];
 
 export const SidebarContent: React.FC<SidebarContentProps> = ({
   activeTab, setActiveTab, user,
-  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onOpenProjectSettings, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace, onNavigate
+  spaces, projects, activeTaskCountByProjectId, activeProjectId, onSelectProject, onCreateProject, onDeleteProject, onMoveProject, onOpenProjectSettings, onCreateSpace, onOpenSpaceSettings, onOpenJoinSpace, onNavigate, isLoading = false
 }) => {
   const [imgError, setImgError] = useState(false);
   const [isAddingProject, setIsAddingProject] = useState<string | null>(null);
@@ -221,6 +223,28 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({
   );
 
   const isDropTarget = (id: string) => draggingProjectId !== null && dragOverTarget === id;
+
+  if (isLoading) {
+    return (
+      <>
+        <div className="flex-none px-5 mb-8 flex items-center gap-2" style={{ paddingLeft: 22 }}>
+          <BrandMark markClassName="h-[18px] w-[18px]" />
+          <span className="font-semibold text-[#0f1115] dark:text-white" style={{ fontSize: 15, letterSpacing: '-0.01em' }}>Minddley</span>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <SidebarSkeleton />
+        </div>
+
+        <div className="flex-none w-full px-4 pt-4 mt-2 border-t border-gray-100/50 dark:border-white/5">
+          <div className="flex items-center rounded-xl p-3">
+            <SkeletonBlock className="h-5 w-5 rounded-full" />
+            <SkeletonBlock className="ml-3 h-4 w-28" />
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

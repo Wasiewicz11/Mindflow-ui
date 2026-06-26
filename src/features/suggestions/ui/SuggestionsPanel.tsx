@@ -63,7 +63,7 @@ export function SuggestionsPanel({
       {isLoading ? (
         <div role="status" aria-label="Ladowanie sugestii AI" className="space-y-3">
           {[0, 1].map(item => (
-            <div key={item} className="rounded-xl border border-[#e8e8e4] bg-white p-4 dark:border-white/8 dark:bg-[#1C1C1E]">
+            <div key={item} className="rounded-xl p-4">
               <SkeletonBlock className="h-4 w-3/5" />
               <SkeletonBlock className="mt-3 h-3 w-full" />
               <SkeletonBlock className="mt-2 h-3 w-4/5" />

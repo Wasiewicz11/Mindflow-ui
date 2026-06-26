@@ -4,14 +4,14 @@ function SkeletonBlock({ className = '' }: { className?: string }) {
   return (
     <div
       aria-hidden="true"
-      className={`animate-pulse rounded-md bg-[#f1f0ed] dark:bg-white/10 ${className}`}
+      className={`mf-skeleton-block rounded-md ${className}`}
     />
   );
 }
 
 function SkeletonCard({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <div className={`rounded-[18px] border border-[#e8e8e4] bg-white p-4 shadow-sm dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none ${className}`}>
+    <div className={`rounded-[18px] bg-transparent p-4 ${className}`}>
       {children}
     </div>
   );
@@ -128,7 +128,7 @@ export function NotesSkeleton({ compact = false }: { compact?: boolean }) {
             <SkeletonBlock className="h-3 w-full" />
             <SkeletonBlock className="h-3 w-2/3" />
           </div>
-          <div className="mt-8 flex items-center justify-between border-t border-[#f1f0ed] pt-3 dark:border-white/8">
+          <div className="mt-8 flex items-center justify-between pt-3">
             <SkeletonBlock className="h-4 w-12" />
             <SkeletonBlock className="h-3 w-10" />
           </div>
@@ -194,7 +194,6 @@ export function BoardViewSkeleton({ columns = 4 }: { columns?: number }) {
             <section
               key={column}
               className="flex h-full min-h-0 w-[288px] flex-none flex-col px-[18px]"
-              style={{ borderLeft: column === 0 ? 'none' : '1px solid #ececec' }}
             >
               <SkeletonBlock className="mt-3 h-0.5 w-full rounded-sm" />
               <div className="flex items-center gap-2 py-4">
@@ -227,11 +226,11 @@ export function CalendarSkeleton() {
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
-          <div className="grid grid-cols-[56px_repeat(5,minmax(120px,1fr))] border-b border-[#f1f0ed] dark:border-white/8">
+        <div className="min-h-0 flex-1 overflow-hidden rounded-[18px]">
+          <div className="grid grid-cols-[56px_repeat(5,minmax(120px,1fr))]">
             <div />
             {Array.from({ length: 5 }).map((_, day) => (
-              <div key={day} className="border-l border-[#f1f0ed] p-3 dark:border-white/8">
+              <div key={day} className="p-3">
                 <SkeletonBlock className="h-4 w-20" />
               </div>
             ))}
@@ -243,7 +242,7 @@ export function CalendarSkeleton() {
               ))}
             </div>
             {Array.from({ length: 5 }).map((_, day) => (
-              <div key={day} className="relative border-l border-[#f1f0ed] p-2 dark:border-white/8">
+              <div key={day} className="relative p-2">
                 <div className="space-y-10">
                   {Array.from({ length: 8 }).map((_, row) => (
                     <SkeletonBlock key={row} className="h-px w-full rounded-none" />
@@ -257,7 +256,7 @@ export function CalendarSkeleton() {
         </div>
       </section>
 
-      <aside className="hidden w-[330px] shrink-0 rounded-[18px] border border-[#e8e8e4] bg-white p-4 shadow-sm lg:block dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+      <aside className="hidden w-[330px] shrink-0 rounded-[18px] p-4 lg:block">
         <SkeletonBlock className="h-4 w-40" />
         <SkeletonBlock className="mt-4 h-9 w-full rounded-lg" />
         <div className="mt-4 space-y-2">
@@ -273,12 +272,12 @@ export function CalendarSkeleton() {
 export function SettingsSkeleton({ framed = true }: { framed?: boolean }) {
   const content = (
     <>
-      <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+      <div className="px-6 py-5">
         <SkeletonBlock className="h-3 w-32" />
         <SkeletonBlock className="mt-3 h-7 w-52" />
         <SkeletonBlock className="mt-3 h-4 w-4/5" />
       </div>
-      <div className="divide-y divide-[#f1f0ed] dark:divide-white/6">
+      <div>
         {[0, 1, 2, 3].map(item => (
           <section key={item} className="px-6 py-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -307,7 +306,7 @@ export function SettingsSkeleton({ framed = true }: { framed?: boolean }) {
   }
 
   return (
-    <div role="status" aria-label="Ladowanie ustawien" className="overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.08)] dark:border-white/8 dark:bg-[#1C1C1E] dark:shadow-none">
+    <div role="status" aria-label="Ladowanie ustawien" className="overflow-hidden rounded-[18px] bg-transparent">
       {content}
     </div>
   );

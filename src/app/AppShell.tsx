@@ -23,7 +23,7 @@ import { getProjects, createProject, deleteProject, updateProject, ProjectSettin
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
 import { BrandMark } from '../shared/ui/BrandMark';
-import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton } from '../shared/ui/LoadingSkeletons';
+import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton, SkeletonBlock } from '../shared/ui/LoadingSkeletons';
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
@@ -441,9 +441,13 @@ export function AppShell() {
         <span className="text-[10px] font-medium">Wiedza</span>
       </button>
       <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <div className={`w-6 h-6 rounded-full overflow-hidden ${isUserLoading ? 'animate-pulse bg-[#f1f0ed] dark:bg-white/10' : 'bg-gray-100 dark:bg-white/10'}`}>
-          {!isUserLoading && user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
-        </div>
+        {isUserLoading ? (
+          <SkeletonBlock className="h-6 w-6 rounded-full" />
+        ) : (
+          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 dark:bg-white/10">
+            {user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
+          </div>
+        )}
         <span className="text-[10px] font-medium">Profil</span>
       </button>
     </nav>

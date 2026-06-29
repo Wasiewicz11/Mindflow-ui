@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react';
 import { Download, Link2, LocateFixed, Minus, Plus, RotateCcw, Target, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { getBrainGraph, saveBrainGraph } from '../api/brainApi';
 import {
   BRAIN_NODE_ACCENTS,
   BRAIN_NODE_KIND_LABEL,
@@ -81,6 +82,7 @@ export function BrainView() {
   const pendingMoveRef = useRef<{ clientX: number; clientY: number } | null>(null);
   const latestGraphRef = useRef<BrainGraph | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null);
+  const remoteReadyRef = useRef(false);
   const hasFittedRef = useRef(false);
   const [graph, setGraph] = useState<BrainGraph>(loadBrainGraph);
   const [selectedNodeId, setSelectedNodeId] = useState('core');
@@ -100,8 +102,14 @@ export function BrainView() {
     latestGraphRef.current = graph;
 
     if (saveTimerRef.current) window.clearTimeout(saveTimerRef.current);
+
     saveTimerRef.current = window.setTimeout(() => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(graph));
+      if (remoteReadyRef.current) {
+        saveBrainGraph(graph).catch(error => {
+          console.error('Failed to save brain graph:', error);
+        });
+      }
       saveTimerRef.current = null;
     }, SAVE_DEBOUNCE_MS);
   }, [graph]);
@@ -128,15 +136,16 @@ export function BrainView() {
     };
   }, [isDragging]);
 
-  const fitToGraph = useCallback((nodes = graph.nodes) => {
+  const fitToGraph = useCallback((nodes?: BrainNode[]) => {
     const canvas = canvasRef.current;
-    if (!canvas || nodes.length === 0) return;
+    const targetNodes = nodes ?? latestGraphRef.current?.nodes ?? [];
+    if (!canvas || targetNodes.length === 0) return;
 
     const rect = canvas.getBoundingClientRect();
-    const minX = Math.min(...nodes.map(node => node.x)) - 180;
-    const minY = Math.min(...nodes.map(node => node.y)) - 160;
-    const maxX = Math.max(...nodes.map(node => node.x + getNodeWidth(node))) + 220;
-    const maxY = Math.max(...nodes.map(node => node.y + getNodeHeight(node))) + 180;
+    const minX = Math.min(...targetNodes.map(node => node.x)) - 180;
+    const minY = Math.min(...targetNodes.map(node => node.y)) - 160;
+    const maxX = Math.max(...targetNodes.map(node => node.x + getNodeWidth(node))) + 220;
+    const maxY = Math.max(...targetNodes.map(node => node.y + getNodeHeight(node))) + 180;
     const inspectorWidth = rect.width >= 1024 ? 326 : 0;
     const availableWidth = Math.max(320, rect.width - inspectorWidth);
     const graphWidth = Math.max(1, maxX - minX);
@@ -148,12 +157,44 @@ export function BrainView() {
       x: availableWidth / 2 - ((minX + maxX) / 2) * nextZoom,
       y: rect.height / 2 - ((minY + maxY) / 2) * nextZoom,
     });
-  }, [graph.nodes]);
+  }, []);
 
   useEffect(() => {
     if (hasFittedRef.current) return;
     hasFittedRef.current = true;
     requestAnimationFrame(() => fitToGraph());
+  }, [fitToGraph]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    getBrainGraph()
+      .then(remoteGraph => {
+        if (cancelled) return;
+        remoteReadyRef.current = true;
+        setGraph(remoteGraph);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteGraph));
+        requestAnimationFrame(() => fitToGraph(remoteGraph.nodes));
+      })
+      .catch(error => {
+        if (cancelled) return;
+        remoteReadyRef.current = true;
+
+        const message = error instanceof Error ? error.message : '';
+        if (!message.startsWith('HTTP 404')) {
+          console.error('Failed to load brain graph:', error);
+          return;
+        }
+
+        const initialGraph = latestGraphRef.current ?? cloneDefaultGraph();
+        saveBrainGraph(initialGraph).catch(saveError => {
+          console.error('Failed to create brain graph:', saveError);
+        });
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [fitToGraph]);
 
   useEffect(() => {

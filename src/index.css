@@ -133,6 +133,25 @@
     background: var(--mf-chip-bg);
   }
 
+  .mf-brain-canvas {
+    background-image:
+      linear-gradient(rgba(15, 17, 21, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(15, 17, 21, 0.035) 1px, transparent 1px);
+    touch-action: none;
+  }
+
+  .mf-brain-canvas [data-brain-node="true"] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-user-drag: none;
+  }
+
+  .dark .mf-brain-canvas {
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  }
+
   .mf-skeleton-block {
     background: linear-gradient(
       90deg,

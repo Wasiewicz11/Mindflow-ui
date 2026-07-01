@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain } from 'lucide-react';
+import { Brain, Target } from 'lucide-react';
 import type { User, Space, Project } from '../../../shared/types';
 import { BrandMark } from '../../../shared/ui/BrandMark';
 import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkeletons';
@@ -7,8 +7,8 @@ import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkelet
 type ActiveTab = SidebarContentProps['activeTab'];
 
 export interface SidebarContentProps {
-  activeTab: 'dashboard' | 'notes' | 'tasks' | 'brain' | 'calendar' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'brain' | 'calendar' | 'settings') => void;
+  activeTab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
+  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings') => void;
   user: User | null;
   spaces: Space[];
   projects: Project[];
@@ -60,6 +60,9 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({
       id: 'tasks', label: 'Zadania', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
       )
+    },
+    {
+      id: 'goals', label: 'Cele', icon: <Target className="h-5 w-5" />
     },
     {
       id: 'brain', label: 'Brain', icon: <Brain className="h-5 w-5" />

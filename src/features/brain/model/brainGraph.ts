@@ -1,4 +1,5 @@
 export type BrainNodeKind = 'core' | 'long-term' | 'short-term' | 'milestone' | 'skill' | 'habit';
+export type BrainEdgeSide = 'top' | 'right' | 'bottom' | 'left';
 
 export type BrainSourceRef =
   | { type: 'goal'; id: string }
@@ -21,6 +22,8 @@ export interface BrainEdge {
   id: string;
   from: string;
   to: string;
+  fromSide?: BrainEdgeSide;
+  toSide?: BrainEdgeSide;
   label?: string;
   kind: 'supports' | 'unlocks' | 'relates-to';
 }
@@ -175,11 +178,17 @@ export function createBrainNode(input: {
   };
 }
 
-export function createBrainEdge(from: string, to: string, kind: BrainEdge['kind'] = 'supports'): BrainEdge {
+export function createBrainEdge(
+  from: string,
+  to: string,
+  kind: BrainEdge['kind'] = 'supports',
+  sides?: { fromSide?: BrainEdgeSide; toSide?: BrainEdgeSide }
+): BrainEdge {
   return {
     id: `brain-edge-${crypto.randomUUID()}`,
     from,
     to,
+    ...sides,
     kind,
   };
 }

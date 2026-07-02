@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent, type WheelEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type PointerEvent, type WheelEvent } from 'react';
 import { Download, Link2, LocateFixed, Minus, Plus, RotateCcw, Target, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
 import { getBrainGraph, saveBrainGraph } from '../api/brainApi';
 import {
@@ -7,6 +7,8 @@ import {
   createBrainEdge,
   createBrainNode,
   defaultBrainGraph,
+  type BrainEdge,
+  type BrainEdgeSide,
   type BrainGraph,
   type BrainNode,
   type BrainNodeKind,
@@ -20,6 +22,11 @@ const CORE_NODE_HEIGHT = 116;
 const MIN_ZOOM = 0.46;
 const MAX_ZOOM = 1.8;
 const SAVE_DEBOUNCE_MS = 350;
+const CONNECTION_PORT_GAP = 42;
+const CONNECTION_OBSTACLE_PADDING = 18;
+const CONNECTION_CORNER_RADIUS = 16;
+const CONNECTION_CLICK_CREATE_THRESHOLD = 6;
+const QUICK_NODE_GAP = 112;
 
 type Viewport = {
   x: number;
@@ -29,7 +36,48 @@ type Viewport = {
 
 type DragState =
   | { type: 'pan'; startX: number; startY: number; originX: number; originY: number }
-  | { type: 'node'; nodeId: string; startX: number; startY: number; originX: number; originY: number };
+  | { type: 'node'; nodeId: string; startX: number; startY: number; originX: number; originY: number }
+  | { type: 'connection'; sourceNodeId: string; sourceSide: BrainEdgeSide; startX: number; startY: number; anchorX: number; anchorY: number };
+
+type ConnectionPreview = {
+  sourceNodeId: string;
+  sourceSide: BrainEdgeSide;
+  targetNodeId?: string;
+  targetSide?: BrainEdgeSide;
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+};
+
+type EdgeContextMenu = {
+  edgeId: string;
+  x: number;
+  y: number;
+};
+
+type Point = {
+  x: number;
+  y: number;
+};
+
+type NodeRect = {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+};
+
+const CONNECTION_HANDLES: Array<{
+  side: BrainEdgeSide;
+  className: string;
+  label: string;
+}> = [
+  { side: 'top', className: 'left-1/2 top-0 -translate-x-1/2 -translate-y-1/2', label: 'Połącz od góry' },
+  { side: 'right', className: 'right-0 top-1/2 -translate-y-1/2 translate-x-1/2', label: 'Połącz z prawej' },
+  { side: 'bottom', className: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2', label: 'Połącz od dołu' },
+  { side: 'left', className: 'left-0 top-1/2 -translate-x-1/2 -translate-y-1/2', label: 'Połącz z lewej' },
+];
 
 const cloneDefaultGraph = () => JSON.parse(JSON.stringify(defaultBrainGraph)) as BrainGraph;
 
@@ -38,13 +86,13 @@ const clamp = (value: number, min: number, max: number) => Math.min(max, Math.ma
 function loadBrainGraph(): BrainGraph {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return cloneDefaultGraph();
+    if (!raw) return withResolvedEdgeSides(cloneDefaultGraph());
 
     const parsed = JSON.parse(raw) as BrainGraph;
-    if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) return cloneDefaultGraph();
-    return parsed;
+    if (!Array.isArray(parsed.nodes) || !Array.isArray(parsed.edges)) return withResolvedEdgeSides(cloneDefaultGraph());
+    return withResolvedEdgeSides(parsed);
   } catch {
-    return cloneDefaultGraph();
+    return withResolvedEdgeSides(cloneDefaultGraph());
   }
 }
 
@@ -56,23 +104,412 @@ function getNodeHeight(node: BrainNode) {
   return node.kind === 'core' ? CORE_NODE_HEIGHT : NODE_HEIGHT;
 }
 
-function getEdgePath(from: BrainNode, to: BrainNode) {
-  const fromWidth = getNodeWidth(from);
-  const toWidth = getNodeWidth(to);
-  const fromHeight = getNodeHeight(from);
-  const toHeight = getNodeHeight(to);
-  const fromCenterX = from.x + fromWidth / 2;
-  const fromCenterY = from.y + fromHeight / 2;
-  const toCenterX = to.x + toWidth / 2;
-  const toCenterY = to.y + toHeight / 2;
-  const direction = toCenterX >= fromCenterX ? 1 : -1;
-  const startX = direction > 0 ? from.x + fromWidth : from.x;
-  const startY = fromCenterY;
-  const endX = direction > 0 ? to.x : to.x + toWidth;
-  const endY = toCenterY;
-  const bend = Math.max(70, Math.abs(endX - startX) * 0.36);
+function getNodeRect(node: BrainNode): NodeRect {
+  return {
+    left: node.x,
+    right: node.x + getNodeWidth(node),
+    top: node.y,
+    bottom: node.y + getNodeHeight(node),
+  };
+}
 
-  return `M ${startX} ${startY} C ${startX + bend * direction} ${startY}, ${endX - bend * direction} ${endY}, ${endX} ${endY}`;
+function getNodeCenter(node: BrainNode) {
+  return {
+    x: node.x + getNodeWidth(node) / 2,
+    y: node.y + getNodeHeight(node) / 2,
+  };
+}
+
+function getAutoConnectionSides(from: BrainNode, to: BrainNode) {
+  const fromCenter = getNodeCenter(from);
+  const toCenter = getNodeCenter(to);
+  const deltaX = toCenter.x - fromCenter.x;
+  const deltaY = toCenter.y - fromCenter.y;
+
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0
+      ? { fromSide: 'right' as const, toSide: 'left' as const }
+      : { fromSide: 'left' as const, toSide: 'right' as const };
+  }
+
+  return deltaY >= 0
+    ? { fromSide: 'bottom' as const, toSide: 'top' as const }
+    : { fromSide: 'top' as const, toSide: 'bottom' as const };
+}
+
+function withResolvedEdgeSides(graph: BrainGraph): BrainGraph {
+  const nodes = new Map(graph.nodes.map(node => [node.id, node]));
+  const edges = graph.edges.map(edge => {
+    if (edge.fromSide && edge.toSide) return edge;
+
+    const from = nodes.get(edge.from);
+    const to = nodes.get(edge.to);
+    if (!from || !to) return edge;
+
+    const sides = getAutoConnectionSides(from, to);
+    return {
+      ...edge,
+      fromSide: edge.fromSide ?? sides.fromSide,
+      toSide: edge.toSide ?? sides.toSide,
+    };
+  });
+
+  return { ...graph, edges };
+}
+
+function getConnectionAnchor(node: BrainNode, side: BrainEdgeSide) {
+  const width = getNodeWidth(node);
+  const height = getNodeHeight(node);
+
+  if (side === 'top') return { x: node.x + width / 2, y: node.y };
+  if (side === 'right') return { x: node.x + width, y: node.y + height / 2 };
+  if (side === 'bottom') return { x: node.x + width / 2, y: node.y + height };
+  return { x: node.x, y: node.y + height / 2 };
+}
+
+function getSideVector(side: BrainEdgeSide): Point {
+  if (side === 'top') return { x: 0, y: -1 };
+  if (side === 'right') return { x: 1, y: 0 };
+  if (side === 'bottom') return { x: 0, y: 1 };
+  return { x: -1, y: 0 };
+}
+
+function getOppositeConnectionSide(side: BrainEdgeSide): BrainEdgeSide {
+  if (side === 'top') return 'bottom';
+  if (side === 'right') return 'left';
+  if (side === 'bottom') return 'top';
+  return 'right';
+}
+
+function getQuickNodePosition(parent: BrainNode, side: BrainEdgeSide) {
+  const parentWidth = getNodeWidth(parent);
+  const parentHeight = getNodeHeight(parent);
+  const parentCenterX = parent.x + parentWidth / 2;
+  const parentCenterY = parent.y + parentHeight / 2;
+
+  if (side === 'top') {
+    return {
+      x: parentCenterX - NODE_WIDTH / 2,
+      y: parent.y - NODE_HEIGHT - QUICK_NODE_GAP,
+    };
+  }
+
+  if (side === 'right') {
+    return {
+      x: parent.x + parentWidth + QUICK_NODE_GAP,
+      y: parentCenterY - NODE_HEIGHT / 2,
+    };
+  }
+
+  if (side === 'bottom') {
+    return {
+      x: parentCenterX - NODE_WIDTH / 2,
+      y: parent.y + parentHeight + QUICK_NODE_GAP,
+    };
+  }
+
+  return {
+    x: parent.x - NODE_WIDTH - QUICK_NODE_GAP,
+    y: parentCenterY - NODE_HEIGHT / 2,
+  };
+}
+
+function offsetPoint(point: Point, side: BrainEdgeSide, distance: number): Point {
+  const vector = getSideVector(side);
+  return {
+    x: point.x + vector.x * distance,
+    y: point.y + vector.y * distance,
+  };
+}
+
+function inflateRect(rect: NodeRect, padding: number): NodeRect {
+  return {
+    left: rect.left - padding,
+    right: rect.right + padding,
+    top: rect.top - padding,
+    bottom: rect.bottom + padding,
+  };
+}
+
+function isPointInsideRect(point: Point, rect: NodeRect) {
+  return point.x > rect.left && point.x < rect.right && point.y > rect.top && point.y < rect.bottom;
+}
+
+function segmentIntersectsRect(from: Point, to: Point, rect: NodeRect) {
+  if (isPointInsideRect(from, rect) || isPointInsideRect(to, rect)) return true;
+
+  let start = 0;
+  let end = 1;
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  const edges = [
+    [-deltaX, from.x - rect.left],
+    [deltaX, rect.right - from.x],
+    [-deltaY, from.y - rect.top],
+    [deltaY, rect.bottom - from.y],
+  ];
+
+  for (const [delta, distance] of edges) {
+    if (delta === 0 && distance < 0) return false;
+    if (delta === 0) continue;
+
+    const ratio = distance / delta;
+    if (delta < 0) start = Math.max(start, ratio);
+    else end = Math.min(end, ratio);
+    if (start > end) return false;
+  }
+
+  return end > 0 && start < 1;
+}
+
+function canRouteSegment(from: Point, to: Point, obstacles: NodeRect[]) {
+  return obstacles.every(rect => !segmentIntersectsRect(from, to, rect));
+}
+
+function getBezierConnectionPath(
+  from: Point,
+  fromSide: BrainEdgeSide,
+  to: Point,
+  toSide?: BrainEdgeSide
+) {
+  const distance = Math.hypot(to.x - from.x, to.y - from.y);
+  const controlDistance = clamp(distance * 0.36, 76, 180);
+  const fromVector = getSideVector(fromSide);
+  const toVector = toSide ? getSideVector(toSide) : { x: -fromVector.x, y: -fromVector.y };
+  const c1 = {
+    x: from.x + fromVector.x * controlDistance,
+    y: from.y + fromVector.y * controlDistance,
+  };
+  const c2 = {
+    x: to.x + toVector.x * controlDistance,
+    y: to.y + toVector.y * controlDistance,
+  };
+
+  return `M ${from.x} ${from.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${to.x} ${to.y}`;
+}
+
+function dedupePoints(points: Point[]) {
+  return points.filter((point, index) => {
+    const previous = points[index - 1];
+    return !previous || previous.x !== point.x || previous.y !== point.y;
+  });
+}
+
+function getPointKey(point: Point) {
+  return `${point.x}:${point.y}`;
+}
+
+function getOrthogonalRoute(start: Point, end: Point, obstacles: NodeRect[]) {
+  const xs = new Set<number>([
+    start.x,
+    end.x,
+    (start.x + end.x) / 2,
+  ]);
+  const ys = new Set<number>([
+    start.y,
+    end.y,
+    (start.y + end.y) / 2,
+  ]);
+
+  for (const obstacle of obstacles) {
+    xs.add(obstacle.left);
+    xs.add(obstacle.right);
+    ys.add(obstacle.top);
+    ys.add(obstacle.bottom);
+  }
+
+  const points: Point[] = [];
+  for (const x of xs) {
+    for (const y of ys) {
+      const point = { x, y };
+      if (!obstacles.some(obstacle => isPointInsideRect(point, obstacle))) {
+        points.push(point);
+      }
+    }
+  }
+
+  const pointByKey = new Map<string, Point>();
+  for (const point of [start, end, ...points]) {
+    pointByKey.set(getPointKey(point), point);
+  }
+
+  const graphPoints = [...pointByKey.values()];
+  const startKey = getPointKey(start);
+  const endKey = getPointKey(end);
+  const distances = new Map<string, number>([[startKey, 0]]);
+  const previous = new Map<string, string>();
+  const unvisited = new Set(graphPoints.map(getPointKey));
+
+  while (unvisited.size > 0) {
+    let currentKey: string | null = null;
+    let currentDistance = Number.POSITIVE_INFINITY;
+
+    for (const key of unvisited) {
+      const distance = distances.get(key) ?? Number.POSITIVE_INFINITY;
+      if (distance < currentDistance) {
+        currentDistance = distance;
+        currentKey = key;
+      }
+    }
+
+    if (!currentKey || currentKey === endKey) break;
+
+    unvisited.delete(currentKey);
+    const current = pointByKey.get(currentKey);
+    if (!current) continue;
+
+    for (const next of graphPoints) {
+      const nextKey = getPointKey(next);
+      if (!unvisited.has(nextKey)) continue;
+      if (current.x !== next.x && current.y !== next.y) continue;
+      if (!canRouteSegment(current, next, obstacles)) continue;
+
+      const nextDistance = currentDistance + Math.abs(current.x - next.x) + Math.abs(current.y - next.y);
+      if (nextDistance < (distances.get(nextKey) ?? Number.POSITIVE_INFINITY)) {
+        distances.set(nextKey, nextDistance);
+        previous.set(nextKey, currentKey);
+      }
+    }
+  }
+
+  if (!distances.has(endKey)) {
+    const horizontalFirst = [start, { x: end.x, y: start.y }, end];
+    if (horizontalFirst.every((point, index) => index === 0 || canRouteSegment(horizontalFirst[index - 1], point, obstacles))) {
+      return horizontalFirst;
+    }
+
+    const verticalFirst = [start, { x: start.x, y: end.y }, end];
+    if (verticalFirst.every((point, index) => index === 0 || canRouteSegment(verticalFirst[index - 1], point, obstacles))) {
+      return verticalFirst;
+    }
+
+    return [start, end];
+  }
+
+  const route: Point[] = [];
+  let key: string | undefined = endKey;
+  while (key) {
+    const point = pointByKey.get(key);
+    if (point) route.unshift(point);
+    key = previous.get(key);
+  }
+
+  return route;
+}
+
+function getRoundedPolylinePath(points: Point[]) {
+  const cleanPoints = dedupePoints(points);
+  if (cleanPoints.length === 0) return '';
+  if (cleanPoints.length === 1) return `M ${cleanPoints[0].x} ${cleanPoints[0].y}`;
+
+  let path = `M ${cleanPoints[0].x} ${cleanPoints[0].y}`;
+
+  for (let index = 1; index < cleanPoints.length - 1; index += 1) {
+    const previous = cleanPoints[index - 1];
+    const current = cleanPoints[index];
+    const next = cleanPoints[index + 1];
+    const previousLength = Math.abs(current.x - previous.x) + Math.abs(current.y - previous.y);
+    const nextLength = Math.abs(next.x - current.x) + Math.abs(next.y - current.y);
+    const radius = Math.min(CONNECTION_CORNER_RADIUS, previousLength / 2, nextLength / 2);
+
+    if (radius <= 0 || (previous.x === next.x || previous.y === next.y)) {
+      path += ` L ${current.x} ${current.y}`;
+      continue;
+    }
+
+    const entry = {
+      x: current.x + Math.sign(previous.x - current.x) * radius,
+      y: current.y + Math.sign(previous.y - current.y) * radius,
+    };
+    const exit = {
+      x: current.x + Math.sign(next.x - current.x) * radius,
+      y: current.y + Math.sign(next.y - current.y) * radius,
+    };
+
+    path += ` L ${entry.x} ${entry.y} Q ${current.x} ${current.y} ${exit.x} ${exit.y}`;
+  }
+
+  const last = cleanPoints[cleanPoints.length - 1];
+  return `${path} L ${last.x} ${last.y}`;
+}
+
+function getConnectionPath(
+  fromX: number,
+  fromY: number,
+  fromSide: BrainEdgeSide,
+  toX: number,
+  toY: number,
+  toSide?: BrainEdgeSide,
+  fromNode?: BrainNode,
+  toNode?: BrainNode
+) {
+  const fromAnchor = { x: fromX, y: fromY };
+  const toAnchor = { x: toX, y: toY };
+
+  if (!toSide || !fromNode || !toNode) {
+    return getBezierConnectionPath(fromAnchor, fromSide, toAnchor);
+  }
+
+  const fromPort = offsetPoint(fromAnchor, fromSide, CONNECTION_PORT_GAP);
+  const toPort = offsetPoint(toAnchor, toSide, CONNECTION_PORT_GAP);
+  const obstacles = [
+    inflateRect(getNodeRect(fromNode), CONNECTION_OBSTACLE_PADDING),
+    inflateRect(getNodeRect(toNode), CONNECTION_OBSTACLE_PADDING),
+  ];
+
+  if (canRouteSegment(fromPort, toPort, obstacles)) {
+    return getBezierConnectionPath(fromAnchor, fromSide, toAnchor, toSide);
+  }
+
+  const route = getOrthogonalRoute(fromPort, toPort, obstacles);
+
+  return getRoundedPolylinePath([fromAnchor, ...route, toAnchor]);
+}
+
+function getEdgePath(from: BrainNode, to: BrainNode, edge: BrainEdge) {
+  const autoSides = getAutoConnectionSides(from, to);
+  const fromSide = edge.fromSide ?? autoSides.fromSide;
+  const toSide = edge.toSide ?? autoSides.toSide;
+  const fromAnchor = getConnectionAnchor(from, fromSide);
+  const toAnchor = getConnectionAnchor(to, toSide);
+
+  return getConnectionPath(fromAnchor.x, fromAnchor.y, fromSide, toAnchor.x, toAnchor.y, toSide, from, to);
+}
+
+function getEdgeActionPoint(from: BrainNode, to: BrainNode, edge: BrainEdge) {
+  const autoSides = getAutoConnectionSides(from, to);
+  const fromAnchor = getConnectionAnchor(from, edge.fromSide ?? autoSides.fromSide);
+  const toAnchor = getConnectionAnchor(to, edge.toSide ?? autoSides.toSide);
+
+  return {
+    x: (fromAnchor.x + toAnchor.x) / 2,
+    y: (fromAnchor.y + toAnchor.y) / 2,
+  };
+}
+
+function getConnectionPreviewPath(preview: ConnectionPreview, fromNode?: BrainNode, toNode?: BrainNode) {
+  return getConnectionPath(
+    preview.fromX,
+    preview.fromY,
+    preview.sourceSide,
+    preview.toX,
+    preview.toY,
+    preview.targetSide,
+    fromNode,
+    toNode
+  );
+}
+
+function getNearestConnectionSide(rect: DOMRect, clientX: number, clientY: number): BrainEdgeSide {
+  const distances: Record<BrainEdgeSide, number> = {
+    top: Math.abs(clientY - rect.top),
+    right: Math.abs(rect.right - clientX),
+    bottom: Math.abs(rect.bottom - clientY),
+    left: Math.abs(clientX - rect.left),
+  };
+
+  return (Object.entries(distances) as [BrainEdgeSide, number][])
+    .sort((a, b) => a[1] - b[1])[0][0];
 }
 
 export function BrainView() {
@@ -86,17 +523,34 @@ export function BrainView() {
   const hasFittedRef = useRef(false);
   const [graph, setGraph] = useState<BrainGraph>(loadBrainGraph);
   const [selectedNodeId, setSelectedNodeId] = useState('core');
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
+  const [edgeContextMenu, setEdgeContextMenu] = useState<EdgeContextMenu | null>(null);
   const [connectionSourceId, setConnectionSourceId] = useState<string | null>(null);
+  const [connectionPreview, setConnectionPreview] = useState<ConnectionPreview | null>(null);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
   const [isPanning, setIsPanning] = useState(false);
   const [viewport, setViewport] = useState<Viewport>({ x: 0, y: 0, zoom: 0.9 });
 
   const nodeById = useMemo(() => new Map(graph.nodes.map(node => [node.id, node])), [graph.nodes]);
   const selectedNode = selectedNodeId ? nodeById.get(selectedNodeId) ?? null : null;
+  const selectedEdge = selectedEdgeId ? graph.edges.find(edge => edge.id === selectedEdgeId) ?? null : null;
   const relationCount = selectedNode
     ? graph.edges.filter(edge => edge.from === selectedNode.id || edge.to === selectedNode.id).length
     : 0;
-  const isDragging = isPanning || draggingNodeId !== null;
+  const selectedEdgeAction = useMemo(() => {
+    if (!selectedEdge) return null;
+
+    const from = nodeById.get(selectedEdge.from);
+    const to = nodeById.get(selectedEdge.to);
+    if (!from || !to) return null;
+
+    return {
+      edge: selectedEdge,
+      point: getEdgeActionPoint(from, to, selectedEdge),
+    };
+  }, [nodeById, selectedEdge]);
+  const isConnecting = connectionPreview !== null;
+  const isDragging = isPanning || draggingNodeId !== null || isConnecting;
 
   useEffect(() => {
     latestGraphRef.current = graph;
@@ -123,18 +577,39 @@ export function BrainView() {
   }, []);
 
   useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!selectedEdgeId) return;
+
+      const target = event.target as HTMLElement | null;
+      if (target?.closest('input, textarea, select, [contenteditable="true"]')) return;
+      if (event.key !== 'Delete' && event.key !== 'Backspace') return;
+
+      event.preventDefault();
+      setGraph(current => ({
+        ...current,
+        edges: current.edges.filter(edge => edge.id !== selectedEdgeId),
+      }));
+      setSelectedEdgeId(null);
+      setEdgeContextMenu(null);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedEdgeId]);
+
+  useEffect(() => {
     if (!isDragging) return;
 
     const previousUserSelect = document.body.style.userSelect;
     const previousCursor = document.body.style.cursor;
     document.body.style.userSelect = 'none';
-    document.body.style.cursor = 'grabbing';
+    document.body.style.cursor = isConnecting ? 'crosshair' : 'grabbing';
 
     return () => {
       document.body.style.userSelect = previousUserSelect;
       document.body.style.cursor = previousCursor;
     };
-  }, [isDragging]);
+  }, [isConnecting, isDragging]);
 
   const fitToGraph = useCallback((nodes?: BrainNode[]) => {
     const canvas = canvasRef.current;
@@ -171,10 +646,11 @@ export function BrainView() {
     getBrainGraph()
       .then(remoteGraph => {
         if (cancelled) return;
+        const resolvedGraph = withResolvedEdgeSides(remoteGraph);
         remoteReadyRef.current = true;
-        setGraph(remoteGraph);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(remoteGraph));
-        requestAnimationFrame(() => fitToGraph(remoteGraph.nodes));
+        setGraph(resolvedGraph);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(resolvedGraph));
+        requestAnimationFrame(() => fitToGraph(resolvedGraph.nodes));
       })
       .catch(error => {
         if (cancelled) return;
@@ -197,6 +673,41 @@ export function BrainView() {
     };
   }, [fitToGraph]);
 
+  const screenToWorld = useCallback((clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    const rect = canvas?.getBoundingClientRect();
+
+    return {
+      x: ((rect ? clientX - rect.left : clientX) - viewport.x) / viewport.zoom,
+      y: ((rect ? clientY - rect.top : clientY) - viewport.y) / viewport.zoom,
+    };
+  }, [viewport.x, viewport.y, viewport.zoom]);
+
+  const getConnectionTargetFromPoint = useCallback((
+    clientX: number,
+    clientY: number,
+    sourceNodeId: string
+  ) => {
+    const targetElement = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const nodeElement = targetElement?.closest('[data-brain-node-id]') as HTMLElement | null;
+    const targetNodeId = nodeElement?.getAttribute('data-brain-node-id');
+
+    if (!nodeElement || !targetNodeId || targetNodeId === sourceNodeId) return null;
+
+    const explicitSide = targetElement
+      ?.closest('[data-brain-connection-side]')
+      ?.getAttribute('data-brain-connection-side') as BrainEdgeSide | null | undefined;
+    const targetNode = nodeById.get(targetNodeId);
+    if (!targetNode) return null;
+
+    const side = explicitSide ?? getNearestConnectionSide(nodeElement.getBoundingClientRect(), clientX, clientY);
+    return {
+      nodeId: targetNodeId,
+      side,
+      anchor: getConnectionAnchor(targetNode, side),
+    };
+  }, [nodeById]);
+
   useEffect(() => {
     const applyMove = (clientX: number, clientY: number) => {
       const drag = dragRef.current;
@@ -208,6 +719,23 @@ export function BrainView() {
           x: drag.originX + clientX - drag.startX,
           y: drag.originY + clientY - drag.startY,
         }));
+        return;
+      }
+
+      if (drag.type === 'connection') {
+        const target = getConnectionTargetFromPoint(clientX, clientY, drag.sourceNodeId);
+        const point = screenToWorld(clientX, clientY);
+
+        setConnectionPreview({
+          sourceNodeId: drag.sourceNodeId,
+          sourceSide: drag.sourceSide,
+          targetNodeId: target?.nodeId,
+          targetSide: target?.side,
+          fromX: drag.anchorX,
+          fromY: drag.anchorY,
+          toX: target?.anchor.x ?? point.x,
+          toY: target?.anchor.y ?? point.y,
+        });
         return;
       }
 
@@ -249,8 +777,74 @@ export function BrainView() {
       });
     };
 
-    const handleUp = () => {
+    const handleUp = (event: globalThis.PointerEvent) => {
       flushPendingMove();
+      const drag = dragRef.current;
+
+      if (drag?.type === 'connection') {
+        const target = getConnectionTargetFromPoint(event.clientX, event.clientY, drag.sourceNodeId);
+        const moveDistance = Math.hypot(event.clientX - drag.startX, event.clientY - drag.startY);
+
+        if (target) {
+          setGraph(current => {
+            const edgeExists = current.edges.some(edge => (
+              (edge.from === drag.sourceNodeId && edge.to === target.nodeId)
+              || (edge.from === target.nodeId && edge.to === drag.sourceNodeId)
+            ));
+            if (edgeExists) return current;
+
+            return {
+              ...current,
+              edges: [
+                ...current.edges,
+                createBrainEdge(drag.sourceNodeId, target.nodeId, 'relates-to', {
+                  fromSide: drag.sourceSide,
+                  toSide: target.side,
+                }),
+              ],
+            };
+          });
+          setSelectedNodeId(target.nodeId);
+          setSelectedEdgeId(null);
+          setEdgeContextMenu(null);
+        } else if (moveDistance <= CONNECTION_CLICK_CREATE_THRESHOLD) {
+          const sourceNode = nodeById.get(drag.sourceNodeId);
+
+          if (sourceNode) {
+            const position = getQuickNodePosition(sourceNode, drag.sourceSide);
+            const nextNode = createBrainNode({
+              label: 'Nowy cel',
+              x: position.x,
+              y: position.y,
+              kind: sourceNode.kind === 'core' ? 'long-term' : 'short-term',
+              accent: sourceNode.accent,
+            });
+
+            setGraph(current => {
+              if (!current.nodes.some(node => node.id === sourceNode.id)) return current;
+
+              return {
+                ...current,
+                nodes: [...current.nodes, nextNode],
+                edges: [
+                  ...current.edges,
+                  createBrainEdge(sourceNode.id, nextNode.id, 'supports', {
+                    fromSide: drag.sourceSide,
+                    toSide: getOppositeConnectionSide(drag.sourceSide),
+                  }),
+                ],
+              };
+            });
+            setSelectedNodeId(nextNode.id);
+            setSelectedEdgeId(null);
+            setEdgeContextMenu(null);
+          }
+        }
+
+        setConnectionPreview(null);
+        setConnectionSourceId(null);
+      }
+
       dragRef.current = null;
       setDraggingNodeId(null);
       setIsPanning(false);
@@ -264,7 +858,7 @@ export function BrainView() {
       window.removeEventListener('pointerup', handleUp);
       window.removeEventListener('pointercancel', handleUp);
     };
-  }, [viewport.zoom]);
+  }, [getConnectionTargetFromPoint, nodeById, screenToWorld, viewport.zoom]);
 
   const startPan = (event: PointerEvent<HTMLDivElement>) => {
     if ((event.target as HTMLElement).closest('[data-brain-ignore="true"]')) return;
@@ -280,6 +874,8 @@ export function BrainView() {
       originY: viewport.y,
     };
     setSelectedNodeId('');
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
     setConnectionSourceId(null);
     setIsPanning(true);
   };
@@ -290,19 +886,25 @@ export function BrainView() {
 
     if (connectionSourceId && connectionSourceId !== node.id) {
       setGraph(current => {
+        const sourceNode = current.nodes.find(candidate => candidate.id === connectionSourceId);
         const edgeExists = current.edges.some(edge => edge.from === connectionSourceId && edge.to === node.id);
         if (edgeExists) return current;
+        const sides = sourceNode ? getAutoConnectionSides(sourceNode, node) : undefined;
         return {
           ...current,
-          edges: [...current.edges, createBrainEdge(connectionSourceId, node.id, 'relates-to')],
+          edges: [...current.edges, createBrainEdge(connectionSourceId, node.id, 'relates-to', sides)],
         };
       });
       setSelectedNodeId(node.id);
+      setSelectedEdgeId(null);
+      setEdgeContextMenu(null);
       setConnectionSourceId(null);
       return;
     }
 
     setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
     event.currentTarget.setPointerCapture?.(event.pointerId);
     dragRef.current = {
       type: 'node',
@@ -313,6 +915,44 @@ export function BrainView() {
       originY: node.y,
     };
     setDraggingNodeId(node.id);
+  };
+
+  const startConnectionDrag = (
+    event: PointerEvent<HTMLButtonElement>,
+    node: BrainNode,
+    side: BrainEdgeSide
+  ) => {
+    if (event.button !== 0) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const anchor = getConnectionAnchor(node, side);
+    const point = screenToWorld(event.clientX, event.clientY);
+
+    setSelectedNodeId(node.id);
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
+    setConnectionSourceId(node.id);
+    setConnectionPreview({
+      sourceNodeId: node.id,
+      sourceSide: side,
+      fromX: anchor.x,
+      fromY: anchor.y,
+      toX: point.x,
+      toY: point.y,
+    });
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    dragRef.current = {
+      type: 'connection',
+      sourceNodeId: node.id,
+      sourceSide: side,
+      startX: event.clientX,
+      startY: event.clientY,
+      anchorX: anchor.x,
+      anchorY: anchor.y,
+    };
   };
 
   const handleWheel = (event: WheelEvent<HTMLDivElement>) => {
@@ -373,9 +1013,11 @@ export function BrainView() {
     setGraph(current => ({
       ...current,
       nodes: [...current.nodes, nextNode],
-      edges: [...current.edges, createBrainEdge(parent.id, nextNode.id, 'supports')],
+      edges: [...current.edges, createBrainEdge(parent.id, nextNode.id, 'supports', getAutoConnectionSides(parent, nextNode))],
     }));
     setSelectedNodeId(nextNode.id);
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
   };
 
   const updateSelectedNode = (patch: Partial<BrainNode>) => {
@@ -384,6 +1026,37 @@ export function BrainView() {
       ...current,
       nodes: current.nodes.map(node => (node.id === selectedNode.id ? { ...node, ...patch } : node)),
     }));
+  };
+
+  const selectEdge = (edge: BrainEdge) => {
+    setSelectedEdgeId(edge.id);
+    setSelectedNodeId('');
+    setConnectionSourceId(null);
+    setEdgeContextMenu(null);
+  };
+
+  const openEdgeMenu = (event: MouseEvent<SVGPathElement>, edge: BrainEdge) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const point = screenToWorld(event.clientX, event.clientY);
+    setSelectedEdgeId(edge.id);
+    setSelectedNodeId('');
+    setConnectionSourceId(null);
+    setEdgeContextMenu({
+      edgeId: edge.id,
+      x: point.x,
+      y: point.y,
+    });
+  };
+
+  const deleteEdge = (edgeId: string) => {
+    setGraph(current => ({
+      ...current,
+      edges: current.edges.filter(edge => edge.id !== edgeId),
+    }));
+    setSelectedEdgeId(current => (current === edgeId ? null : current));
+    setEdgeContextMenu(current => (current?.edgeId === edgeId ? null : current));
   };
 
   const deleteSelectedNode = () => {
@@ -396,13 +1069,17 @@ export function BrainView() {
       edges: current.edges.filter(edge => edge.from !== selectedNode.id && edge.to !== selectedNode.id),
     }));
     setSelectedNodeId(fallbackId);
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
     setConnectionSourceId(null);
   };
 
   const resetGraph = () => {
-    const nextGraph = cloneDefaultGraph();
+    const nextGraph = withResolvedEdgeSides(cloneDefaultGraph());
     setGraph(nextGraph);
     setSelectedNodeId('core');
+    setSelectedEdgeId(null);
+    setEdgeContextMenu(null);
     setConnectionSourceId(null);
     requestAnimationFrame(() => fitToGraph(nextGraph.nodes));
   };
@@ -465,25 +1142,108 @@ export function BrainView() {
         className="absolute left-0 top-0 h-full w-full origin-top-left"
         style={{ transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.zoom})` }}
       >
-        <svg className="pointer-events-none absolute left-0 top-0 h-px w-px overflow-visible">
+        <svg className="absolute left-0 top-0 h-px w-px overflow-visible">
           {graph.edges.map(edge => {
             const from = nodeById.get(edge.from);
             const to = nodeById.get(edge.to);
             if (!from || !to) return null;
-            const isActive = selectedNode?.id === from.id || selectedNode?.id === to.id;
+            const isSelected = selectedEdgeId === edge.id;
+            const isActive = isSelected || selectedNode?.id === from.id || selectedNode?.id === to.id;
+            const path = getEdgePath(from, to, edge);
             return (
-              <path
-                key={edge.id}
-                d={getEdgePath(from, to)}
-                fill="none"
-                stroke={isActive ? from.accent : '#c7ccd3'}
-                strokeLinecap="round"
-                strokeWidth={isActive ? 1.9 : 1.15}
-                strokeOpacity={isActive ? 0.68 : 0.5}
-              />
+              <g key={edge.id}>
+                <path
+                  d={path}
+                  fill="none"
+                  stroke="transparent"
+                  strokeLinecap="round"
+                  strokeWidth={18}
+                  pointerEvents="stroke"
+                  className="cursor-pointer"
+                  onPointerDown={(event) => {
+                    event.stopPropagation();
+                    if (event.button !== 0) return;
+
+                    event.preventDefault();
+                    selectEdge(edge);
+                  }}
+                  onContextMenu={(event) => openEdgeMenu(event, edge)}
+                />
+                <path
+                  d={path}
+                  fill="none"
+                  stroke={isActive ? from.accent : '#c7ccd3'}
+                  strokeLinecap="round"
+                  strokeWidth={isSelected ? 2.4 : isActive ? 1.9 : 1.15}
+                  strokeOpacity={isSelected ? 0.82 : isActive ? 0.68 : 0.5}
+                  pointerEvents="none"
+                />
+              </g>
             );
           })}
+          {connectionPreview && (
+            <path
+              d={getConnectionPreviewPath(
+                connectionPreview,
+                nodeById.get(connectionPreview.sourceNodeId),
+                connectionPreview.targetNodeId ? nodeById.get(connectionPreview.targetNodeId) : undefined
+              )}
+              fill="none"
+              stroke={nodeById.get(connectionPreview.sourceNodeId)?.accent ?? '#0f1115'}
+              strokeDasharray="6 7"
+              strokeLinecap="round"
+              strokeWidth={1.6}
+              strokeOpacity={0.66}
+              pointerEvents="none"
+            />
+          )}
         </svg>
+
+        {selectedEdgeAction && (
+          <button
+            type="button"
+            data-brain-ignore="true"
+            title="Usuń połączenie"
+            aria-label="Usuń połączenie"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              deleteEdge(selectedEdgeAction.edge.id);
+            }}
+            className="absolute z-20 flex h-7 w-7 items-center justify-center rounded-full border border-[#e8e8e4]/90 bg-white/92 text-[#b93838] opacity-95 shadow-[0_12px_24px_-18px_rgba(15,17,21,.65)] backdrop-blur-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#efc3c3] dark:border-white/12 dark:bg-[#27272A]/92 dark:text-red-300"
+            style={{
+              left: selectedEdgeAction.point.x - 14,
+              top: selectedEdgeAction.point.y - 14,
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+
+        {edgeContextMenu && selectedEdgeId === edgeContextMenu.edgeId && (
+          <div
+            data-brain-ignore="true"
+            className="absolute z-30 min-w-28 rounded-xl border border-[#e8e8e4]/90 bg-white/94 p-1 shadow-[0_16px_34px_-24px_rgba(15,17,21,.58)] backdrop-blur-xl dark:border-white/10 dark:bg-[#27272A]/94"
+            style={{
+              transform: `translate3d(${edgeContextMenu.x}px, ${edgeContextMenu.y}px, 0)`,
+            }}
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => deleteEdge(edgeContextMenu.edgeId)}
+              className="flex h-9 w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] font-medium text-[#b93838] transition-colors duration-200 ease hover:bg-[#fff8f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#efc3c3] dark:text-red-300 dark:hover:bg-red-950/30"
+            >
+              <Trash2 size={14} />
+              Usuń
+            </button>
+          </div>
+        )}
 
         {graph.nodes.map(node => {
           const selected = selectedNode?.id === node.id;
@@ -495,6 +1255,7 @@ export function BrainView() {
             <div
               key={node.id}
               data-brain-node="true"
+              data-brain-node-id={node.id}
               role="button"
               tabIndex={0}
               aria-label={node.label}
@@ -534,6 +1295,37 @@ export function BrainView() {
                   </div>
                 </div>
               )}
+
+              {CONNECTION_HANDLES.map(handle => (
+                <button
+                  key={handle.side}
+                  type="button"
+                  data-brain-connection-side={handle.side}
+                  title={handle.label}
+                  aria-label={handle.label}
+                  onPointerDown={(event) => startConnectionDrag(event, node, handle.side)}
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                  }}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                    if (event.key !== 'Enter' && event.key !== ' ') return;
+                    event.preventDefault();
+                    setSelectedNodeId(node.id);
+                    setConnectionSourceId(connectionSourceId === node.id ? null : node.id);
+                  }}
+                  className={`absolute z-10 flex h-6 w-6 items-center justify-center rounded-full border border-[#e8e8e4]/80 bg-white/88 text-[#8a909a] opacity-0 shadow-[0_8px_18px_-14px_rgba(15,17,21,.55)] backdrop-blur-md transition-[opacity,background-color,color,box-shadow,transform] duration-200 ease hover:bg-[#0f1115] hover:text-white hover:shadow-[0_10px_22px_-14px_rgba(15,17,21,.6)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:border-white/12 dark:bg-[#27272A]/90 dark:text-gray-300 dark:hover:bg-white dark:hover:text-black ${
+                    selected || isConnectionSource ? 'opacity-100' : 'group-hover:opacity-100'
+                  } ${
+                    connectionPreview?.targetNodeId === node.id && connectionPreview.targetSide === handle.side
+                      ? 'opacity-100 bg-[#0f1115] text-white shadow-[0_10px_22px_-14px_rgba(15,17,21,.6)] dark:bg-white dark:text-black'
+                      : ''
+                  } ${handle.className}`}
+                >
+                  <Plus size={12} strokeWidth={2.1} />
+                </button>
+              ))}
             </div>
           );
         })}

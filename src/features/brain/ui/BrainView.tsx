@@ -539,33 +539,33 @@ export function BrainView() {
         })}
       </div>
 
-      <aside data-brain-ignore="true" className="absolute bottom-3 left-3 right-3 z-20 max-h-[48%] overflow-y-auto rounded-[18px] border border-[#e8e8e4]/90 bg-white/86 p-5 shadow-[0_22px_54px_-38px_rgba(15,17,21,.55)] backdrop-blur-2xl transition-colors duration-300 dark:border-white/10 dark:bg-[#27272A]/86 dark:shadow-none lg:bottom-4 lg:left-auto lg:right-4 lg:top-4 lg:max-h-none lg:w-[300px]">
+      <aside data-brain-ignore="true" className="absolute bottom-3 left-3 right-3 z-20 max-h-[48%] overflow-y-auto rounded-[18px] border border-[#e8e8e4]/55 bg-white/68 p-4 shadow-[0_18px_48px_-42px_rgba(15,17,21,.55)] backdrop-blur-2xl transition-colors duration-300 dark:border-white/8 dark:bg-[#27272A]/62 dark:shadow-none lg:bottom-4 lg:left-auto lg:right-4 lg:top-4 lg:max-h-none lg:w-[286px]">
         {selectedNode ? (
-          <div className="space-y-5">
-            <div className="flex items-start justify-between gap-3 border-b border-[#f1f0ed] pb-4 dark:border-white/8">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-3 pb-1">
               <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Mapa myśli</p>
-                <p className="mt-1 truncate text-[17px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">{selectedNode.label}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[#a0a6af]">Węzeł</p>
+                <p className="mt-1 truncate text-[16px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">{selectedNode.label}</p>
               </div>
-              <span className="rounded-full border border-[#e8e8e4] bg-[#FDFDFD]/70 px-2 py-1 text-[11px] font-medium text-[#9098a4] dark:border-white/10 dark:bg-white/5 dark:text-gray-300">{relationCount}</span>
+              <span className="pt-1 text-[11px] font-medium text-[#a0a6af] dark:text-gray-400">{relationCount} rel.</span>
             </div>
 
             <label className="block">
-              <span className="text-xs font-medium text-[#5a606b] dark:text-gray-300">Nazwa</span>
+              <span className="text-[11px] font-medium text-[#8a909a] dark:text-gray-400">Nazwa</span>
               <input
                 value={selectedNode.label}
                 onChange={(event) => updateSelectedNode({ label: event.target.value })}
-                className="mt-2 h-10 w-full rounded-xl border border-[#e8e8e4] bg-[#FDFDFD]/70 px-3 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,box-shadow] duration-200 ease placeholder:text-[#b0b5be] focus:border-[#c0c5cc] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#d9d9d4]/70 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:focus:bg-white/8 dark:focus:ring-white/15"
+                className="mt-1 h-9 w-full rounded-none border-0 border-b border-[#e8e8e4]/90 bg-transparent px-0 text-[14px] font-medium text-[#0f1115] transition-[border-color,color] duration-200 ease placeholder:text-[#b0b5be] focus:border-[#0f1115]/35 focus:outline-none focus:ring-0 dark:border-white/12 dark:text-white dark:focus:border-white/35"
               />
             </label>
 
             <label className="block">
-              <span className="text-xs font-medium text-[#5a606b] dark:text-gray-300">Typ</span>
+              <span className="text-[11px] font-medium text-[#8a909a] dark:text-gray-400">Typ</span>
               <select
                 value={selectedNode.kind}
                 onChange={(event) => updateSelectedNode({ kind: event.target.value as BrainNodeKind })}
                 disabled={selectedNode.id === 'core'}
-                className="mt-2 h-10 w-full rounded-xl border border-[#e8e8e4] bg-[#FDFDFD]/70 px-3 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,box-shadow,opacity] duration-200 ease focus:border-[#c0c5cc] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#d9d9d4]/70 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:focus:bg-white/8 dark:focus:ring-white/15"
+                className="mt-1 h-9 w-full rounded-none border-0 border-b border-[#e8e8e4]/90 bg-transparent px-0 text-[14px] font-medium text-[#0f1115] transition-[border-color,opacity] duration-200 ease focus:border-[#0f1115]/35 focus:outline-none focus:ring-0 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/12 dark:text-white dark:focus:border-white/35"
               >
                 {(Object.entries(BRAIN_NODE_KIND_LABEL) as [BrainNodeKind, string][]).map(([kind, label]) => (
                   <option key={kind} value={kind}>{label}</option>
@@ -574,17 +574,17 @@ export function BrainView() {
             </label>
 
             <label className="block">
-              <span className="text-xs font-medium text-[#5a606b] dark:text-gray-300">Opis</span>
+              <span className="text-[11px] font-medium text-[#8a909a] dark:text-gray-400">Opis</span>
               <textarea
                 value={selectedNode.description ?? ''}
                 onChange={(event) => updateSelectedNode({ description: event.target.value })}
                 rows={3}
-                className="mt-2 w-full resize-none rounded-xl border border-[#e8e8e4] bg-[#FDFDFD]/70 px-3 py-2 text-sm leading-5 text-[#0f1115] transition-[background-color,border-color,box-shadow] duration-200 ease placeholder:text-[#b0b5be] focus:border-[#c0c5cc] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#d9d9d4]/70 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:focus:bg-white/8 dark:focus:ring-white/15"
+                className="mt-1 min-h-[72px] w-full resize-none rounded-none border-0 border-b border-[#e8e8e4]/90 bg-transparent px-0 py-2 text-[13px] leading-5 text-[#3a3f47] transition-[border-color,color] duration-200 ease placeholder:text-[#b0b5be] focus:border-[#0f1115]/35 focus:outline-none focus:ring-0 dark:border-white/12 dark:text-gray-200 dark:focus:border-white/35"
               />
             </label>
 
             <div>
-              <p className="text-xs font-medium text-[#5a606b] dark:text-gray-300">Akcent</p>
+              <p className="text-[11px] font-medium text-[#8a909a] dark:text-gray-400">Akcent</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {BRAIN_NODE_ACCENTS.map(color => (
                   <button
@@ -592,8 +592,8 @@ export function BrainView() {
                     type="button"
                     onClick={() => updateSelectedNode({ accent: color })}
                     title={color}
-                    className={`h-7 w-7 rounded-full border transition-[transform,box-shadow,opacity] duration-200 ease hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] ${
-                      selectedNode.accent === color ? 'border-white shadow-[0_0_0_2px_rgba(15,17,21,.22)] dark:shadow-[0_0_0_2px_rgba(255,255,255,.28)]' : 'border-[#e8e8e4] opacity-70'
+                    className={`h-6 w-6 rounded-full border transition-[transform,box-shadow,opacity] duration-200 ease hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] ${
+                      selectedNode.accent === color ? 'border-white shadow-[0_0_0_1px_rgba(15,17,21,.26)] dark:shadow-[0_0_0_1px_rgba(255,255,255,.34)]' : 'border-[#e8e8e4]/70 opacity-55 hover:opacity-85'
                     }`}
                     style={{ backgroundColor: color }}
                   />
@@ -601,18 +601,18 @@ export function BrainView() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
-              <button type="button" onClick={addLinkedNode} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#e8e8e4] bg-white/70 px-3 text-sm font-medium text-[#0f1115] transition-[background-color,border-color,color] duration-200 ease hover:border-[#d9d9d4] hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/8">
+            <div className="grid grid-cols-2 gap-2 border-t border-[#f1f0ed]/90 pt-2 dark:border-white/8">
+              <button type="button" onClick={addLinkedNode} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2 text-[13px] font-medium text-[#3a3f47] transition-[background-color,color] duration-200 ease hover:bg-[#f7f7f4]/80 hover:text-[#0f1115] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:text-gray-200 dark:hover:bg-white/8 dark:hover:text-white">
                 <Plus size={15} />
                 Cel
               </button>
               <button
                 type="button"
                 onClick={() => setConnectionSourceId(connectionSourceId === selectedNode.id ? null : selectedNode.id)}
-                className={`inline-flex h-10 items-center justify-center gap-2 rounded-xl border px-3 text-sm font-medium transition-[background-color,border-color,color] duration-200 ease focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] ${
+                className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg border px-2 text-[13px] font-medium transition-[background-color,border-color,color] duration-200 ease focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] ${
                   connectionSourceId === selectedNode.id
-                    ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-white dark:bg-white dark:text-black'
-                    : 'border-[#e8e8e4] bg-white/70 text-[#0f1115] hover:border-[#d9d9d4] hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/8'
+                    ? 'border-[#0f1115]/20 bg-[#f7f7f4]/90 text-[#0f1115] dark:border-white/18 dark:bg-white/10 dark:text-white'
+                    : 'border-transparent bg-transparent text-[#3a3f47] hover:bg-[#f7f7f4]/80 hover:text-[#0f1115] dark:text-gray-200 dark:hover:bg-white/8 dark:hover:text-white'
                 }`}
               >
                 <Link2 size={15} />
@@ -624,7 +624,7 @@ export function BrainView() {
               type="button"
               onClick={deleteSelectedNode}
               disabled={selectedNode.id === 'core'}
-              className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-transparent bg-transparent px-3 text-sm font-medium text-[#b93838] transition-[background-color,border-color,opacity] duration-200 ease hover:border-[#f3d4d4] hover:bg-[#fff8f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#efc3c3] disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300 dark:hover:border-red-900/40 dark:hover:bg-red-950/20"
+              className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-2 text-[13px] font-medium text-[#b93838]/85 transition-[background-color,color,opacity] duration-200 ease hover:bg-[#fff8f8]/80 hover:text-[#b93838] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#efc3c3] disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-300/85 dark:hover:bg-red-950/20 dark:hover:text-red-200"
             >
               <Trash2 size={15} />
               Usuń węzeł
@@ -632,7 +632,7 @@ export function BrainView() {
           </div>
         ) : (
           <div className="flex min-h-40 items-center justify-center">
-            <button type="button" onClick={() => setSelectedNodeId('core')} className="inline-flex h-10 items-center justify-center gap-2 rounded-xl border border-[#e8e8e4] bg-white/70 px-3 text-sm font-medium text-[#0f1115] transition-[background-color,color] duration-200 ease hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:hover:bg-white/8">
+            <button type="button" onClick={() => setSelectedNodeId('core')} className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-transparent bg-transparent px-3 text-[13px] font-medium text-[#3a3f47] transition-[background-color,color] duration-200 ease hover:bg-[#f7f7f4]/80 hover:text-[#0f1115] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c0c5cc] dark:text-gray-200 dark:hover:bg-white/8 dark:hover:text-white">
               <Minus size={15} />
               Wybierz węzeł
             </button>

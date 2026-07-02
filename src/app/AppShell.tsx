@@ -4,9 +4,10 @@ import { Sidebar, MobileTasksNav, ThemeSelector, AgendaOverlay, AgendaPositionSe
 import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { BrainView } from '../features/brain';
+import { GoalsView } from '../features/goals';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
-import { Brain } from 'lucide-react';
+import { Brain, Target } from 'lucide-react';
 import {
   loadPomodoroSettings,
   PomodoroOverlay,
@@ -29,7 +30,7 @@ import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton, 
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
-type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'brain' | 'calendar' | 'settings';
+type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
 type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
 type EffectiveTheme = 'light' | 'dark' | 'gray';
 
@@ -434,6 +435,10 @@ export function AppShell() {
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span className="text-[10px] font-medium">Zadania</span>
       </button>
+      <button onClick={() => { setActiveTab('goals'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'goals' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+        <Target className="h-6 w-6" />
+        <span className="text-[10px] font-medium">Cele</span>
+      </button>
       <button onClick={() => { setActiveTab('brain'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'brain' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
         <Brain className="h-6 w-6" />
         <span className="text-[10px] font-medium">Brain</span>
@@ -506,6 +511,7 @@ export function AppShell() {
                     {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
                     {activeTab === 'notes' && 'Twoja baza wiedzy.'}
                     {activeTab === 'tasks' && 'Wszystkie zadania.'}
+                    {activeTab === 'goals' && 'Cele.'}
                     {activeTab === 'brain' && 'Brain.'}
                     {activeTab === 'calendar' && 'Kalendarz.'}
                     {activeTab === 'settings' && 'Ustawienia.'}
@@ -513,6 +519,7 @@ export function AppShell() {
                   <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
                     {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
                     {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
+                    {activeTab === 'goals' && 'Planuj dzień wokół konkretnych wyników i nawyków.'}
                     {activeTab === 'brain' && 'Mapa celów i zależności.'}
                     {activeTab === 'calendar' && 'Planuj dzień, tydzień i miesiąc z timeblockingiem.'}
                     {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
@@ -668,6 +675,12 @@ export function AppShell() {
               {activeTab === 'brain' && (
                 <div className="h-full min-h-0 animate-fade-in">
                   <BrainView />
+                </div>
+              )}
+
+              {activeTab === 'goals' && (
+                <div className="animate-fade-in">
+                  <GoalsView tasks={sortedAllTasks} projects={projects} />
                 </div>
               )}
 

@@ -249,6 +249,112 @@
     background-color: rgba(74, 222, 128, 0.13) !important;
   }
 
+  .mf-goal-editor:empty::before {
+    content: attr(data-placeholder);
+    color: #b0b5be;
+    pointer-events: none;
+  }
+
+  .mf-goal-editor {
+    white-space: pre-wrap;
+  }
+
+  .mf-goal-editor h3 {
+    margin: 2px 0 8px;
+    color: #0f1115;
+    font-size: 17px;
+    font-weight: 650;
+    line-height: 1.45;
+  }
+
+  .dark .mf-goal-editor h3 {
+    color: #ffffff;
+  }
+
+  .mf-goal-editor blockquote {
+    margin: 6px 0;
+    border-left: 3px solid #2f7a52;
+    border-radius: 0 8px 8px 0;
+    background: #f7f7f4;
+    padding: 8px 10px;
+    color: #3a3f47;
+  }
+
+  .dark .mf-goal-editor blockquote {
+    background: rgba(255, 255, 255, 0.05);
+    color: #d1d5db;
+  }
+
+  .mf-goal-editor div {
+    min-height: 24px;
+  }
+
+  .mf-goal-editor [data-goal-line] {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .mf-goal-editor [data-goal-line-text] {
+    min-width: 0;
+    flex: 1 1 auto;
+  }
+
+  .mf-goal-editor [data-goal-line="bullet"]::before {
+    content: "";
+    width: 4px;
+    height: 4px;
+    margin-top: 10px;
+    flex: 0 0 auto;
+    border-radius: 9999px;
+    background: #9098a4;
+  }
+
+  .mf-goal-editor [data-goal-line="checkbox"]::before,
+  .mf-goal-editor [data-goal-line="checkbox-checked"]::before {
+    content: "";
+    width: 16px;
+    height: 16px;
+    margin-top: 4px;
+    flex: 0 0 auto;
+    border: 1px solid #c0c5cc;
+    border-radius: 4px;
+    background: #ffffff;
+    cursor: pointer;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .mf-goal-editor [data-goal-line="checkbox"]:hover::before {
+    border-color: #9098a4;
+  }
+
+  .mf-goal-editor [data-goal-line="checkbox-checked"] {
+    color: #9098a4;
+  }
+
+  .mf-goal-editor [data-goal-line="checkbox-checked"] > [data-goal-line-text] {
+    text-decoration: line-through;
+  }
+
+  .mf-goal-editor [data-goal-line="checkbox-checked"]::before {
+    content: "✓";
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-color: #2f7a52;
+    background: #2f7a52;
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .dark .mf-goal-editor [data-goal-line="checkbox"]::before {
+    border-color: rgba(255, 255, 255, 0.2);
+    background: #232326;
+  }
+
   .custom-scrollbar::-webkit-scrollbar {
     @apply w-1.5;
   }

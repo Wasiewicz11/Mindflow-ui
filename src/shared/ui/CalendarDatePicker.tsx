@@ -4,6 +4,7 @@ interface Props {
   value: string;
   onChange: (date: string) => void;
   onClose: () => void;
+  maxDate?: string;
 }
 
 const MONTHS = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
@@ -13,7 +14,7 @@ function toYMD(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-export function CalendarDatePicker({ value, onChange, onClose }: Props) {
+export function CalendarDatePicker({ value, onChange, onClose, maxDate }: Props) {
   const today = new Date();
   const initial = value ? new Date(value + 'T00:00:00') : today;
 
@@ -41,11 +42,13 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
 
   function selectDay(day: number) {
     const selected = toYMD(new Date(year, month, day));
+    if (isDisabled(selected)) return;
     onChange(selected);
     onClose();
   }
 
   function selectQuick(ymd: string) {
+    if (isDisabled(ymd)) return;
     onChange(ymd);
     onClose();
   }
@@ -60,6 +63,10 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
   ];
 
+  function isDisabled(ymd: string) {
+    return !!maxDate && ymd > maxDate;
+  }
+
   return (
     <div
       className="rounded-2xl overflow-hidden select-none w-full"
@@ -73,22 +80,28 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
       <div className="flex gap-1.5 px-3 pt-3 pb-2">
         <button
           onClick={() => selectQuick(todayYMD)}
+          disabled={isDisabled(todayYMD)}
           className="flex-1 text-[12px] font-medium rounded-lg transition-colors"
           style={{
             padding: '5px 0',
             background: value === todayYMD ? '#0f1115' : '#f1f0ed',
             color: value === todayYMD ? '#fff' : '#3a3f47',
+            opacity: isDisabled(todayYMD) ? 0.4 : 1,
+            cursor: isDisabled(todayYMD) ? 'not-allowed' : 'pointer',
           }}
         >
           Dziś
         </button>
         <button
           onClick={() => selectQuick(tomorrowYMD)}
+          disabled={isDisabled(tomorrowYMD)}
           className="flex-1 text-[12px] font-medium rounded-lg transition-colors"
           style={{
             padding: '5px 0',
             background: value === tomorrowYMD ? '#0f1115' : '#f1f0ed',
             color: value === tomorrowYMD ? '#fff' : '#3a3f47',
+            opacity: isDisabled(tomorrowYMD) ? 0.4 : 1,
+            cursor: isDisabled(tomorrowYMD) ? 'not-allowed' : 'pointer',
           }}
         >
           Jutro
@@ -148,22 +161,26 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
           const isSelected = ymd === value;
           const isToday = ymd === todayYMD;
           const isPast = ymd < todayYMD;
+          const disabled = isDisabled(ymd);
 
           return (
             <button
               key={ymd}
               onClick={() => selectDay(day)}
+              disabled={disabled}
               className="flex items-center justify-center rounded-lg text-[12.5px] font-medium transition-all"
               style={{
                 height: 30,
                 background: isSelected ? '#0f1115' : 'transparent',
-                color: isSelected ? '#fff' : isToday ? '#0f1115' : isPast ? '#c0c5cc' : '#3a3f47',
+                color: disabled ? '#c0c5cc' : isSelected ? '#fff' : isToday ? '#0f1115' : isPast ? '#c0c5cc' : '#3a3f47',
                 fontWeight: isSelected || isToday ? 650 : 400,
                 outline: isToday && !isSelected ? '1.5px solid #d4d4d0' : 'none',
                 outlineOffset: -1,
+                opacity: disabled ? 0.4 : 1,
+                cursor: disabled ? 'not-allowed' : 'pointer',
               }}
-              onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = '#f1f0ed'; }}
-              onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
+              onMouseEnter={e => { if (!isSelected && !disabled) (e.currentTarget as HTMLElement).style.background = '#f1f0ed'; }}
+              onMouseLeave={e => { if (!isSelected && !disabled) (e.currentTarget as HTMLElement).style.background = 'transparent'; }}
             >
               {day}
             </button>

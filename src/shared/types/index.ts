@@ -52,6 +52,7 @@ export interface Subtask {
   id: string;
   content: string;
   isCompleted: boolean;
+  status?: TaskStatus;
   description?: string;
   dueDate?: string;
   sortOrder?: number;

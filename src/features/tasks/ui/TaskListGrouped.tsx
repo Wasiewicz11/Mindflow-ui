@@ -660,36 +660,49 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     {hasInlineSubtasks && (
       <div className={`mf-subtasks-expand ${subtasksOpen && !isSelectionMode && !isClosing ? 'is-open' : ''}`}>
         <div>
-          <div className="ml-8 border-l border-[#e8e8e4] pl-3 dark:border-white/10 sm:ml-[92px]">
+          <div className="ml-7 sm:ml-8">
             <div className="space-y-1 pb-2 pt-1">
-              {subtasks.map(subtask => (
-                <div
-                  key={subtask.id}
-                  className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:hover:bg-white/5"
-                >
-                  <span
-                    className={`flex h-3.5 w-3.5 flex-none items-center justify-center rounded-full border transition-colors duration-200 ease ${
-                      subtask.isCompleted
-                        ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
-                        : 'border-[#d4d4d0] bg-white text-transparent dark:border-[#747984] dark:bg-transparent'
-                    }`}
+              {subtasks.map(subtask => {
+                const subtaskStatus = subtask.status ?? (subtask.isCompleted ? 'Completed' : 'NotStarted');
+                const subtaskStatusMeta = STATUS_META[subtaskStatus] ?? STATUS_META.NotStarted;
+                const subtaskDone = subtaskStatus === 'Completed' || subtask.isCompleted;
+
+                return (
+                  <div
+                    key={subtask.id}
+                    className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:hover:bg-white/5"
                   >
-                    {subtask.isCompleted && (
-                      <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                        <path d="M5 13l4 4L19 7"/>
-                      </svg>
-                    )}
-                  </span>
-                  <span className={`min-w-0 flex-1 truncate leading-4 ${subtask.isCompleted || task.isCompleted ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#5a606b] dark:text-gray-300'}`}>
-                    {subtask.content}
-                  </span>
-                  {subtask.dueDate && (
-                    <span className="flex-none text-[11px] font-medium text-[#b0b5be] dark:text-gray-500">
-                      {getDateLabel(subtask.dueDate)}
+                    <span
+                      className={`flex h-3.5 w-3.5 flex-none items-center justify-center rounded-full border transition-colors duration-200 ease ${
+                        subtaskDone
+                          ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
+                          : 'border-[#d4d4d0] bg-white text-transparent dark:border-[#747984] dark:bg-transparent'
+                      }`}
+                    >
+                      {subtaskDone && (
+                        <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                          <path d="M5 13l4 4L19 7"/>
+                        </svg>
+                      )}
                     </span>
-                  )}
-                </div>
-              ))}
+                    <span className={`min-w-0 flex-1 truncate leading-4 ${subtaskDone || task.isCompleted ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#5a606b] dark:text-gray-300'}`}>
+                      {subtask.content}
+                    </span>
+                    <span
+                      className="mf-chip inline-flex flex-none items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold"
+                      style={{ ...chipStyle(subtaskStatusMeta), letterSpacing: '0.02em' }}
+                    >
+                      <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: subtaskStatusMeta.dot }} />
+                      <span className="hidden sm:inline">{subtaskStatusMeta.label}</span>
+                    </span>
+                    {subtask.dueDate && (
+                      <span className="flex-none text-[11px] font-medium text-[#b0b5be] dark:text-gray-500">
+                        {getDateLabel(subtask.dueDate)}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

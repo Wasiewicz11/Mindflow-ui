@@ -96,6 +96,17 @@ function parseEstimatedHours(value: string): number | undefined {
   return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
+function getSubtaskStatus(subtask: Subtask): TaskStatus {
+  return subtask.status ?? (subtask.isCompleted ? 'Completed' : 'NotStarted');
+}
+
+function subtaskStatusPatch(status: TaskStatus): Pick<Subtask, 'status' | 'isCompleted'> {
+  return {
+    status,
+    isCompleted: status === 'Completed',
+  };
+}
+
 export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
   const [loadedTask, setLoadedTask] = useState(task);
   const [content, setContent]       = useState(task.content);
@@ -258,7 +269,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   function addSubtask() {
     const c = newSubtask.trim();
     if (!c) return;
-    const subtask = { id: crypto.randomUUID(), content: c, isCompleted: false, sortOrder: subtasks.length };
+    const subtask = { id: crypto.randomUUID(), content: c, isCompleted: false, status: 'NotStarted' as TaskStatus, sortOrder: subtasks.length };
     setSubtasks(prev => [...prev, subtask]);
     setNewSubtask('');
     createSubtask(loadedTask.id, subtask)
@@ -270,14 +281,21 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   }
 
   function toggleSubtask(id: string) {
-    const next = subtasks.map(s => s.id === id ? { ...s, isCompleted: !s.isCompleted } : s);
+    const next = subtasks.map(s => {
+      if (s.id !== id) return s;
+      return {
+        ...s,
+        ...subtaskStatusPatch(getSubtaskStatus(s) === 'Completed' ? 'NotStarted' : 'Completed'),
+      };
+    });
     setSubtasks(next);
     const changed = next.find(s => s.id === id);
     if (changed) void persistSubtask(changed);
   }
 
   function updateSubtask(id: string, updates: Partial<Subtask>, persist = false) {
-    const next = subtasks.map(s => s.id === id ? { ...s, ...updates } : s);
+    const resolvedUpdates = updates.status ? { ...updates, isCompleted: updates.status === 'Completed' } : updates;
+    const next = subtasks.map(s => s.id === id ? { ...s, ...resolvedUpdates } : s);
     setSubtasks(next);
     const changed = next.find(s => s.id === id);
     if (persist && changed) void persistSubtask(changed);
@@ -704,6 +722,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             {/* Subtask list */}
             <div className="space-y-1">
               {subtasks.map((sub, index) => {
+                const subStatus = getSubtaskStatus(sub);
+                const subStatusMeta = STATUS_OPTIONS[subStatus] ?? STATUS_OPTIONS.NotStarted;
                 return (
                   <div key={sub.id} className="group/sub rounded-xl transition-colors hover:bg-[#f7f7f4]" style={{ padding: '6px 7px' }}>
                     <div className="flex items-center gap-2">
@@ -735,6 +755,29 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                           textDecoration: sub.isCompleted ? 'line-through' : 'none',
                         }}
                       />
+
+                      <label
+                        className="mf-chip relative inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80"
+                        style={{
+                          color: subStatusMeta.fg,
+                          background: subStatusMeta.bg,
+                          letterSpacing: '0.02em',
+                        }}
+                        title="Status podzadania"
+                      >
+                        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: subStatusMeta.dot }} />
+                        <span className="hidden sm:inline">{subStatusMeta.name}</span>
+                        <select
+                          value={subStatus}
+                          onChange={e => updateSubtask(sub.id, { status: e.target.value as TaskStatus }, true)}
+                          className="absolute inset-0 cursor-pointer opacity-0"
+                          aria-label="Status podzadania"
+                        >
+                          {(Object.keys(STATUS_OPTIONS) as TaskStatus[]).map(option => (
+                            <option key={option} value={option}>{STATUS_OPTIONS[option].name}</option>
+                          ))}
+                        </select>
+                      </label>
 
                       <button
                         type="button"
@@ -848,6 +891,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 value={subtasks.find(subtask => subtask.id === subtaskDatePicker.id)?.dueDate ?? ''}
                 onChange={date => updateSubtask(subtaskDatePicker.id, { dueDate: date || undefined }, true)}
                 onClose={() => setSubtaskDatePicker(null)}
+                maxDate={dueDate || undefined}
               />
             </div>
           </>,

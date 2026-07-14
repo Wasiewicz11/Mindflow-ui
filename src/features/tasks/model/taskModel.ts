@@ -19,9 +19,22 @@ export interface ApiTask {
   subtaskDueCount?: number;
 }
 
+function normalizeSubtasks(subtasks?: Subtask[]): Subtask[] | undefined {
+  return subtasks?.map(subtask => {
+    const status = subtask.status ?? (subtask.isCompleted ? 'Completed' : 'NotStarted');
+    return {
+      ...subtask,
+      status,
+      isCompleted: status === 'Completed',
+    };
+  });
+}
+
 export function mapApiTask(task: ApiTask): Task {
   const status = (task.status as TaskStatus | undefined) ?? 'NotStarted';
-  const fallbackDueSubtasks = task.subtasks?.filter(subtask => !subtask.isCompleted && !!subtask.dueDate);
+  const subtasks = normalizeSubtasks(task.subtasks);
+  const dueSubtasks = normalizeSubtasks(task.dueSubtasks);
+  const fallbackDueSubtasks = subtasks?.filter(subtask => !subtask.isCompleted && !!subtask.dueDate);
 
   return {
     id: task.id,
@@ -35,11 +48,11 @@ export function mapApiTask(task: ApiTask): Task {
     project_id: task.projectId ?? null,
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
     tags: task.tags,
-    subtasks: task.subtasks,
-    dueSubtasks: task.dueSubtasks ?? fallbackDueSubtasks,
-    subtaskCompletedCount: task.subtaskCompletedCount ?? task.subtasks?.filter(subtask => subtask.isCompleted).length ?? 0,
-    subtaskTotalCount: task.subtaskTotalCount ?? task.subtasks?.length ?? 0,
-    subtaskDueCount: task.subtaskDueCount ?? task.dueSubtasks?.length ?? fallbackDueSubtasks?.length ?? 0,
+    subtasks,
+    dueSubtasks: dueSubtasks ?? fallbackDueSubtasks,
+    subtaskCompletedCount: task.subtaskCompletedCount ?? subtasks?.filter(subtask => subtask.isCompleted).length ?? 0,
+    subtaskTotalCount: task.subtaskTotalCount ?? subtasks?.length ?? 0,
+    subtaskDueCount: task.subtaskDueCount ?? dueSubtasks?.length ?? fallbackDueSubtasks?.length ?? 0,
   };
 }
 

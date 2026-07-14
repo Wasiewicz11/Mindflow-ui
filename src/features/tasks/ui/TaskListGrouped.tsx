@@ -399,7 +399,10 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
   const subtaskProgress = getSubtaskProgress(task);
+  const subtasks = task.subtasks ?? [];
+  const hasInlineSubtasks = subtasks.length > 0;
 
+  const [subtasksOpen, setSubtasksOpen] = useState(false);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
   const [dateOpen, setDateOpen] = useState(false);
@@ -412,6 +415,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     onClick();
   };
   const isClosing = !!closingPhase;
+  const isDoneVisual = task.isCompleted || isClosing;
 
   const handlePriorityClick = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -437,6 +441,12 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     setDateOpen(o => !o);
   };
 
+  const handleSubtasksClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    if (isSelectionMode || !hasInlineSubtasks) return;
+    setSubtasksOpen(open => !open);
+  };
+
   return (
     <>
     <div
@@ -445,7 +455,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
       style={{
         padding: closingPhase === 'collapsing' ? '0' : '9px 0',
         gap: 10,
-        opacity: isClosing ? 0 : isSelectionMode && !isSelected ? 0.45 : 1,
+        opacity: isClosing ? 0 : isSelectionMode && !isSelected ? 0.45 : task.isCompleted ? 0.68 : 1,
         borderRadius: isSelected ? 6 : 0,
       }}
     >
@@ -469,12 +479,12 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
           className={`flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
-            isClosing
+            isDoneVisual
               ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
               : 'border-[#d4d4d0] bg-transparent dark:border-[#747984]'
           }`}
         >
-          {isClosing && (
+          {isDoneVisual && (
             <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
               <path d="M5 13l4 4L19 7"/>
             </svg>
@@ -484,7 +494,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
         <span
-          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease dark:text-white ${isClosing ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
+          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         >
           {task.content}
         </span>
@@ -514,10 +524,19 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {subtaskProgress.total > 0 && (
-            <span
-              className="inline-flex flex-none items-center rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400"
+          {hasInlineSubtasks ? (
+            <button
+              type="button"
+              onClick={handleSubtasksClick}
+              aria-expanded={subtasksOpen}
+              className="inline-flex flex-none items-center gap-1 rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#5a606b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-white/8 dark:text-gray-400 dark:hover:bg-white/12 dark:hover:text-gray-200"
+              title={subtasksOpen ? 'Ukryj podzadania' : 'Pokaż podzadania'}
             >
+              <span>{subtaskProgress.completed}/{subtaskProgress.total}</span>
+              <ChevronDown size={12} strokeWidth={2.2} className={`transition-transform duration-200 ease ${subtasksOpen ? 'rotate-180' : ''}`} />
+            </button>
+          ) : subtaskProgress.total > 0 && (
+            <span className="inline-flex flex-none items-center rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400">
               {subtaskProgress.completed}/{subtaskProgress.total}
             </span>
           )}
@@ -578,7 +597,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Title */}
       <span
-        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease dark:text-white ${isClosing ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
+        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         style={{ fontWeight: 450 }}
       >
         {task.content}
@@ -586,7 +605,18 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Right meta — project + date */}
       <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
-        {subtaskProgress.total > 0 && (
+        {hasInlineSubtasks ? (
+          <button
+            type="button"
+            onClick={handleSubtasksClick}
+            aria-expanded={subtasksOpen}
+            className="inline-flex min-w-[46px] items-center justify-center gap-1 rounded-md bg-[#f7f7f4] px-1.5 py-0.5 text-[11px] font-semibold text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#5a606b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-white/8 dark:text-gray-400 dark:hover:bg-white/12 dark:hover:text-gray-200"
+            title={subtasksOpen ? 'Ukryj podzadania' : 'Pokaż podzadania'}
+          >
+            <span>{subtaskProgress.completed}/{subtaskProgress.total}</span>
+            <ChevronDown size={12} strokeWidth={2.2} className={`transition-transform duration-200 ease ${subtasksOpen ? 'rotate-180' : ''}`} />
+          </button>
+        ) : subtaskProgress.total > 0 && (
           <span
             className="rounded-md bg-[#f7f7f4] text-[11px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400"
             style={{ minWidth: 34, padding: '2px 6px', textAlign: 'center' }}
@@ -626,6 +656,45 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
         </button>
       </div>
     </div>
+
+    {hasInlineSubtasks && (
+      <div className={`mf-subtasks-expand ${subtasksOpen && !isSelectionMode && !isClosing ? 'is-open' : ''}`}>
+        <div>
+          <div className="ml-8 border-l border-[#e8e8e4] pl-3 dark:border-white/10 sm:ml-[92px]">
+            <div className="space-y-1 pb-2 pt-1">
+              {subtasks.map(subtask => (
+                <div
+                  key={subtask.id}
+                  className="flex min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-[12.5px] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:hover:bg-white/5"
+                >
+                  <span
+                    className={`flex h-3.5 w-3.5 flex-none items-center justify-center rounded-full border transition-colors duration-200 ease ${
+                      subtask.isCompleted
+                        ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
+                        : 'border-[#d4d4d0] bg-white text-transparent dark:border-[#747984] dark:bg-transparent'
+                    }`}
+                  >
+                    {subtask.isCompleted && (
+                      <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                        <path d="M5 13l4 4L19 7"/>
+                      </svg>
+                    )}
+                  </span>
+                  <span className={`min-w-0 flex-1 truncate leading-4 ${subtask.isCompleted || task.isCompleted ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#5a606b] dark:text-gray-300'}`}>
+                    {subtask.content}
+                  </span>
+                  {subtask.dueDate && (
+                    <span className="flex-none text-[11px] font-medium text-[#b0b5be] dark:text-gray-500">
+                      {getDateLabel(subtask.dueDate)}
+                    </span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
 
     {/* Priority picker portal */}
     {priorityOpen && priorityRect && typeof document !== 'undefined' && createPortal(
@@ -1326,96 +1395,14 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           {completedOpen && (
             <>
               {completedTasks.map(task => (
-                <div
+                <TaskRow
                   key={task.id}
-                  className="flex items-start sm:items-center cursor-pointer"
-                  style={{ padding: '9px 0', borderBottom: '1px solid #f1f0ed', gap: 10, opacity: 0.6 }}
+                  task={task}
+                  project={projects.find(p => p.id === task.project_id)}
+                  onToggle={() => onToggle(task.id)}
                   onClick={() => setEditingCompleted(task)}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#faf9f7')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                >
-                  {/* Checked circle */}
-                  <button
-                    onClick={e => { e.stopPropagation(); onToggle(task.id); }}
-                    className="flex-none flex items-center justify-center rounded-full border-2 transition-colors hover:opacity-70 cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
-                    style={{ width: 20, height: 20, borderColor: '#0f1115', background: '#0f1115', flexShrink: 0 }}
-                  >
-                    <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
-                      <path d="M5 13l4 4L19 7"/>
-                    </svg>
-                  </button>
-
-                  <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
-                    <span
-                      className="min-w-0 text-[15px] font-medium leading-5 text-[#9098a4] line-through"
-                    >
-                      {task.content}
-                    </span>
-
-                    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[#b0b5be]">
-                      <div className="inline-flex items-center gap-1.5">
-                        <CalIcon />
-                        <span>{task.dueDate ? getDateLabel(task.dueDate) : 'Bez terminu'}</span>
-                      </div>
-                      {projects.find(p => p.id === task.project_id) && (
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span
-                            className="flex-none rounded-full"
-                            style={{
-                              width: 6,
-                              height: 6,
-                              background: projects.find(p => p.id === task.project_id)?.color || '#9aa0aa',
-                            }}
-                          />
-                          <span className="truncate">{projects.find(p => p.id === task.project_id)?.name}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    <span
-                      className="min-w-7 w-fit flex-none rounded-lg px-[7px] py-0.5 text-center text-[10.5px] font-semibold"
-                      style={{
-                        color: '#b0b5be',
-                        background: '#f1f0ed',
-                        letterSpacing: '0.03em',
-                      }}
-                    >
-                      {(PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4]).label}
-                    </span>
-                  </div>
-
-                  {/* Priority badge — dimmed */}
-                  <span
-                    className="hidden sm:block flex-none text-[10.5px] font-semibold rounded-[5px]"
-                    style={{
-                      padding: '2px 6px',
-                      color: '#b0b5be',
-                      background: '#f1f0ed',
-                      letterSpacing: '0.03em',
-                      minWidth: 26,
-                      textAlign: 'center',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {(PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4]).label}
-                  </span>
-
-                  {/* Title strikethrough */}
-                  <span
-                    className="hidden sm:block flex-1 text-[14px] text-[#9098a4] truncate min-w-0"
-                    style={{ fontWeight: 450, textDecoration: 'line-through' }}
-                  >
-                    {task.content}
-                  </span>
-
-                  {/* Date placeholder to keep alignment */}
-                  <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#d4d4d0' }}>
-                    <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 76 }}>
-                      <CalIcon />
-                      <span>{task.dueDate ? getDateLabel(task.dueDate) : '—'}</span>
-                    </div>
-                  </div>
-                </div>
+                  onEdit={updates => onEdit(task.id, updates)}
+                />
               ))}
             </>
           )}

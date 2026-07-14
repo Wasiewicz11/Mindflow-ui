@@ -486,6 +486,25 @@
   pointer-events: none;
 }
 
+.mf-subtasks-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.28s ease,
+    opacity 0.2s ease;
+}
+
+.mf-subtasks-expand.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.mf-subtasks-expand > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
 .delay-0 { animation-delay: 0ms; }
 .delay-75 { animation-delay: 75ms; }
 .delay-100 { animation-delay: 100ms; }

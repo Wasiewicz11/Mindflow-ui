@@ -67,6 +67,8 @@ export interface Task {
   priority: TaskPriority;
   dueDate?: string;
   clearDueDate?: boolean;
+  dueTime?: string;
+  clearDueTime?: boolean;
   estimatedHours?: number;
   createdAt: Date;
   source?: 'app' | 'telegram';

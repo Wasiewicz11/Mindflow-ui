@@ -17,7 +17,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   isLoading?: boolean;
 }
 
@@ -108,7 +108,7 @@ function Card({ task, onOpen }: { task: Task; onOpen: (task: Task) => void }) {
       {task.dueDate && (
         <div className={`flex items-center gap-1.5 mt-2 text-[11.5px] ${overdue ? 'text-red-500' : 'text-[#9098a4]'}`}>
           <CalIcon />
-          {formatDue(task.dueDate)}
+          {formatDue(task.dueDate)}{task.dueTime ? ` · ${task.dueTime}` : ''}
         </div>
       )}
     </article>
@@ -120,7 +120,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
   tasks: Task[];
   isFirst: boolean;
   projects: Project[];
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onOpen: (task: Task) => void;
 }) {
   const [addingOpen, setAddingOpen] = useState(false);
@@ -194,7 +194,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
         <TaskAddModal
           projects={projects}
           initialProjectId={projectId}
-          onAdd={(content, priority, dueDate, pid, status, description) => { onAdd(content, priority, dueDate, pid ?? projectId, status, description); setAddingOpen(false); }}
+          onAdd={(content, priority, dueDate, pid, status, description, tags, subtasks, estimatedHours, dueTime) => { onAdd(content, priority, dueDate, pid ?? projectId, status, description, tags, subtasks, estimatedHours, dueTime); setAddingOpen(false); }}
           onClose={() => setAddingOpen(false)}
         />
       )}

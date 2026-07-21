@@ -35,9 +35,12 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
     _projectId?: string,
     status?: TaskStatus,
     description?: string,
+    _tags?: string[],
+    _subtasks?: import('../shared/types').Subtask[],
     estimatedHours?: number,
+    dueTime?: string,
   ) => {
-    await addTask(content, priority, dueDate, status, description, estimatedHours);
+    await addTask(content, priority, dueDate, status, description, estimatedHours, dueTime);
   };
 
   const handleBulkEdit = (ids: string[], updates: Partial<Task>) => {

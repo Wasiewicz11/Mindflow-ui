@@ -437,12 +437,12 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
             <Toggle
               checked={settings.blockRemindersEnabled}
               disabled={scheduleDisabled}
-              label="Nadchodzące bloki"
-              description="Przypomnienie przed blokiem w kalendarzu."
+              label="Bloki i zadania z godziną"
+              description="Przypomnienie przed blokiem w kalendarzu lub terminem zadania."
               onChange={(blockRemindersEnabled) => updateLocalSettings({ blockRemindersEnabled })}
             />
             <label className="mt-4 flex flex-col gap-1.5 text-[12px] font-medium text-[#5a606b] dark:text-gray-300">
-              Minut przed blokiem
+              Minut przed terminem
               <input
                 type="number"
                 min="1"

@@ -80,8 +80,9 @@ export function useTasks(isLoggedIn: boolean) {
     tags?: string[],
     subtasks?: Subtask[],
     estimatedHours?: number,
+    dueTime?: string,
   ) => {
-    const created = await createTask(toCreateTaskDto({ content, projectId, status, description, priority, dueDate, tags, subtasks, estimatedHours }));
+    const created = await createTask(toCreateTaskDto({ content, projectId, status, description, priority, dueDate, dueTime, tags, subtasks, estimatedHours }));
     return mapApiTask(created);
   }, []);
 

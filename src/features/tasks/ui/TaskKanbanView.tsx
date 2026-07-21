@@ -198,7 +198,7 @@ function Card({ task, groupBy, isDragging, onOpen, onDragStart, onDragEnd }: Car
       {task.dueDate && (
         <div className={`flex items-center gap-1.5 mt-2 text-[11.5px] ${overdue ? 'text-red-500' : 'text-[#9098a4]'}`}>
           <CalIcon />
-          {formatDue(task.dueDate)}
+          {formatDue(task.dueDate)}{task.dueTime ? ` · ${task.dueTime}` : ''}
         </div>
       )}
     </article>
@@ -212,7 +212,7 @@ interface Props {
   onEdit: (id: string, updates: Partial<Task>) => void;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   isLoading?: boolean;
 }
 

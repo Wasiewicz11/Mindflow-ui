@@ -8,6 +8,7 @@ export interface CreateTaskDto {
   priority?: TaskPriority;
   status?: string;
   dueDate?: string;
+  dueTime?: string;
   estimatedHours?: number;
   projectId?: string;
   tags?: string[];
@@ -21,6 +22,8 @@ export interface UpdateTaskDto {
   status?: string;
   dueDate?: string | null;
   clearDueDate?: boolean;
+  dueTime?: string | null;
+  clearDueTime?: boolean;
   estimatedHours?: number;
   clearEstimatedHours?: boolean;
   projectId?: string;

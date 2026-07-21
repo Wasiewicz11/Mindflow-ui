@@ -8,6 +8,7 @@ export interface ApiTask {
   priority?: TaskPriorityType;
   status?: string;
   dueDate?: string;
+  dueTime?: string;
   estimatedHours?: number;
   projectId?: string;
   createdAt?: string;
@@ -30,6 +31,10 @@ function normalizeSubtasks(subtasks?: Subtask[]): Subtask[] | undefined {
   });
 }
 
+function toApiDueTime(value?: string) {
+  return value ? `${value.slice(0, 5)}:00` : undefined;
+}
+
 export function mapApiTask(task: ApiTask): Task {
   const status = (task.status as TaskStatus | undefined) ?? 'NotStarted';
   const subtasks = normalizeSubtasks(task.subtasks);
@@ -44,6 +49,7 @@ export function mapApiTask(task: ApiTask): Task {
     status,
     isCompleted: status === 'Completed',
     dueDate: task.dueDate,
+    dueTime: task.dueTime?.slice(0, 5),
     estimatedHours: task.estimatedHours,
     project_id: task.projectId ?? null,
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
@@ -63,6 +69,7 @@ export function toCreateTaskDto(input: {
   description?: string;
   priority?: TaskPriorityType;
   dueDate?: string;
+  dueTime?: string;
   estimatedHours?: number;
   tags?: string[];
   subtasks?: Subtask[];
@@ -74,6 +81,7 @@ export function toCreateTaskDto(input: {
     description: input.description,
     priority: input.priority,
     dueDate: input.dueDate,
+    dueTime: toApiDueTime(input.dueTime),
     estimatedHours: input.estimatedHours,
     tags: input.tags,
     subtasks: input.subtasks,
@@ -95,6 +103,15 @@ export function toUpdateTaskDto(updates: Partial<Task>): UpdateTaskDto {
     }
   }
   if (updates.clearDueDate !== undefined) dto.clearDueDate = updates.clearDueDate;
+  if (Object.prototype.hasOwnProperty.call(updates, 'dueTime')) {
+    if (updates.dueTime) {
+      dto.dueTime = toApiDueTime(updates.dueTime);
+      dto.clearDueTime = false;
+    } else {
+      dto.clearDueTime = true;
+    }
+  }
+  if (updates.clearDueTime !== undefined) dto.clearDueTime = updates.clearDueTime;
   if (Object.prototype.hasOwnProperty.call(updates, 'estimatedHours')) {
     if (updates.estimatedHours != null) dto.estimatedHours = updates.estimatedHours;
     else dto.clearEstimatedHours = true;

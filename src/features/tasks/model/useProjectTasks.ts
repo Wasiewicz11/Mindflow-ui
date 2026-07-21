@@ -40,8 +40,9 @@ export function useProjectTasks(projectId: string) {
     status?: TaskStatus,
     description?: string,
     estimatedHours?: number,
+    dueTime?: string,
   ) => {
-    await createTask(toCreateTaskDto({ content, projectId, priority, dueDate, status, description, estimatedHours }));
+    await createTask(toCreateTaskDto({ content, projectId, priority, dueDate, dueTime, status, description, estimatedHours }));
     await fetchTasks();
   }, [projectId, fetchTasks]);
 

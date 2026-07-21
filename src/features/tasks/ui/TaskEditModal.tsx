@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { X } from 'lucide-react';
 import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
@@ -113,6 +114,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [priority, setPriority]     = useState(task.priority);
   const [status, setStatus]         = useState<TaskStatus>((task.status && task.status in STATUS_OPTIONS) ? task.status : 'NotStarted');
   const [dueDate, setDueDate]       = useState(task.dueDate ?? '');
+  const [dueTime, setDueTime]       = useState(task.dueTime ?? '');
   const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours != null ? String(task.estimatedHours) : '');
   const [projectId, setProjectId]   = useState(task.project_id ?? '');
   const [description, setDescription] = useState(task.description ?? '');
@@ -136,6 +138,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     setPriority(nextTask.priority);
     setStatus((nextTask.status && nextTask.status in STATUS_OPTIONS) ? nextTask.status : 'NotStarted');
     setDueDate(nextTask.dueDate ?? '');
+    setDueTime(nextTask.dueTime ?? '');
     setEstimatedHours(nextTask.estimatedHours != null ? String(nextTask.estimatedHours) : '');
     setProjectId(nextTask.project_id ?? '');
     setDescription(nextTask.description ?? '');
@@ -210,6 +213,11 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     if (dueDate !== (loadedTask.dueDate ?? '')) {
       if (dueDate) updates.dueDate = dueDate;
       else updates.clearDueDate = true;
+    }
+
+    if (dueTime !== (loadedTask.dueTime ?? '')) {
+      if (dueTime) updates.dueTime = dueTime;
+      else updates.clearDueTime = true;
     }
 
     const parsedHours = parseEstimatedHours(estimatedHours);
@@ -617,11 +625,39 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                   >
                     <CalendarDatePicker
                       value={dueDate}
-                      onChange={val => setDueDate(val)}
+                      onChange={val => {
+                        setDueDate(val);
+                        if (!val) setDueTime('');
+                      }}
                       onClose={() => setShowDatePicker(false)}
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className={`${ROW} cursor-default ${dueDate ? '' : 'opacity-45'}`}>
+              <span className={LABEL}><ClockIcon /> Godzina</span>
+              <div className={`${VALUE} flex items-center gap-2`}>
+                <input
+                  type="time"
+                  value={dueTime}
+                  disabled={!dueDate}
+                  onChange={event => setDueTime(event.target.value)}
+                  aria-label="Godzina terminu"
+                  className="h-8 rounded-md border border-[#e8e8e4] bg-white px-2 text-[13px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4] focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:bg-[#f7f7f4] dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/30 dark:focus:ring-white/15"
+                />
+                {dueTime && (
+                  <button
+                    type="button"
+                    onClick={() => setDueTime('')}
+                    title="Wyczyść godzinę"
+                    aria-label="Wyczyść godzinę"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] dark:hover:bg-white/8 dark:hover:text-white dark:focus:ring-white/15"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import type { Project, TaskStatus } from '../../../shared/types';
+import { X } from 'lucide-react';
+import type { Project, Subtask, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 import { DescriptionField } from './DescriptionField';
@@ -11,7 +12,7 @@ interface Props {
   initialPriority?: TaskPriority;
   initialDueDate?: string;
   initialProjectId?: string;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string, estimatedHours?: number) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: TaskStatus, description?: string, tags?: string[], subtasks?: Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onClose: () => void;
 }
 
@@ -55,6 +56,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
   const [priority, setPriority]       = useState<TaskPriority>(initialPriority);
   const [status, setStatus]           = useState<TaskStatus>(initialStatus);
   const [dueDate, setDueDate]         = useState(initialDueDate);
+  const [dueTime, setDueTime]         = useState('');
   const [estimatedHours, setEstimatedHours] = useState('');
   const [projectId, setProjectId]     = useState(initialProjectId);
 
@@ -78,7 +80,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
 
   function handleSave() {
     if (!content.trim()) return;
-    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status, description || undefined, parseEstimatedHours(estimatedHours));
+    onAdd(content.trim(), priority, dueDate || undefined, projectId || undefined, status, description || undefined, undefined, undefined, parseEstimatedHours(estimatedHours), dueTime || undefined);
     onClose();
   }
 
@@ -264,11 +266,39 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
                   >
                     <CalendarDatePicker
                       value={dueDate}
-                      onChange={val => setDueDate(val)}
+                      onChange={val => {
+                        setDueDate(val);
+                        if (!val) setDueTime('');
+                      }}
                       onClose={() => setShowDatePicker(false)}
                     />
                   </div>
                 </div>
+              </div>
+            </div>
+
+            <div className={`${ROW} cursor-default ${dueDate ? '' : 'opacity-45'}`}>
+              <span className={LABEL}><ClockIcon /> Godzina</span>
+              <div className={`${VALUE} flex items-center gap-2`}>
+                <input
+                  type="time"
+                  value={dueTime}
+                  disabled={!dueDate}
+                  onChange={event => setDueTime(event.target.value)}
+                  aria-label="Godzina terminu"
+                  className="h-8 rounded-md border border-[#e8e8e4] bg-white px-2 text-[13px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4] focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:bg-[#f7f7f4] dark:border-white/10 dark:bg-white/5 dark:text-white dark:focus:border-white/30 dark:focus:ring-white/15"
+                />
+                {dueTime && (
+                  <button
+                    type="button"
+                    onClick={() => setDueTime('')}
+                    title="Wyczyść godzinę"
+                    aria-label="Wyczyść godzinę"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] dark:hover:bg-white/8 dark:hover:text-white dark:focus:ring-white/15"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
               </div>
             </div>
 

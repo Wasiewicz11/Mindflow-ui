@@ -43,7 +43,7 @@ interface Props {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   onClearCompleted?: () => void;
   isLoading?: boolean;
@@ -395,6 +395,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
   const p = PRIORITY[task.priority] ?? PRIORITY[TaskPriority.P4];
   const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
   const dateLabel = task.dueDate ? getDateLabel(task.dueDate) : '';
+  const dueLabel = [dateLabel, task.dueTime].filter(Boolean).join(' · ');
   const overdue = task.dueDate
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
@@ -509,7 +510,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
             title={onEdit && !isSelectionMode ? 'Zmień termin' : undefined}
           >
             <CalIcon />
-            <span>{task.dueDate ? dateLabel : 'Bez terminu'}</span>
+            <span>{task.dueDate ? dueLabel : 'Bez terminu'}</span>
           </button>
 
           {project && (
@@ -652,7 +653,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
           title={onEdit && !isSelectionMode ? 'Zmień termin' : undefined}
         >
           <CalIcon />
-          <span>{task.dueDate ? dateLabel : '—'}</span>
+          <span>{task.dueDate ? dueLabel : '—'}</span>
         </button>
       </div>
     </div>
@@ -870,7 +871,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   isSelectionMode?: boolean;
   selectedIds?: string[];
   onSelect?: (id: string) => void;
@@ -963,7 +964,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
         <TaskAddModal
           projects={projects}
           initialProjectId={activeProjectId ?? undefined}
-          onAdd={(content, priority, dueDate, projectId, status, description) => onAdd(content, priority, dueDate, projectId, status, description)}
+          onAdd={(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime) => onAdd(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime)}
           onClose={() => setAddingOpen(false)}
         />
       )}
@@ -1218,7 +1219,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           <TaskAddModal
             projects={projects}
             initialProjectId={activeProjectId ?? undefined}
-            onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
+            onAdd={(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime) => { onAdd(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime); setAddModalOpen(false); }}
             onClose={() => setAddModalOpen(false)}
           />
         )}
@@ -1263,7 +1264,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
         <TaskAddModal
           projects={projects}
           initialProjectId={activeProjectId ?? undefined}
-          onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
+          onAdd={(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime) => { onAdd(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime); setAddModalOpen(false); }}
           onClose={() => setAddModalOpen(false)}
         />
       )}

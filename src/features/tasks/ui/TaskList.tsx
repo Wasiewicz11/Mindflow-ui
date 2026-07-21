@@ -17,7 +17,7 @@ interface TaskListProps {
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
   onDelete: (id: string) => void;
-  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
+  onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onClearCompleted?: () => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
   compactMode?: boolean;
@@ -180,6 +180,7 @@ const TaskList: React.FC<TaskListProps> = ({
 
   const renderTaskItem = (task: Task, index: number) => {
     const dateLabel = formatDate(task.dueDate);
+    const dueLabel = [dateLabel || task.dueDate, task.dueTime].filter(Boolean).join(' · ');
     const isOverdue = task.dueDate && new Date(task.dueDate) < new Date() && !new Date(task.dueDate).toDateString().match(new Date().toDateString()) && !task.isCompleted;
     const project = projects.find(p => p.id === task.project_id);
     const st = STATUS_META[task.status ?? 'NotStarted'] ?? STATUS_META.NotStarted;
@@ -231,10 +232,10 @@ const TaskList: React.FC<TaskListProps> = ({
 
             {!compactMode && (
               <div className="flex items-center space-x-3 mt-0.5">
-                {(dateLabel || task.dueDate) && (
+                {dueLabel && (
                   <div className={`relative flex items-center text-[10px] w-fit ${isOverdue ? 'text-red-500 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
                     <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-                    <span>{dateLabel || task.dueDate}</span>
+                    <span>{dueLabel}</span>
                   </div>
                 )}
                 {project && (
@@ -252,9 +253,9 @@ const TaskList: React.FC<TaskListProps> = ({
                 </div>
               </div>
             )}
-            {compactMode && (dateLabel || isOverdue) && !task.isCompleted && (
+            {compactMode && (dueLabel || isOverdue) && !task.isCompleted && (
               <div className={`flex items-center text-[9px] mt-0.5 ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
-                <span>{dateLabel || task.dueDate}</span>
+                <span>{dueLabel}</span>
                 {project && <span className="mx-1">• {project.name}</span>}
               </div>
             )}
@@ -522,7 +523,7 @@ const TaskList: React.FC<TaskListProps> = ({
         <TaskAddModal
           projects={projects}
           initialProjectId={activeProjectId ?? undefined}
-          onAdd={(content, priority, dueDate, projectId, status, description) => { onAdd(content, priority, dueDate, projectId, status, description); setAddModalOpen(false); }}
+          onAdd={(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime) => { onAdd(content, priority, dueDate, projectId, status, description, tags, subtasks, estimatedHours, dueTime); setAddModalOpen(false); }}
           onClose={() => setAddModalOpen(false)}
         />
       )}

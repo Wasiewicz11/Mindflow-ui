@@ -246,9 +246,9 @@ export function AppShell() {
     void Promise.resolve().then(fetchSpaces);
   }, [isLoggedIn, fetchSpaces]);
 
-  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[], estimatedHours?: number) => {
+  const handleAddTask = async (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => {
     const finalProjectId = projectId || (activeProjectId !== null ? activeProjectId : undefined);
-    return addTask(content, finalProjectId, status, description, priority, dueDate, tags, subtasks, estimatedHours);
+    return addTask(content, finalProjectId, status, description, priority, dueDate, tags, subtasks, estimatedHours, dueTime);
   };
 
   const handleEditTask = async (id: string, updates: Partial<Task>) => {
@@ -883,7 +883,7 @@ export function AppShell() {
                         <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia powiadomień</p>
                           <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Powiadomienia</h2>
-                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Ustaw briefy dnia, podsumowanie wieczorem i przypomnienia o blokach w kalendarzu.</p>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Ustaw briefy dnia, podsumowanie wieczorem oraz przypomnienia o blokach i zadaniach z godziną.</p>
                         </div>
                         <section className="px-6 py-5">
                           <PushNotificationsSettings isLoggedIn={isLoggedIn} />

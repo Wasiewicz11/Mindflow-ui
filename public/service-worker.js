@@ -11,8 +11,8 @@ self.addEventListener('push', (event) => {
   const options = {
     body: payload.body || '',
     tag: payload.tag || 'mindflow',
-    icon: '/mindle_mark_black.svg',
-    badge: '/mindle_mark_black.svg',
+    icon: '/icons/mindflow-192.png',
+    badge: '/mindle_mark_white.svg',
     data: { url: payload.url || '/' }
   };
 

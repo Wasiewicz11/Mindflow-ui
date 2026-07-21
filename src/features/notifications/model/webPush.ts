@@ -50,7 +50,32 @@ export async function createPushSubscription(): Promise<PushSubscriptionPayload>
     p256dh,
     auth,
     timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC',
+    deviceName: getDeviceName(),
   };
+}
+
+function getDeviceName(): string {
+  const userAgent = navigator.userAgent;
+  const platform = /iPhone/.test(userAgent)
+    ? 'iPhone'
+    : /iPad/.test(userAgent) || (/Macintosh/.test(userAgent) && navigator.maxTouchPoints > 1)
+      ? 'iPad'
+      : /Android/.test(userAgent)
+        ? 'Android'
+        : /Windows/.test(userAgent)
+          ? 'Windows'
+          : /Macintosh|Mac OS X/.test(userAgent)
+            ? 'Mac'
+            : 'Urządzenie';
+  const browser = /CriOS|Chrome/.test(userAgent)
+    ? 'Chrome'
+    : /FxiOS|Firefox/.test(userAgent)
+      ? 'Firefox'
+      : /EdgiOS|Edg\//.test(userAgent)
+        ? 'Edge'
+        : 'Safari';
+
+  return `${platform} - ${browser}`;
 }
 
 function decodeApplicationServerKey(value: string): Uint8Array<ArrayBuffer> {

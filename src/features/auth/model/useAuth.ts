@@ -178,7 +178,8 @@ export function useAuth() {
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: handleCredential,
-      auto_select: true,
+      // A manual choice is more reliable in iOS standalone PWA windows after logout.
+      auto_select: false,
     });
     window.google.accounts.id.renderButton(buttonEl, {
       theme: 'filled_black',

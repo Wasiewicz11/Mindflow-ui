@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Bell, BellOff, Check, Clock3, Send, Smartphone, Volume2 } from 'lucide-react';
+import { Bell, BellOff, Check, Clock3, MonitorSmartphone, Send, Smartphone, Volume2 } from 'lucide-react';
 import {
   getNotificationSettings,
+  getPushSubscriptions,
   removePushSubscription,
   savePushSubscription,
   sendNotificationTest,
   updateNotificationSettings,
   type NotificationSettings,
+  type PushNotificationSubscription,
   type UpdateNotificationSettings,
 } from '../api/notificationsApi';
 import {
@@ -20,7 +22,7 @@ interface PushNotificationsSettingsProps {
   isLoggedIn: boolean;
 }
 
-type BusyAction = 'subscription' | 'settings' | 'test' | null;
+type BusyAction = 'subscription' | 'settings' | 'test' | 'devices' | null;
 
 const DEFAULT_SETTINGS: UpdateNotificationSettings = {
   enabled: true,
@@ -52,6 +54,16 @@ function messageFromError(error: unknown) {
   return error instanceof Error
     ? error.message.replace(/^HTTP \d+:\s*/, '')
     : 'Nie udało się zapisać ustawień powiadomień.';
+}
+
+function formatDeviceTimestamp(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return new Intl.DateTimeFormat('pl-PL', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
 }
 
 interface ToggleProps {
@@ -120,6 +132,8 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
   const [settings, setSettings] = useState<NotificationSettings | null>(null);
   const [permission, setPermission] = useState<NotificationPermission | 'unsupported'>(getPushPermission);
   const [deviceSubscribed, setDeviceSubscribed] = useState(false);
+  const [currentEndpoint, setCurrentEndpoint] = useState<string | null>(null);
+  const [subscriptions, setSubscriptions] = useState<PushNotificationSubscription[]>([]);
   const [busy, setBusy] = useState<BusyAction>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -127,7 +141,19 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
 
   const refreshDeviceStatus = async () => {
     setPermission(getPushPermission());
-    setDeviceSubscribed(Boolean(await getCurrentPushSubscription()));
+    const subscription = await getCurrentPushSubscription();
+    setDeviceSubscribed(Boolean(subscription));
+    setCurrentEndpoint(subscription?.endpoint ?? null);
+  };
+
+  const refreshSubscriptions = async () => {
+    setSubscriptions(await getPushSubscriptions());
+  };
+
+  const refreshSettings = async () => {
+    const nextSettings = await getNotificationSettings();
+    setSettings(nextSettings);
+    return nextSettings;
   };
 
   useEffect(() => {
@@ -136,7 +162,7 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
     let cancelled = false;
     const load = async () => {
       try {
-        const [nextSettings] = await Promise.all([getNotificationSettings(), refreshDeviceStatus()]);
+        const [nextSettings] = await Promise.all([getNotificationSettings(), refreshDeviceStatus(), refreshSubscriptions()]);
         if (!cancelled) setSettings(nextSettings);
       } catch (loadError) {
         if (!cancelled) setError(messageFromError(loadError));
@@ -162,7 +188,7 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
       setError(null);
       const subscription = await createPushSubscription();
       await savePushSubscription(subscription);
-      await refreshDeviceStatus();
+      await Promise.all([refreshDeviceStatus(), refreshSubscriptions(), refreshSettings()]);
       setNotice('Powiadomienia są włączone na tym urządzeniu.');
     } catch (subscriptionError) {
       setError(messageFromError(subscriptionError));
@@ -176,12 +202,15 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
       setBusy('subscription');
       setNotice(null);
       setError(null);
-      const subscription = await getCurrentPushSubscription();
-      if (subscription) {
-        await removePushSubscription(subscription.endpoint);
-        await subscription.unsubscribe();
+      const browserSubscription = await getCurrentPushSubscription();
+      const currentDevice = subscriptions.find(subscription => subscription.endpoint === browserSubscription?.endpoint);
+      if (currentDevice) {
+        await removePushSubscription(currentDevice.id);
       }
-      await refreshDeviceStatus();
+      if (browserSubscription) {
+        await browserSubscription.unsubscribe();
+      }
+      await Promise.all([refreshDeviceStatus(), refreshSubscriptions(), refreshSettings()]);
       setNotice('Powiadomienia na tym urządzeniu są wyłączone.');
     } catch (subscriptionError) {
       setError(messageFromError(subscriptionError));
@@ -221,12 +250,34 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
     }
   };
 
+  const handleRemoveDevice = async (subscription: PushNotificationSubscription) => {
+    if (subscription.endpoint === currentEndpoint) {
+      await handleDisableDevice();
+      return;
+    }
+
+    try {
+      setBusy('devices');
+      setNotice(null);
+      setError(null);
+      await removePushSubscription(subscription.id);
+      await Promise.all([refreshSubscriptions(), refreshSettings()]);
+      setNotice(`Powiadomienia na urządzeniu „${subscription.deviceName}” są wyłączone.`);
+    } catch (removeError) {
+      setError(messageFromError(removeError));
+    } finally {
+      setBusy(null);
+    }
+  };
+
   const deviceStatus = !supported
     ? 'Niedostępne w tej przeglądarce'
     : permission === 'denied'
       ? 'Zablokowane w urządzeniu'
-      : deviceSubscribed
+      : subscriptions.some(subscription => subscription.endpoint === currentEndpoint)
         ? 'Aktywne na tym urządzeniu'
+        : deviceSubscribed
+          ? 'Niepołączone z kontem'
         : 'Nieaktywne na tym urządzeniu';
 
   if (!settings) {
@@ -234,6 +285,7 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
   }
 
   const scheduleDisabled = busy === 'settings' || !settings.enabled;
+  const currentDevice = subscriptions.find(subscription => subscription.endpoint === currentEndpoint);
 
   return (
     <div className="space-y-5">
@@ -249,17 +301,17 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {!deviceSubscribed && supported && permission !== 'denied' && (
+          {!currentDevice && supported && permission !== 'denied' && (
             <button
               type="button"
               onClick={handleEnableDevice}
               disabled={busy !== null}
               className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-[#0f1115] px-3.5 text-sm font-medium text-white transition-[background-color,transform,opacity] duration-200 ease hover:-translate-y-px hover:bg-[#23262d] focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] disabled:cursor-not-allowed disabled:opacity-40 dark:bg-white dark:text-[#18181B] dark:hover:bg-[#e8e8e4] dark:focus:ring-white/15"
             >
-              <Bell size={15} /> {busy === 'subscription' ? 'Włączanie...' : 'Włącz powiadomienia'}
+              <Bell size={15} /> {busy === 'subscription' ? 'Włączanie...' : deviceSubscribed ? 'Połącz powiadomienia' : 'Włącz powiadomienia'}
             </button>
           )}
-          {deviceSubscribed && (
+          {currentDevice && (
             <>
               <button
                 type="button"
@@ -287,6 +339,50 @@ export function PushNotificationsSettings({ isLoggedIn }: PushNotificationsSetti
         <p className="rounded-xl border border-[#f3d4d4] bg-[#fff8f8] px-4 py-3 text-sm text-[#9f2f2f] dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-200">
           Powiadomienia są zablokowane dla Mindflow w ustawieniach urządzenia.
         </p>
+      )}
+
+      {subscriptions.length > 0 && (
+        <div className="border-t border-[#f1f0ed] pt-5 dark:border-white/6">
+          <div className="max-w-lg">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Podpięte urządzenia</p>
+            <p className="mt-1 flex items-center gap-2 text-base font-semibold text-[#0f1115] dark:text-white">
+              <MonitorSmartphone size={16} className="text-[#5a606b] dark:text-gray-400" /> Zarządzaj powiadomieniami na każdym urządzeniu
+            </p>
+          </div>
+
+          <div className="mt-3 divide-y divide-[#f1f0ed] border-y border-[#f1f0ed] dark:divide-white/6 dark:border-white/6">
+            {subscriptions.map((subscription) => {
+              const isCurrentDevice = subscription.id === currentDevice?.id;
+
+              return (
+                <div key={subscription.id} className="flex min-w-0 items-center justify-between gap-3 py-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <MonitorSmartphone size={17} className="shrink-0 text-[#5a606b] dark:text-gray-400" />
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-[#0f1115] dark:text-white">
+                        {subscription.deviceName}
+                        {isCurrentDevice && <span className="ml-2 text-[12px] font-normal text-[#9098a4] dark:text-gray-400">To urządzenie</span>}
+                      </p>
+                      <p className="mt-0.5 text-[12px] text-[#9098a4] dark:text-gray-400">
+                        Ostatnia aktywność: {formatDeviceTimestamp(subscription.updatedAt)}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleRemoveDevice(subscription)}
+                    disabled={busy !== null}
+                    title={`Wyłącz powiadomienia na urządzeniu ${subscription.deviceName}`}
+                    aria-label={`Wyłącz powiadomienia na urządzeniu ${subscription.deviceName}`}
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-[#f3d4d4] bg-[#fff8f8] text-[#b93838] transition-[background-color,border-color,color,opacity] duration-200 ease hover:border-[#efc3c3] hover:bg-[#fff1f1] focus:outline-none focus:ring-2 focus:ring-[#efc3c3] disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-300 dark:hover:bg-red-950/30 dark:focus:ring-red-900/60"
+                  >
+                    <BellOff size={16} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       )}
 
       <div className="border-t border-[#f1f0ed] pt-5 dark:border-white/6">

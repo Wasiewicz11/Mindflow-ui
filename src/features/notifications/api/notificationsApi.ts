@@ -20,6 +20,15 @@ export interface PushSubscriptionPayload {
   p256dh: string;
   auth: string;
   timeZone: string;
+  deviceName: string;
+}
+
+export interface PushNotificationSubscription {
+  id: string;
+  endpoint: string;
+  deviceName: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
@@ -40,10 +49,13 @@ export async function savePushSubscription(subscription: PushSubscriptionPayload
   });
 }
 
-export async function removePushSubscription(endpoint: string): Promise<void> {
-  return apiFetch<void>('/notifications/subscriptions', {
+export async function getPushSubscriptions(): Promise<PushNotificationSubscription[]> {
+  return apiFetch<PushNotificationSubscription[]>('/notifications/subscriptions');
+}
+
+export async function removePushSubscription(subscriptionId: string): Promise<void> {
+  return apiFetch<void>(`/notifications/subscriptions/${subscriptionId}`, {
     method: 'DELETE',
-    body: JSON.stringify({ endpoint }),
   });
 }
 

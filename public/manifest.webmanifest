@@ -1,0 +1,16 @@
+{
+  "name": "Mindflow",
+  "short_name": "Mindflow",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f7f4",
+  "theme_color": "#0f1115",
+  "icons": [
+    {
+      "src": "/mindle_mark_black.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -7,7 +7,7 @@ import { BrainView } from '../features/brain';
 import { GoalsView } from '../features/goals';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
-import { PushNotificationsSettings } from '../features/notifications';
+import { NotificationCenter, PushNotificationsSettings } from '../features/notifications';
 import { Bell, Brain, Target } from 'lucide-react';
 import {
   loadPomodoroSettings,
@@ -31,7 +31,7 @@ import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton, 
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
-type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
+type ActiveTab = 'dashboard' | 'inbox' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
 type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
 type EffectiveTheme = 'light' | 'dark' | 'gray';
 
@@ -54,6 +54,7 @@ export function AppShell() {
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [selectedNotificationId, setSelectedNotificationId] = useState<string | null>(null);
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
   const [isUserLoading, setIsUserLoading] = useState(false);
@@ -92,6 +93,20 @@ export function AppShell() {
     void Promise.resolve().then(() => {
       setActiveTab('settings');
       setGoogleNotice(message);
+    });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const notificationId = params.get('notification');
+    if (!notificationId || !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(notificationId)) return;
+
+    params.delete('notification');
+    const query = params.toString();
+    window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    void Promise.resolve().then(() => {
+      setActiveTab('inbox');
+      setSelectedNotificationId(notificationId);
     });
   }, []);
 
@@ -510,6 +525,7 @@ export function AppShell() {
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
                     {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
+                    {activeTab === 'inbox' && 'Powiadomienia.'}
                     {activeTab === 'notes' && 'Twoja baza wiedzy.'}
                     {activeTab === 'tasks' && 'Wszystkie zadania.'}
                     {activeTab === 'goals' && 'Cele.'}
@@ -519,6 +535,7 @@ export function AppShell() {
                   </h1>
                   <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
                     {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
+                    {activeTab === 'inbox' && 'Briefy i podsumowania dnia, które możesz przeczytać w dowolnym momencie.'}
                     {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
                     {activeTab === 'goals' && 'Planuj dzień wokół konkretnych wyników i nawyków.'}
                     {activeTab === 'brain' && 'Mapa celów i zależności.'}
@@ -528,19 +545,37 @@ export function AppShell() {
                 </div>
               )}
 
-              {activeTab === 'tasks' && (
-                <div className="mf-segmented">
-                  {(['list', 'week', 'board'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setTaskViewMode(mode)}
-                      className={`mf-segmented-option ${taskViewMode === mode ? 'is-active' : ''}`}
-                    >
-                      {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <div className="flex items-center gap-2 self-end lg:self-auto">
+                {activeTab === 'tasks' && (
+                  <div className="mf-segmented">
+                    {(['list', 'week', 'board'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => setTaskViewMode(mode)}
+                        className={`mf-segmented-option ${taskViewMode === mode ? 'is-active' : ''}`}
+                      >
+                        {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTab('inbox');
+                    setActiveProjectId(null);
+                  }}
+                  title="Otwórz centrum powiadomień"
+                  aria-label="Otwórz centrum powiadomień"
+                  className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-[#d9d9d4] dark:focus:ring-white/15 ${
+                    activeTab === 'inbox'
+                      ? 'border-[#d9d9d4] bg-[#f1f0ed] text-[#0f1115] dark:border-white/15 dark:bg-white/10 dark:text-white'
+                      : 'border-[#e8e8e4] bg-[#f7f7f4] text-[#5a606b] hover:bg-[#f1f0ed] dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8'
+                  }`}
+                >
+                  <Bell size={18} />
+                </button>
+              </div>
             </header>
 
             <div
@@ -613,6 +648,13 @@ export function AppShell() {
                     </>
                   )}
                 </div>
+              )}
+
+              {activeTab === 'inbox' && (
+                <NotificationCenter
+                  isLoggedIn={isLoggedIn}
+                  selectedNotificationId={selectedNotificationId}
+                />
               )}
 
               {activeTab === 'tasks' && (

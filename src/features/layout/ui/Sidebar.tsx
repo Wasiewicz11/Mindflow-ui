@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Target } from 'lucide-react';
+import { Bell, Brain, Target } from 'lucide-react';
 import type { User, Space, Project } from '../../../shared/types';
 import { BrandMark } from '../../../shared/ui/BrandMark';
 import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkeletons';
@@ -7,8 +7,8 @@ import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkelet
 type ActiveTab = SidebarContentProps['activeTab'];
 
 export interface SidebarContentProps {
-  activeTab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings') => void;
+  activeTab: 'dashboard' | 'inbox' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
+  setActiveTab: (tab: 'dashboard' | 'inbox' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings') => void;
   user: User | null;
   spaces: Space[];
   projects: Project[];
@@ -50,6 +50,9 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({
       id: 'dashboard', label: 'Centrum', icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
       )
+    },
+    {
+      id: 'inbox', label: 'Powiadomienia', icon: <Bell className="h-5 w-5" />
     },
     {
       id: 'notes', label: 'Wiedza', icon: (

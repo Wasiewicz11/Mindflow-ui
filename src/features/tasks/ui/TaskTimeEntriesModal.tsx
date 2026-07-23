@@ -60,7 +60,9 @@ function toDateKey(date = new Date()) {
 }
 
 function parseHours(value: string) {
-  const parsed = Number(value.replace(',', '.').trim());
+  const normalized = value.replace(',', '.').trim();
+  if (!/^(?:\d+|\d*[.]\d+)$/.test(normalized)) return undefined;
+  const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
@@ -121,8 +123,9 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
     if (isQuickAdding) return;
 
     const hours = parseHours(quickHours);
-    if (hours === undefined) {
-      setActionError('Podaj liczbę godzin.');
+    const durationMinutes = hours === undefined ? 0 : Math.round(hours * 60);
+    if (durationMinutes <= 0) {
+      setActionError('Podaj liczbę godzin większą od 0.');
       return;
     }
 
@@ -131,7 +134,7 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
     try {
       const response = await createTaskTimeEntry(task.id, {
         workDate: toDateKey(),
-        durationMinutes: Math.round(hours * 60),
+        durationMinutes,
       });
       applyEntries([response.timeEntry, ...entries]);
       onTaskUpdated?.(mapApiTask(response.task));
@@ -203,13 +206,12 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
             >
               <Clock size={15} className="flex-none text-orange-500" />
               <input
-                type="number"
+                type="text"
                 inputMode="decimal"
-                min="0.01"
-                step="0.25"
                 value={quickHours}
                 onChange={event => setQuickHours(event.target.value)}
                 placeholder="0 h"
+                autoComplete="off"
                 className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[#0f1115] outline-none placeholder:text-[#c0c5cc] dark:text-white"
                 aria-label="Liczba godzin"
               />

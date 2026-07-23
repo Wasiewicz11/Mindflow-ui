@@ -43,17 +43,19 @@ function toDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function parsePositiveDecimal(value: string): number | undefined {
+function parseDecimal(value: string, { allowZero = false }: { allowZero?: boolean } = {}): number | undefined {
   const normalized = value.replace(',', '.').trim();
   if (!normalized) return undefined;
+  if (!/^(?:\d+|\d*[.]\d+)$/.test(normalized)) return undefined;
   const parsed = Number(normalized);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  return Number.isFinite(parsed) && (allowZero ? parsed >= 0 : parsed > 0) ? parsed : undefined;
 }
 
 function parseDurationMinutes(value: string): number | undefined {
-  const hours = parsePositiveDecimal(value);
+  const hours = parseDecimal(value);
   if (hours === undefined) return undefined;
-  return Math.round(hours * 60);
+  const minutes = Math.round(hours * 60);
+  return minutes > 0 ? minutes : undefined;
 }
 
 function parseTimeToMinutes(value: string) {
@@ -122,7 +124,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
   function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | UpdateTaskTimeEntryDto | null {
     setError(null);
     const dto: CompleteTaskDto = {};
-    const estimate = parsePositiveDecimal(estimatedHours);
+    const estimate = parseDecimal(estimatedHours, { allowZero: true });
     const clearedEstimate = estimatedHours.trim() === '' && (task.estimatedHours != null || entry?.estimatedHours != null);
     const durationMinutes = parseDurationMinutes(durationHours);
     const hasStartOrEnd = Boolean(startTime || endTime);
@@ -257,13 +259,12 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
               </span>
               <div className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326]">
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  min="0"
-                  step="0.25"
                   value={estimatedHours}
                   onChange={e => setEstimatedHours(e.target.value)}
                   placeholder="Opcjonalnie"
+                  autoComplete="off"
                   className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
                 />
                 <span className="text-[12px] font-medium text-[#9098a4]">h</span>
@@ -289,13 +290,12 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                 </span>
                 <div className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326]">
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min="0"
-                    step="0.25"
                     value={durationHours}
                     onChange={e => setDurationHours(e.target.value)}
                     placeholder="Opcjonalnie"
+                    autoComplete="off"
                     className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
                   />
                   <span className="text-[12px] font-medium text-[#9098a4]">h</span>

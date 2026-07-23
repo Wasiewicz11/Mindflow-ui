@@ -98,8 +98,10 @@ function stringArraysEqual(a: string[] = [], b: string[] = []) {
 }
 
 function parseEstimatedHours(value: string): number | undefined {
-  const parsed = Number(value);
-  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  const normalized = value.replace(',', '.').trim();
+  if (!normalized || !/^(?:\d+|\d*[.]\d+)$/.test(normalized)) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
 }
 
 function getSubtaskStatus(subtask: Subtask): TaskStatus {
@@ -754,13 +756,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               <span className={LABEL}><ClockIcon /> Estymanta</span>
               <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  min="0"
-                  step="0.5"
                   value={estimatedHours}
                   onChange={e => setEstimatedHours(e.target.value)}
                   placeholder="—"
+                  autoComplete="off"
                   className="w-16 bg-transparent outline-none text-[13px]"
                   style={{ color: estimatedHours ? '#0f1115' : '#b0b5be' }}
                 />

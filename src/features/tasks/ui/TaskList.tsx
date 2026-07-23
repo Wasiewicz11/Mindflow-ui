@@ -1,9 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { Clock } from 'lucide-react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../api/timeEntriesApi';
+import { formatLoggedHours } from '../model/timeFormatting';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
+import { TaskTimeEntryModal } from './TaskTimeEntryModal';
 
 const STATUS_META: Record<string, { label: string; dot: string; fg: string; bg: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)', fg: 'oklch(0.55 0.01 260)', bg: 'oklch(0.96 0.005 260)' },
@@ -16,6 +20,8 @@ interface TaskListProps {
   projects?: Project[];
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
+  onLogTime?: (id: string, dto: CreateTaskTimeEntryDto) => void | Promise<void>;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onClearCompleted?: () => void;
@@ -31,6 +37,8 @@ const TaskList: React.FC<TaskListProps> = ({
   projects = [],
   onToggle,
   onEdit,
+  onComplete,
+  onLogTime,
   onDelete,
   onAdd,
   onClearCompleted,
@@ -42,6 +50,7 @@ const TaskList: React.FC<TaskListProps> = ({
 }) => {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [loggingTask, setLoggingTask] = useState<Task | null>(null);
   const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
   const [closingTasks, setClosingTasks] = useState<Record<string, 'fading' | 'collapsing'>>({});
 
@@ -190,6 +199,7 @@ const TaskList: React.FC<TaskListProps> = ({
     const isClosing = !!closingPhase;
     const subtaskProgress = getSubtaskProgress(task);
     const dueSubtasks = showDueSubtasks ? (task.dueSubtasks ?? []).filter(subtask => !subtask.isCompleted) : [];
+    const loggedLabel = task.loggedMinutes && task.loggedMinutes > 0 ? formatLoggedHours(task.loggedMinutes) : null;
 
     return (
       <div
@@ -253,10 +263,11 @@ const TaskList: React.FC<TaskListProps> = ({
                 </div>
               </div>
             )}
-            {compactMode && (dueLabel || isOverdue) && !task.isCompleted && (
+            {compactMode && (dueLabel || isOverdue || loggedLabel) && !task.isCompleted && (
               <div className={`flex items-center text-[9px] mt-0.5 ${isOverdue ? 'text-red-500' : 'text-gray-400 dark:text-gray-500'}`}>
-                <span>{dueLabel}</span>
+                {(dueLabel || task.dueDate) && <span>{dueLabel || task.dueDate}</span>}
                 {project && <span className="mx-1">• {project.name}</span>}
+                {loggedLabel && <span className="font-semibold text-orange-500">{loggedLabel}</span>}
               </div>
             )}
             {dueSubtasks.length > 0 && (
@@ -274,6 +285,13 @@ const TaskList: React.FC<TaskListProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {loggedLabel && !compactMode && !isSelectionMode && (
+            <span className="inline-flex flex-none items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-500" title="Zarejestrowane godziny">
+              <Clock className="h-3 w-3" />
+              {loggedLabel}
+            </span>
+          )}
+
           {subtaskProgress.total > 0 && !isSelectionMode && (
             <span className="flex-none rounded-md bg-[#f7f7f4] px-1.5 py-0.5 text-[11px] font-semibold text-[#9098a4]" title="Wykonane podzadania">
               {subtaskProgress.completed}/{subtaskProgress.total}
@@ -284,10 +302,19 @@ const TaskList: React.FC<TaskListProps> = ({
             <div className="
               flex items-center justify-center
               w-0 opacity-0 translate-x-4
-              group-hover:w-8 group-hover:opacity-100 group-hover:translate-x-0
+              group-hover:w-16 group-hover:opacity-100 group-hover:translate-x-0
               transition-all duration-300 ease-out
               overflow-hidden
             ">
+              {onLogTime && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setLoggingTask(task); }}
+                  className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-[#0f1115] dark:hover:text-gray-200 hover:bg-[#f1f0ed] dark:hover:bg-white/8 rounded-lg transition-colors"
+                  title="Zarejestruj czas"
+                >
+                  <Clock className="h-4 w-4" />
+                </button>
+              )}
               <button
                 onClick={(e) => { e.stopPropagation(); onDelete(task.id); }}
                 className="p-1.5 text-gray-300 dark:text-gray-600 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -515,7 +542,18 @@ const TaskList: React.FC<TaskListProps> = ({
           onSave={updates => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onComplete={onComplete}
           onClose={() => setEditingTask(null)}
+        />
+      )}
+
+      {loggingTask && onLogTime && (
+        <TaskTimeEntryModal
+          mode="log"
+          task={loggingTask}
+          projects={projects}
+          onLogTime={onLogTime}
+          onClose={() => setLoggingTask(null)}
         />
       )}
 

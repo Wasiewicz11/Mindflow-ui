@@ -10,6 +10,7 @@ export interface ApiTask {
   dueDate?: string;
   dueTime?: string;
   estimatedHours?: number;
+  loggedMinutes?: number;
   projectId?: string;
   createdAt?: string;
   tags?: string[];
@@ -51,6 +52,7 @@ export function mapApiTask(task: ApiTask): Task {
     dueDate: task.dueDate,
     dueTime: task.dueTime?.slice(0, 5),
     estimatedHours: task.estimatedHours,
+    loggedMinutes: task.loggedMinutes ?? 0,
     project_id: task.projectId ?? null,
     createdAt: task.createdAt ? new Date(task.createdAt) : new Date(),
     tags: task.tags,

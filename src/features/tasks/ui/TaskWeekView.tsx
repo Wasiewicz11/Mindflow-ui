@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import type { CompleteTaskDto } from '../api/timeEntriesApi';
 import { TaskEditModal } from './TaskEditModal';
 import { WeekViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
 
@@ -15,13 +16,14 @@ interface TaskWeekViewProps {
   tasks: Task[];
   projects?: Project[];
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
   onToggle: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
   onDelete?: (id: string) => void;
   isLoading?: boolean;
 }
 
-const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdit, onToggle, onAdd, onDelete, isLoading = false }) => {
+const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdit, onComplete, onToggle, onAdd, onDelete, isLoading = false }) => {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -321,6 +323,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
           onSave={updates => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete?.(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onComplete={onComplete}
           onClose={() => setEditingTask(null)}
         />
       )}

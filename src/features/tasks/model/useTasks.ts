@@ -1,6 +1,12 @@
 import * as signalR from '@microsoft/signalr';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createTask, deleteTask, getTasks, updateTask } from '../api/tasksApi';
+import {
+  completeTask as completeTaskApi,
+  createTaskTimeEntry,
+  type CompleteTaskDto,
+  type CreateTaskTimeEntryDto,
+} from '../api/timeEntriesApi';
 import type { Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { getToken } from '../../../shared/api/client';
 import { mapApiTask, toCreateTaskDto, toUpdateTaskDto } from '../model/taskModel';
@@ -88,11 +94,42 @@ export function useTasks(isLoggedIn: boolean) {
 
   const editTask = useCallback(async (id: string, updates: Partial<Task>) => {
     const dto = toUpdateTaskDto(updates);
-    if (Object.keys(dto).length === 0) return;
+    if (Object.keys(dto).length === 0) {
+      setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+      return;
+    }
 
     const updated = await updateTask(id, dto);
     const mappedUpdated = mapApiTask(updated);
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...mappedUpdated } : t));
+    setTasks(prev => prev.map(t => t.id === id
+      ? { ...t, ...mappedUpdated, loggedMinutes: updated.loggedMinutes ?? t.loggedMinutes ?? 0 }
+      : t));
+  }, []);
+
+  const completeTask = useCallback(async (id: string, dto: CompleteTaskDto) => {
+    const completed = await completeTaskApi(id, dto);
+    const mappedTask = mapApiTask(completed.task);
+    setTasks(prev => prev.map(t => t.id === id
+      ? {
+          ...t,
+          ...mappedTask,
+          loggedMinutes: completed.task.loggedMinutes ?? ((t.loggedMinutes ?? 0) + (completed.timeEntry?.durationMinutes ?? 0)),
+        }
+      : t));
+    return mappedTask;
+  }, []);
+
+  const logTimeEntry = useCallback(async (id: string, dto: CreateTaskTimeEntryDto) => {
+    const created = await createTaskTimeEntry(id, dto);
+    const mappedTask = mapApiTask(created.task);
+    setTasks(prev => prev.map(t => t.id === id
+      ? {
+          ...t,
+          ...mappedTask,
+          loggedMinutes: created.task.loggedMinutes ?? ((t.loggedMinutes ?? 0) + created.timeEntry.durationMinutes),
+        }
+      : t));
+    return created.timeEntry;
   }, []);
 
   const removeTask = useCallback(async (id: string) => {
@@ -100,5 +137,5 @@ export function useTasks(isLoggedIn: boolean) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return { tasks, isLoading, addTask, editTask, removeTask, refreshTasks: fetchTasks };
+  return { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks: fetchTasks };
 }

@@ -304,7 +304,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
 
             {/* Estimated hours */}
             <div className={ROW} style={{ cursor: 'default' }}>
-              <span className={LABEL}><ClockIcon /> Czas</span>
+              <span className={LABEL}><ClockIcon /> Estymanta</span>
               <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
                   type="number"

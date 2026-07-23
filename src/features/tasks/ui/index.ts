@@ -7,4 +7,6 @@ export { CalendarView } from './CalendarView';
 export { QuickAddTask } from './QuickAddTask';
 export { TaskAddModal } from './TaskAddModal';
 export { TaskEditModal } from './TaskEditModal';
+export { TaskTimeEntriesModal } from './TaskTimeEntriesModal';
+export { TaskTimeEntryModal } from './TaskTimeEntryModal';
 export { TasksView } from './TasksView';

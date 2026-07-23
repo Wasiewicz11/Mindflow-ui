@@ -70,6 +70,7 @@ export interface Task {
   dueTime?: string;
   clearDueTime?: boolean;
   estimatedHours?: number;
+  loggedMinutes?: number;
   createdAt: Date;
   source?: 'app' | 'telegram';
   project_id?: string | null;

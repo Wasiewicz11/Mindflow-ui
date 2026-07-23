@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
@@ -6,8 +6,12 @@ import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 import { getProjectTags } from '../../projects';
 import { createSubtask, deleteSubtask, getTask, reorderSubtasks, updateSubtask as updateSubtaskApi } from '../api/tasksApi';
+import { getTaskTimeEntries, type CompleteTaskDto } from '../api/timeEntriesApi';
 import { mapApiTask } from '../model/taskModel';
+import { formatLoggedHours } from '../model/timeFormatting';
 import { DescriptionField } from './DescriptionField';
+import { TaskTimeEntriesModal } from './TaskTimeEntriesModal';
+import { TaskTimeEntryModal } from './TaskTimeEntryModal';
 
 const DescriptionEditorModal = lazy(() =>
   import('./DescriptionEditorModal').then(m => ({ default: m.DescriptionEditorModal })),
@@ -19,6 +23,7 @@ interface Props {
   onSave: (updates: Partial<Task>) => void | Promise<void>;
   onDelete: () => void;
   onToggleComplete: () => void;
+  onComplete?: (taskId: string, dto: CompleteTaskDto) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -108,7 +113,7 @@ function subtaskStatusPatch(status: TaskStatus): Pick<Subtask, 'status' | 'isCom
   };
 }
 
-export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onClose }: Props) {
+export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onComplete, onClose }: Props) {
   const [loadedTask, setLoadedTask] = useState(task);
   const [content, setContent]       = useState(task.content);
   const [priority, setPriority]     = useState(task.priority);
@@ -127,12 +132,31 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [showStatusPicker, setShowStatusPicker]     = useState(false);
   const [showProjectPicker, setShowProjectPicker]   = useState(false);
   const [showDatePicker, setShowDatePicker]         = useState(false);
+  const [subtaskStatusPicker, setSubtaskStatusPicker] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [subtaskDatePicker, setSubtaskDatePicker] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [subtaskDescriptionEditorId, setSubtaskDescriptionEditorId] = useState<string | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [showTimeEntriesModal, setShowTimeEntriesModal] = useState(false);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
+  const onSaveRef = useRef(onSave);
+  const loggedMinutesRef = useRef(task.loggedMinutes ?? 0);
+
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+
+  const syncLoggedMinutes = useCallback((minutes: number) => {
+    const nextMinutes = Math.max(0, Math.round(minutes));
+    if (loggedMinutesRef.current === nextMinutes) return;
+
+    loggedMinutesRef.current = nextMinutes;
+    setLoadedTask(prev => ({ ...prev, loggedMinutes: nextMinutes }));
+    void onSaveRef.current({ loggedMinutes: nextMinutes });
+  }, []);
 
   function applyTaskDetails(nextTask: Task) {
+    loggedMinutesRef.current = nextTask.loggedMinutes ?? 0;
     setLoadedTask(nextTask);
     setContent(nextTask.content);
     setPriority(nextTask.priority);
@@ -143,7 +167,11 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     setProjectId(nextTask.project_id ?? '');
     setDescription(nextTask.description ?? '');
     setTags(nextTask.tags ?? []);
-    setSubtasks(nextTask.subtasks ?? []);
+    setSubtasks((nextTask.subtasks ?? []).map(subtask => ({
+      ...subtask,
+      status: getSubtaskStatus(subtask),
+      isCompleted: getSubtaskStatus(subtask) === 'Completed',
+    })));
     setNewTag('');
     setNewSubtask('');
   }
@@ -152,9 +180,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     let isActive = true;
 
     getTask(task.id)
-      .then(apiTask => {
+      .then(async apiTask => {
         if (!isActive) return;
         applyTaskDetails(mapApiTask(apiTask));
+        const entries = await getTaskTimeEntries(task.id);
+        if (!isActive) return;
+        syncLoggedMinutes(entries.reduce((sum, entry) => sum + entry.durationMinutes, 0));
       })
       .catch(error => {
         console.warn('Failed to fetch task details:', error);
@@ -163,7 +194,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     return () => {
       isActive = false;
     };
-  }, [task.id]);
+  }, [syncLoggedMinutes, task.id]);
 
   useEffect(() => {
     let isActive = true;
@@ -198,11 +229,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const activeProject = projects.find(p => p.id === projectId);
   const p = PRIORITY[priority] ?? PRIORITY[TaskPriority.P4];
   const s = STATUS_OPTIONS[status] ?? STATUS_OPTIONS.NotStarted;
+  const loggedMinutes = loadedTask.loggedMinutes ?? 0;
 
-  const completedSubtasks = subtasks.filter(s => s.isCompleted).length;
+  const completedSubtasks = subtasks.filter(subtask => getSubtaskStatus(subtask) === 'Completed').length;
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
 
-  function save() {
+  async function save() {
     const updates: Partial<Task> = {
       content: content.trim() || loadedTask.content,
       priority,
@@ -233,7 +265,18 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       updates.tags = tags;
     }
 
-    onSave(updates);
+    await onSave(updates);
+  }
+
+  async function openCompletionModal() {
+    if (loadedTask.isCompleted || !onComplete) {
+      onToggleComplete();
+      onClose();
+      return;
+    }
+
+    await save();
+    setShowCompletionModal(true);
   }
 
   function applyApiTask(apiTask: Parameters<typeof mapApiTask>[0]) {
@@ -319,7 +362,16 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
         setSubtasks(subtasks);
       });
     if (subtaskDatePicker?.id === id) setSubtaskDatePicker(null);
+    if (subtaskStatusPicker?.id === id) setSubtaskStatusPicker(null);
     if (subtaskDescriptionEditorId === id) setSubtaskDescriptionEditorId(null);
+  }
+
+  function updateSubtaskStatus(id: string, nextStatus: TaskStatus) {
+    updateSubtask(id, {
+      status: nextStatus,
+      isCompleted: nextStatus === 'Completed',
+    }, true);
+    setSubtaskStatusPicker(null);
   }
 
   function moveSubtask(id: string, direction: -1 | 1) {
@@ -341,13 +393,13 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   // close pickers when clicking outside modal — handled by backdrop
   function handleBackdropClick() {
-    save();
+    void save();
     onClose();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') { save(); onClose(); }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { save(); onClose(); }
+    if (e.key === 'Escape') { void save(); onClose(); }
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { void save(); onClose(); }
   }
 
   const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
@@ -359,6 +411,32 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     return !tags.some(selected => selected.toLowerCase() === tag.toLowerCase())
       && (!query || tag.toLowerCase().includes(query));
   });
+
+  if (showCompletionModal) {
+    return (
+      <TaskTimeEntryModal
+        mode="complete"
+        task={{
+          ...loadedTask,
+          content: content.trim() || loadedTask.content,
+          priority,
+          status,
+          dueDate: dueDate || undefined,
+          estimatedHours: parseEstimatedHours(estimatedHours),
+          loggedMinutes,
+          project_id: projectId || null,
+          description,
+          tags,
+        }}
+        projects={projects}
+        onComplete={async (taskId, dto) => {
+          await onComplete?.(taskId, dto);
+          onClose();
+        }}
+        onClose={() => setShowCompletionModal(false)}
+      />
+    );
+  }
 
   return createPortal(
     <div
@@ -392,8 +470,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           style={{ borderBottom: '1px solid #f1f0ed' }}
         >
           {/* Complete toggle */}
-          <button
-            onClick={onToggleComplete}
+            <button
+              onClick={() => void openCompletionModal()}
             title="Oznacz jako wykonane"
             className="flex-none rounded-full border-2 transition-all hover:border-[#0f1115]"
             style={{
@@ -438,7 +516,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               </svg>
             </button>
             <button
-              onClick={() => { save(); onClose(); }}
+              onClick={() => { void save(); onClose(); }}
               className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
               style={{ width: 28, height: 28 }}
             >
@@ -663,7 +741,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
             {/* Estimated hours */}
             <div className={ROW} style={{ cursor: 'default' }}>
-              <span className={LABEL}><ClockIcon /> Czas</span>
+              <span className={LABEL}><ClockIcon /> Estymanta</span>
               <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
                   type="number"
@@ -679,6 +757,17 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 {parseEstimatedHours(estimatedHours) != null && <span className="text-[12px] text-[#9098a4]">h</span>}
               </div>
             </div>
+
+            <button
+              type="button"
+              className={`${ROW} w-full text-left transition-colors duration-200 ease hover:bg-[#faf9f7]`}
+              onClick={() => setShowTimeEntriesModal(true)}
+            >
+              <span className={LABEL}><ClockIcon /> Godziny</span>
+              <span className={`${VALUE} font-semibold text-orange-500`}>
+                {formatLoggedHours(loggedMinutes)}
+              </span>
+            </button>
 
             {/* Tags */}
             <div className={`${ROW} flex-wrap`} style={{ borderBottom: 'none' }}>
@@ -756,10 +845,14 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             )}
 
             {/* Subtask list */}
-            <div className="space-y-1">
+            <div
+              className="max-h-[230px] space-y-1 overflow-y-auto pr-1 custom-scrollbar"
+              style={{ scrollbarGutter: 'stable' }}
+            >
               {subtasks.map((sub, index) => {
                 const subStatus = getSubtaskStatus(sub);
                 const subStatusMeta = STATUS_OPTIONS[subStatus] ?? STATUS_OPTIONS.NotStarted;
+                const isSubtaskCompleted = subStatus === 'Completed';
                 return (
                   <div key={sub.id} className="group/sub rounded-xl transition-colors hover:bg-[#f7f7f4]" style={{ padding: '6px 7px' }}>
                     <div className="flex items-center gap-2">
@@ -768,13 +861,13 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         className="flex-none rounded-[5px] border transition-all duration-200 ease hover:scale-110 hover:border-[#0f1115]"
                         style={{
                           width: 17, height: 17,
-                          borderColor: sub.isCompleted ? '#0f1115' : '#d4d4d0',
-                          background: sub.isCompleted ? '#0f1115' : 'transparent',
+                          borderColor: isSubtaskCompleted ? '#0f1115' : '#d4d4d0',
+                          background: isSubtaskCompleted ? '#0f1115' : 'transparent',
                           flexShrink: 0,
                         }}
-                        title={sub.isCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
+                        title={isSubtaskCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
                       >
-                        {sub.isCompleted && (
+                        {isSubtaskCompleted && (
                           <svg viewBox="0 0 24 24" width="8" height="8" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round">
                             <path d="M5 13l4 4L19 7"/>
                           </svg>
@@ -787,8 +880,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         onBlur={e => updateSubtask(sub.id, { content: e.currentTarget.value }, true)}
                         className="min-w-0 flex-1 bg-transparent text-[13px] outline-none transition-colors"
                         style={{
-                          color: sub.isCompleted ? '#9098a4' : '#0f1115',
-                          textDecoration: sub.isCompleted ? 'line-through' : 'none',
+                          color: isSubtaskCompleted ? '#9098a4' : '#0f1115',
+                          textDecoration: isSubtaskCompleted ? 'line-through' : 'none',
                         }}
                       />
 
@@ -819,22 +912,9 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          const rect = e.currentTarget.getBoundingClientRect();
-                          setSubtaskDatePicker(current => current?.id === sub.id ? null : { id: sub.id, rect });
-                        }}
-                        className="inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[11.5px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
-                        title="Termin podzadania"
-                      >
-                        <CalIcon />
-                        <span>{sub.dueDate ? new Date(sub.dueDate + 'T00:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—'}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
                           setSubtaskDescriptionEditorId(sub.id);
                           setSubtaskDatePicker(null);
+                          setSubtaskStatusPicker(null);
                         }}
                         className="flex h-7 w-7 flex-none items-center justify-center rounded-lg transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
                         style={{ color: sub.description?.trim() ? '#9098a4' : '#c0c5cc' }}
@@ -876,6 +956,39 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                           </svg>
                         </button>
                       </div>
+                    </div>
+
+                    <div className="ml-[25px] mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setSubtaskStatusPicker(current => current?.id === sub.id ? null : { id: sub.id, rect });
+                          setSubtaskDatePicker(null);
+                        }}
+                        className="inline-flex h-7 max-w-full flex-none items-center gap-1.5 rounded-lg px-1.5 text-[11.5px] font-semibold transition-colors duration-200 ease hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+                        style={{ color: subStatusMeta.fg }}
+                        title="Status podzadania"
+                      >
+                        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: subStatusMeta.dot }} />
+                        <span className="max-w-[130px] truncate">{subStatusMeta.name}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setSubtaskDatePicker(current => current?.id === sub.id ? null : { id: sub.id, rect });
+                          setSubtaskStatusPicker(null);
+                        }}
+                        className="inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[11.5px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+                        title="Termin podzadania"
+                      >
+                        <CalIcon />
+                        <span>{sub.dueDate ? new Date(sub.dueDate + 'T00:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }) : '—'}</span>
+                      </button>
                     </div>
                   </div>
                 );
@@ -934,6 +1047,52 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           document.body
         )}
 
+        {subtaskStatusPicker && typeof document !== 'undefined' && createPortal(
+          <>
+            <div
+              className="fixed inset-0 z-[70]"
+              onClick={() => setSubtaskStatusPicker(null)}
+            />
+            <div
+              className="fixed z-[71] overflow-hidden rounded-xl border border-[#e8e8e4] bg-white shadow-[0_8px_24px_-6px_rgba(15,17,21,.16)] transition duration-200 ease"
+              style={{
+                top: subtaskStatusPicker.rect.bottom + 6,
+                left: Math.max(8, Math.min(subtaskStatusPicker.rect.left, window.innerWidth - 198)),
+                minWidth: 190,
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {(Object.entries(STATUS_OPTIONS) as [TaskStatus, typeof STATUS_OPTIONS.NotStarted][]).map(([key, option]) => {
+                const activeStatus = getSubtaskStatus(subtasks.find(subtask => subtask.id === subtaskStatusPicker.id) ?? {
+                  id: subtaskStatusPicker.id,
+                  content: '',
+                  isCompleted: false,
+                });
+                const isActive = activeStatus === key;
+
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateSubtaskStatus(subtaskStatusPicker.id, key)}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-[13px] transition-colors duration-200 ease hover:bg-[#f7f7f4] focus-visible:outline focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[#0f1115]"
+                    style={{ color: isActive ? option.fg : '#0f1115', fontWeight: isActive ? 600 : 400 }}
+                  >
+                    <span className="h-2 w-2 flex-none rounded-full" style={{ background: option.dot }} />
+                    <span className="flex-1">{option.name}</span>
+                    {isActive && (
+                      <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 6 9 17l-5-5" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>,
+          document.body
+        )}
+
         {editingSubtaskDescription && (
           <Suspense fallback={null}>
             <DescriptionEditorModal
@@ -957,7 +1116,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             <span>⌘ + Enter aby zapisać</span>
           </div>
           <button
-            onClick={() => { onToggleComplete(); onClose(); }}
+            onClick={() => void openCompletionModal()}
             className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80"
             style={{ padding: '8px 16px', background: '#0f1115' }}
           >
@@ -967,6 +1126,18 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             {loadedTask.isCompleted ? 'Oznacz jako otwarte' : 'Oznacz jako wykonane'}
           </button>
         </div>
+
+        {showTimeEntriesModal && (
+          <TaskTimeEntriesModal
+            task={{
+              ...loadedTask,
+              content: content.trim() || loadedTask.content,
+              loggedMinutes,
+            }}
+            onTotalMinutesChange={syncLoggedMinutes}
+            onClose={() => setShowTimeEntriesModal(false)}
+          />
+        )}
       </div>
     </div>,
     document.body

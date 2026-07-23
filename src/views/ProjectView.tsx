@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useProjectTasks } from '../features/tasks';
 import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask } from '../features/tasks/ui';
 import { MobileTasksNav } from '../features/layout/ui';
+import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../features/tasks/api/timeEntriesApi';
 import type { Project, Space, Task, TaskPriority, TaskStatus } from '../shared/types';
 
 type ViewMode = 'list' | 'week' | 'board';
@@ -18,7 +19,7 @@ interface Props {
 }
 
 export function ProjectView({ projectId, project, projects, spaces, activeSpaceId, taskCountByProjectId, onSelectSpace, onSelectProject }: Props) {
-  const { tasks, isLoading, addTask, editTask, removeTask, toggleTask } = useProjectTasks(projectId);
+  const { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask } = useProjectTasks(projectId);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -45,6 +46,14 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
 
   const handleBulkEdit = (ids: string[], updates: Partial<Task>) => {
     ids.forEach(id => editTask(id, updates));
+  };
+
+  const handleComplete = async (id: string, dto: CompleteTaskDto) => {
+    await completeTask(id, dto);
+  };
+
+  const handleLogTime = async (id: string, dto: CreateTaskTimeEntryDto) => {
+    await logTimeEntry(id, dto);
   };
 
   const handleClearCompleted = () => {
@@ -102,6 +111,8 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
               projects={projects}
               onToggle={toggleTask}
               onEdit={editTask}
+              onComplete={handleComplete}
+              onLogTime={handleLogTime}
               onDelete={removeTask}
               onAdd={handleAdd}
               onBulkEdit={handleBulkEdit}
@@ -118,6 +129,7 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
               tasks={sortedTasks}
               projects={projects}
               onEdit={editTask}
+              onComplete={handleComplete}
               onToggle={toggleTask}
               onAdd={handleAdd}
               onDelete={removeTask}
@@ -132,6 +144,7 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
             projects={projects}
             activeProjectId={projectId}
             onEdit={editTask}
+            onComplete={handleComplete}
             onToggle={toggleTask}
             onDelete={removeTask}
             onAdd={handleAdd}

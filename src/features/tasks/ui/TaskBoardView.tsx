@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import type { CompleteTaskDto } from '../api/timeEntriesApi';
 import { TaskAddModal } from './TaskAddModal';
 import { TaskEditModal } from './TaskEditModal';
 import { BoardViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
@@ -15,6 +16,7 @@ interface Props {
   tasks: Task[];
   projects: Project[];
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
   onToggle: (id: string) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string, tags?: string[], subtasks?: import('../../../shared/types').Subtask[], estimatedHours?: number, dueTime?: string) => void;
@@ -202,7 +204,7 @@ function Column({ project, tasks, isFirst, projects, onAdd, onOpen }: {
   );
 }
 
-export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onAdd, isLoading = false }: Props) {
+export function TaskBoardView({ tasks, projects, onEdit, onComplete, onToggle, onDelete, onAdd, isLoading = false }: Props) {
   const [search, setSearch] = useState('');
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
@@ -299,6 +301,7 @@ export function TaskBoardView({ tasks, projects, onEdit, onToggle, onDelete, onA
           onSave={(updates) => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onComplete={onComplete}
           onClose={() => setEditingTask(null)}
         />
       )}

@@ -4,16 +4,22 @@ import { CalendarDays, Check, Clock, Folder, TimerReset, X } from 'lucide-react'
 import type { Project, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import { TimePickerField } from '../../../shared/ui/TimePickerField';
-import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../api/timeEntriesApi';
+import type { ApiTaskTimeEntry, CompleteTaskDto, CreateTaskTimeEntryDto, UpdateTaskTimeEntryDto } from '../api/timeEntriesApi';
 
-type Mode = 'log' | 'complete';
+type Mode = 'log' | 'complete' | 'edit';
+type TaskTimeEntryTask = Pick<
+  Task,
+  'id' | 'content' | 'priority' | 'status' | 'dueDate' | 'estimatedHours' | 'loggedMinutes' | 'project_id' | 'description' | 'tags'
+>;
 
 interface Props {
   mode: Mode;
-  task: Task;
+  task: TaskTimeEntryTask;
+  entry?: ApiTaskTimeEntry;
   projects: Project[];
   onClose: () => void;
   onLogTime?: (taskId: string, dto: CreateTaskTimeEntryDto) => Promise<void> | void;
+  onUpdateTime?: (entryId: string, dto: UpdateTaskTimeEntryDto) => Promise<void> | void;
   onComplete?: (taskId: string, dto: CompleteTaskDto) => Promise<void> | void;
 }
 
@@ -68,6 +74,19 @@ function toLocalIsoWithOffset(date: string, minutes: number) {
   return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}T${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}:00${sign}${offsetHours}:${offsetMins}`;
 }
 
+function toTimeInput(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function minutesToHoursInput(minutes?: number | null) {
+  if (!minutes || minutes <= 0) return '';
+  const value = minutes / 60;
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+}
+
 function durationLabel(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -75,12 +94,14 @@ function durationLabel(minutes: number) {
   return m ? `${h} godz. ${m} min` : `${h} godz.`;
 }
 
-export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, onComplete }: Props) {
-  const [workDate, setWorkDate] = useState(toDateKey());
-  const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours != null ? String(task.estimatedHours) : '');
-  const [durationHours, setDurationHours] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLogTime, onUpdateTime, onComplete }: Props) {
+  const [workDate, setWorkDate] = useState(entry?.workDate ?? toDateKey());
+  const [estimatedHours, setEstimatedHours] = useState(
+    entry?.estimatedHours != null ? String(entry.estimatedHours) : task.estimatedHours != null ? String(task.estimatedHours) : '',
+  );
+  const [durationHours, setDurationHours] = useState(minutesToHoursInput(entry?.durationMinutes));
+  const [startTime, setStartTime] = useState(toTimeInput(entry?.startAt));
+  const [endTime, setEndTime] = useState(toTimeInput(entry?.endAt));
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -88,6 +109,7 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
   const priority = PRIORITY[task.priority] ?? PRIORITY[Priority.P4];
   const status = STATUS[task.status] ?? STATUS.NotStarted;
   const isCompleteMode = mode === 'complete';
+  const isEditMode = mode === 'edit';
 
   const derivedDuration = useMemo(() => {
     if (!startTime || !endTime) return undefined;
@@ -97,11 +119,11 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     return end - start;
   }, [endTime, startTime]);
 
-  function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | null {
+  function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | UpdateTaskTimeEntryDto | null {
     setError(null);
     const dto: CompleteTaskDto = {};
     const estimate = parsePositiveDecimal(estimatedHours);
-    const clearedEstimate = estimatedHours.trim() === '' && task.estimatedHours != null;
+    const clearedEstimate = estimatedHours.trim() === '' && (task.estimatedHours != null || entry?.estimatedHours != null);
     const durationMinutes = parseDurationMinutes(durationHours);
     const hasStartOrEnd = Boolean(startTime || endTime);
 
@@ -151,13 +173,19 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     try {
       if (isCompleteMode) {
         await onComplete?.(task.id, payload as CompleteTaskDto);
+      } else if (isEditMode) {
+        if (!entry) {
+          setError('Brakuje wpisu czasu do edycji.');
+          return;
+        }
+        await onUpdateTime?.(entry.id, payload as UpdateTaskTimeEntryDto);
       } else {
         await onLogTime?.(task.id, payload as CreateTaskTimeEntryDto);
       }
       onClose();
     } catch (err) {
       console.warn('Failed to save task time entry:', err);
-      setError(isCompleteMode ? 'Nie udało się zamknąć zadania.' : 'Nie udało się zapisać czasu.');
+      setError(isCompleteMode ? 'Nie udało się zamknąć zadania.' : isEditMode ? 'Nie udało się zaktualizować czasu.' : 'Nie udało się zapisać czasu.');
     } finally {
       setIsSaving(false);
     }
@@ -168,11 +196,11 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleSave();
   }
 
-  const title = isCompleteMode ? 'Potwierdzenie wykonania' : 'Rejestracja czasu';
-  const submit = isCompleteMode ? 'Oznacz jako wykonane' : 'Zapisz czas';
+  const title = isCompleteMode ? 'Potwierdzenie wykonania' : isEditMode ? 'Edycja czasu' : 'Rejestracja czasu';
+  const submit = isCompleteMode ? 'Oznacz jako wykonane' : isEditMode ? 'Zapisz zmiany' : 'Zapisz czas';
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
       <div
         className="absolute inset-0 backdrop-blur-[2px]"
         style={{ background: 'rgba(15,17,21,.18)' }}

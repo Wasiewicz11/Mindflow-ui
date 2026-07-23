@@ -155,6 +155,16 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     void onSaveRef.current({ loggedMinutes: nextMinutes });
   }, []);
 
+  const applyTimeEntryTaskUpdate = useCallback((nextTask: Task) => {
+    syncLoggedMinutes(nextTask.loggedMinutes ?? 0);
+    setLoadedTask(prev => ({
+      ...prev,
+      estimatedHours: nextTask.estimatedHours,
+      loggedMinutes: nextTask.loggedMinutes ?? 0,
+    }));
+    setEstimatedHours(nextTask.estimatedHours != null ? String(nextTask.estimatedHours) : '');
+  }, [syncLoggedMinutes]);
+
   function applyTaskDetails(nextTask: Task) {
     loggedMinutesRef.current = nextTask.loggedMinutes ?? 0;
     setLoadedTask(nextTask);
@@ -1134,7 +1144,9 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               content: content.trim() || loadedTask.content,
               loggedMinutes,
             }}
+            projects={projects}
             onTotalMinutesChange={syncLoggedMinutes}
+            onTaskUpdated={applyTimeEntryTaskUpdate}
             onClose={() => setShowTimeEntriesModal(false)}
           />
         )}

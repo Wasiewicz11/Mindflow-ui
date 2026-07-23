@@ -29,11 +29,17 @@ export interface CreateTaskTimeEntryDto {
   clearEstimatedHours?: boolean;
 }
 
+export type UpdateTaskTimeEntryDto = CreateTaskTimeEntryDto;
 export type CompleteTaskDto = CreateTaskTimeEntryDto;
 
 export interface TaskTimeEntryMutationResponse {
   timeEntry: ApiTaskTimeEntry;
   task: ApiTask;
+}
+
+export interface UpdateTaskTimeEntryResponse {
+  timeEntry: ApiTaskTimeEntry;
+  task?: ApiTask | null;
 }
 
 export interface CompleteTaskResponse {
@@ -52,6 +58,13 @@ export function getTaskTimeEntries(taskId: string): Promise<ApiTaskTimeEntry[]> 
 export function createTaskTimeEntry(taskId: string, dto: CreateTaskTimeEntryDto): Promise<TaskTimeEntryMutationResponse> {
   return apiFetch<TaskTimeEntryMutationResponse>(`/tasks/${taskId}/time-entries`, {
     method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export function updateTimeEntry(id: string, dto: UpdateTaskTimeEntryDto): Promise<UpdateTaskTimeEntryResponse> {
+  return apiFetch<UpdateTaskTimeEntryResponse>(`/time-entries/${id}`, {
+    method: 'PUT',
     body: JSON.stringify(dto),
   });
 }

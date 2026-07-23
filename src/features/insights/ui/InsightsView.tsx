@@ -1,15 +1,24 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { BarChart3, CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
+import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import type { Project, TaskPriority } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
-import { getTimeEntries, type ApiTaskTimeEntry } from '../../tasks/api/timeEntriesApi';
+import {
+  deleteTimeEntry,
+  getTimeEntries,
+  updateTimeEntry,
+  type ApiTaskTimeEntry,
+  type UpdateTaskTimeEntryDto,
+} from '../../tasks/api/timeEntriesApi';
+import { TaskTimeEntryModal } from '../../tasks/ui/TaskTimeEntryModal';
 
 type InsightMode = 'day' | 'week' | 'month';
 type PositionedEntry = ApiTaskTimeEntry & { displayStartMinutes: number };
 
-const DAY_START = 6 * 60;
-const DAY_END = 23 * 60;
-const HOUR_HEIGHT = 64;
+const DAY_START = 0;
+const DAY_END = 24 * 60;
+const TIME_HEADER_HEIGHT = 56;
+const DEFAULT_HOUR_HEIGHT = 28;
+const MIN_HOUR_HEIGHT = 10;
 const DEFAULT_FLOATING_START = 9 * 60;
 
 const PRIORITY_META: Record<TaskPriority, { fg: string; bg: string; ring: string; label: string }> = {
@@ -55,6 +64,7 @@ function getMonthDays(anchor: Date) {
 }
 
 function formatMinutes(minutes: number) {
+  if (minutes === 24 * 60) return '24:00';
   const normalized = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
   const h = Math.floor(normalized / 60);
   const m = normalized % 60;
@@ -110,12 +120,13 @@ function getPositionedEntries(entries: ApiTaskTimeEntry[]): PositionedEntry[] {
   });
 }
 
-function blockStyle(entry: PositionedEntry): CSSProperties {
+function blockStyle(entry: PositionedEntry, hourHeight: number): CSSProperties {
   const start = clamp(entry.displayStartMinutes, DAY_START, DAY_END - 15);
   const duration = clamp(entry.durationMinutes, 15, DAY_END - start);
+  const minBlockHeight = Math.min(36, Math.max(18, hourHeight * 0.85));
   return {
-    top: ((start - DAY_START) / 60) * HOUR_HEIGHT,
-    height: Math.max(42, (duration / 60) * HOUR_HEIGHT),
+    top: ((start - DAY_START) / 60) * hourHeight,
+    height: Math.max(minBlockHeight, (duration / 60) * hourHeight),
   };
 }
 
@@ -125,7 +136,11 @@ export function InsightsView({ projects }: { projects: Project[] }) {
   const [entries, setEntries] = useState<ApiTaskTimeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<ApiTaskTimeEntry | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const timeGridRef = useRef<HTMLDivElement>(null);
+  const [hourHeight, setHourHeight] = useState(DEFAULT_HOUR_HEIGHT);
 
   const days = useMemo(
     () => mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate],
@@ -163,13 +178,27 @@ export function InsightsView({ projects }: { projects: Project[] }) {
 
   useEffect(() => {
     if (mode === 'month') return;
-    const id = window.requestAnimationFrame(() => {
-      const scroller = scrollerRef.current;
-      if (!scroller) return;
-      scroller.scrollTo({ top: Math.max(0, ((8 * 60 - DAY_START) / 60) * HOUR_HEIGHT), behavior: 'auto' });
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [anchorDate, mode]);
+
+    const grid = timeGridRef.current;
+    if (!grid) return;
+
+    const updateHourHeight = () => {
+      const availableHeight = grid.clientHeight - TIME_HEADER_HEIGHT;
+      const hourCount = (DAY_END - DAY_START) / 60;
+      const nextHourHeight = availableHeight > 0
+        ? Math.max(MIN_HOUR_HEIGHT, availableHeight / hourCount)
+        : DEFAULT_HOUR_HEIGHT;
+      setHourHeight(nextHourHeight);
+    };
+
+    updateHourHeight();
+
+    if (typeof ResizeObserver === 'undefined') return undefined;
+
+    const observer = new ResizeObserver(updateHourHeight);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [entries.length, isLoading, mode]);
 
   const entriesByDate = useMemo(() => {
     const groups = new Map<string, ApiTaskTimeEntry[]>();
@@ -197,6 +226,41 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     return projects.find(project => project.id === entry.projectId);
   }
 
+  function modalTaskFromEntry(entry: ApiTaskTimeEntry) {
+    return {
+      id: entry.taskId ?? entry.id,
+      content: entry.taskContent,
+      priority: entry.taskPriority,
+      status: entry.taskStatus,
+      estimatedHours: entry.estimatedHours ?? undefined,
+      project_id: entry.projectId ?? null,
+    };
+  }
+
+  async function handleUpdateEntry(entryId: string, dto: UpdateTaskTimeEntryDto) {
+    setActionError(null);
+    const response = await updateTimeEntry(entryId, dto);
+    setEntries(prev => prev.map(entry => entry.id === entryId ? response.timeEntry : entry));
+    setEditingEntry(null);
+  }
+
+  async function handleDeleteEntry(entry: ApiTaskTimeEntry) {
+    if (deletingId) return;
+    if (!window.confirm('Usunąć ten wpis czasu?')) return;
+
+    setActionError(null);
+    setDeletingId(entry.id);
+    try {
+      await deleteTimeEntry(entry.id);
+      setEntries(prev => prev.filter(item => item.id !== entry.id));
+    } catch (err) {
+      console.warn('Failed to delete time entry', err);
+      setActionError('Nie udało się usunąć wpisu czasu.');
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   function renderEntryBlock(entry: PositionedEntry) {
     const meta = getPriorityMeta(entry.taskPriority);
     const project = getProject(entry);
@@ -206,10 +270,29 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     return (
       <article
         key={entry.id}
-        className="absolute left-1 right-1 overflow-hidden rounded-lg border px-2 py-2 text-left shadow-sm transition-[transform,box-shadow] duration-200 ease hover:-translate-y-0.5 hover:shadow-md"
-        style={{ ...blockStyle(entry), color: meta.fg, background: meta.bg, borderColor: meta.ring }}
+        className="group absolute left-1 right-1 overflow-hidden rounded-lg border px-2 py-2 text-left shadow-sm transition-[transform,box-shadow] duration-200 ease hover:-translate-y-0.5 hover:shadow-md"
+        style={{ ...blockStyle(entry, hourHeight), color: meta.fg, background: meta.bg, borderColor: meta.ring }}
         title={`${entry.taskContent} · ${formatDuration(entry.durationMinutes)}`}
       >
+        <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 opacity-0 transition-opacity duration-150 ease group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={event => { event.stopPropagation(); setEditingEntry(entry); }}
+            className="flex h-6 w-6 items-center justify-center rounded-md bg-white/85 text-[#5a606b] shadow-sm transition-colors hover:bg-white hover:text-[#0f1115]"
+            title="Edytuj wpis czasu"
+          >
+            <Pencil size={12} />
+          </button>
+          <button
+            type="button"
+            onClick={event => { event.stopPropagation(); void handleDeleteEntry(entry); }}
+            disabled={deletingId === entry.id}
+            className="flex h-6 w-6 items-center justify-center rounded-md bg-white/85 text-[#9098a4] shadow-sm transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+            title="Usuń wpis czasu"
+          >
+            <Trash2 size={12} />
+          </button>
+        </div>
         <div className="flex h-full min-h-0 flex-col">
           <div className="min-w-0">
             <div className="mb-1 flex items-center gap-1.5">
@@ -234,14 +317,21 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     : 'grid-cols-1';
 
   function renderTimeGrid() {
+    const hourCount = (DAY_END - DAY_START) / 60;
+    const timeGridHeight = hourCount * hourHeight;
+
     return (
-      <div className="flex h-full flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
-        <div ref={scrollerRef} className="min-w-0 flex-1 overflow-auto custom-scrollbar">
+      <div ref={timeGridRef} className="flex h-full flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+        <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
           <div className="flex">
             <div className="sticky left-0 z-40 w-12 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] sm:w-16 dark:border-white/8 dark:bg-[#232326]">
               <div className="sticky top-0 z-[45] h-14 border-b border-[#f1f0ed] bg-[#f7f7f4] dark:border-white/8 dark:bg-[#232326]" />
-              {Array.from({ length: (DAY_END - DAY_START) / 60 + 1 }, (_, index) => (
-                <div key={index} className="relative h-[64px] pr-1.5 text-right text-[10.5px] font-medium text-[#9098a4] sm:pr-3 sm:text-[11px]">
+              {Array.from({ length: hourCount }, (_, index) => (
+                <div
+                  key={index}
+                  className="relative pr-1.5 text-right text-[9.5px] font-medium leading-none text-[#9098a4] sm:pr-3 sm:text-[10.5px]"
+                  style={{ height: hourHeight }}
+                >
                   {formatMinutes(DAY_START + index * 60)}
                 </div>
               ))}
@@ -264,14 +354,14 @@ export function InsightsView({ projects }: { projects: Project[] }) {
                 })}
               </div>
 
-              <div className={`grid ${weekGridClass}`} style={{ height: ((DAY_END - DAY_START) / 60) * HOUR_HEIGHT }}>
+              <div className={`grid ${weekGridClass}`} style={{ height: timeGridHeight }}>
                 {days.map(day => {
                   const key = toDateKey(day);
                   const dayEntries = getPositionedEntries(entriesByDate.get(key) ?? []);
                   return (
                     <div key={key} className="relative border-r border-[#f1f0ed] bg-white last:border-r-0 dark:border-white/8 dark:bg-[#27272A]">
-                      {Array.from({ length: (DAY_END - DAY_START) / 60 }, (_, index) => (
-                        <div key={index} className="h-[64px] border-b border-[#f1f0ed] dark:border-white/8" />
+                      {Array.from({ length: hourCount }, (_, index) => (
+                        <div key={index} className="border-b border-[#f1f0ed] dark:border-white/8" style={{ height: hourHeight }} />
                       ))}
                       {dayEntries.map(renderEntryBlock)}
                     </div>
@@ -306,11 +396,30 @@ export function InsightsView({ projects }: { projects: Project[] }) {
                   const meta = getPriorityMeta(entry.taskPriority);
                   const project = getProject(entry);
                   return (
-                    <div key={entry.id} className="flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[11px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:text-gray-100 dark:hover:bg-[#323238]">
+                    <div key={entry.id} className="group/month flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[11px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:text-gray-100 dark:hover:bg-[#323238]">
                       <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.fg }} />
                       <span className="truncate">{entry.taskContent}</span>
                       <span className="shrink-0 text-[#9098a4]">{formatDuration(entry.durationMinutes)}</span>
                       {project && <span className="hidden shrink-0 text-[#b0b5be] lg:inline">{project.name}</span>}
+                      <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover/month:inline-flex">
+                        <button
+                          type="button"
+                          onClick={() => setEditingEntry(entry)}
+                          className="flex h-5 w-5 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
+                          title="Edytuj wpis czasu"
+                        >
+                          <Pencil size={11} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void handleDeleteEntry(entry)}
+                          disabled={deletingId === entry.id}
+                          className="flex h-5 w-5 items-center justify-center rounded-md text-[#b0b5be] transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                          title="Usuń wpis czasu"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </span>
                     </div>
                   );
                 })}
@@ -363,7 +472,13 @@ export function InsightsView({ projects }: { projects: Project[] }) {
         </div>
       )}
 
-      <div className="min-h-0 flex-1 overflow-auto custom-scrollbar pb-6">
+      {actionError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-600">
+          {actionError}
+        </div>
+      )}
+
+      <div className={`min-h-0 flex-1 ${mode === 'month' ? 'overflow-auto custom-scrollbar pb-6' : 'overflow-hidden'}`}>
         {isLoading ? (
           <div className="h-full rounded-[18px] border border-[#e8e8e4] bg-white p-4 dark:border-white/10 dark:bg-[#27272A]">
             <div className="h-full animate-pulse rounded-xl bg-[#f1f0ed] dark:bg-white/8" />
@@ -375,6 +490,17 @@ export function InsightsView({ projects }: { projects: Project[] }) {
           </div>
         ) : mode === 'month' ? renderMonth() : renderTimeGrid()}
       </div>
+
+      {editingEntry && (
+        <TaskTimeEntryModal
+          mode="edit"
+          task={modalTaskFromEntry(editingEntry)}
+          entry={editingEntry}
+          projects={projects}
+          onUpdateTime={handleUpdateEntry}
+          onClose={() => setEditingEntry(null)}
+        />
+      )}
     </div>
   );
 }

@@ -32,6 +32,33 @@ function buildTimeOptions(minMinutes: number, maxMinutes: number, stepMinutes: n
   return options;
 }
 
+function normalizeTypedTime(value: string, minMinutes: number, maxMinutes: number) {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+
+  let hours: number;
+  let minutes: number;
+
+  if (/^\d{3,4}$/.test(trimmed)) {
+    hours = Number(trimmed.slice(0, -2));
+    minutes = Number(trimmed.slice(-2));
+  } else {
+    const match = /^(\d{1,2})(?::?(\d{0,2}))?$/.exec(trimmed);
+    if (!match) return null;
+
+    hours = Number(match[1]);
+    minutes = match[2] ? Number(match[2]) : 0;
+  }
+
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes)) return null;
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+
+  const totalMinutes = hours * 60 + minutes;
+  if (totalMinutes < minMinutes || totalMinutes > maxMinutes) return null;
+
+  return formatTime(totalMinutes);
+}
+
 function getPickerStyle(rect: DOMRect): CSSProperties {
   if (typeof window === 'undefined') {
     return { top: rect.bottom + 6, left: rect.left, width: rect.width };
@@ -72,9 +99,9 @@ export function TimePickerField({
     ? 'mt-1 h-[31px] rounded-[6px] px-2 text-[12px]'
     : 'h-10 rounded-lg px-3 text-[13px]';
 
-  function openPicker(rect: DOMRect) {
+  function openPicker(rect: DOMRect, forceOpen = false) {
     if (readOnly) return;
-    setPickerRect(current => current ? null : rect);
+    setPickerRect(current => forceOpen ? rect : current ? null : rect);
   }
 
   function clearValue() {
@@ -88,6 +115,34 @@ export function TimePickerField({
     setPickerRect(null);
   }
 
+  function handleInputChange(nextValue: string) {
+    onChange(nextValue.replace(/[^\d:]/g, '').slice(0, 5));
+  }
+
+  function handleInputBlur() {
+    const normalized = normalizeTypedTime(value, minMinutes, maxMinutes);
+    if (normalized !== null) onChange(normalized);
+  }
+
+  function handleInputKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'Escape') {
+      setPickerRect(null);
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      const normalized = normalizeTypedTime(value, minMinutes, maxMinutes);
+      if (normalized !== null) onChange(normalized);
+      setPickerRect(null);
+      return;
+    }
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      openPicker(event.currentTarget.getBoundingClientRect(), true);
+    }
+  }
+
   return (
     <div className="grid gap-1.5">
       <span className={labelClass}>{label}</span>
@@ -96,18 +151,23 @@ export function TimePickerField({
           readOnly ? 'cursor-default text-[#5a606b]' : 'hover:bg-[#f1f0ed] focus-within:bg-white focus-within:ring-2 focus-within:ring-[#0f1115]/20'
         }`}
       >
-        <button
-          type="button"
-          disabled={readOnly}
-          aria-expanded={Boolean(pickerRect)}
-          onClick={event => openPicker(event.currentTarget.getBoundingClientRect())}
-          className="flex min-w-0 flex-1 items-center gap-2 text-left font-medium outline-none disabled:cursor-default"
-        >
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Clock size={isCompact ? 12 : 14} className="flex-none text-[#9098a4]" />
-          <span className={`min-w-0 flex-1 truncate ${value ? 'text-[#0f1115] dark:text-white' : 'text-[#b0b5be]'}`}>
-            {value || '--:--'}
-          </span>
-        </button>
+          <input
+            type="text"
+            inputMode="numeric"
+            readOnly={readOnly}
+            aria-expanded={Boolean(pickerRect)}
+            value={value}
+            onChange={event => handleInputChange(event.target.value)}
+            onFocus={event => openPicker(event.currentTarget.parentElement?.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect(), true)}
+            onClick={event => openPicker(event.currentTarget.parentElement?.parentElement?.getBoundingClientRect() ?? event.currentTarget.getBoundingClientRect(), true)}
+            onBlur={handleInputBlur}
+            onKeyDown={handleInputKeyDown}
+            placeholder="--:--"
+            className="min-w-0 flex-1 bg-transparent font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] read-only:cursor-default dark:text-white"
+          />
+        </div>
         {clearable && value && !readOnly && (
           <button
             type="button"

@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, ChevronDown, CircleDot, Flag } from 'lucide-react';
+import { CalendarDays, ChevronDown, CircleDot, Clock, Flag } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Task, Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../api/timeEntriesApi';
+import { formatLoggedHours } from '../model/timeFormatting';
 import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
+import { TaskTimeEntryModal } from './TaskTimeEntryModal';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 
 type ChipMeta = { fg: string; bg: string; darkFg: string; darkBg: string };
@@ -42,6 +45,8 @@ interface Props {
   projects: Project[];
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
+  onLogTime?: (id: string, dto: CreateTaskTimeEntryDto) => void | Promise<void>;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
   onBulkEdit?: (ids: string[], updates: Partial<Task>) => void;
@@ -381,12 +386,13 @@ function PlusIcon() {
   );
 }
 
-function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, isSelected, onSelect, closingPhase }: {
+function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelectionMode, isSelected, onSelect, closingPhase }: {
   task: Task;
   project?: Project;
   onToggle: () => void;
   onClick: () => void;
   onEdit?: (updates: Partial<Task>) => void;
+  onLogTime?: () => void;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onSelect?: () => void;
@@ -399,6 +405,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
     ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
     : false;
   const subtaskProgress = getSubtaskProgress(task);
+  const loggedLabel = task.loggedMinutes && task.loggedMinutes > 0 ? formatLoggedHours(task.loggedMinutes) : null;
 
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [statusOpen, setStatusOpen] = useState(false);
@@ -511,6 +518,12 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
               <span className="truncate">{project.name}</span>
             </div>
           )}
+          {loggedLabel && (
+            <div className="inline-flex items-center gap-1.5 font-semibold text-orange-500">
+              <Clock size={12} />
+              <span>{loggedLabel}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex min-w-0 flex-wrap items-center gap-1.5">
@@ -540,6 +553,17 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
             <span className="flex-none rounded-full" style={{ width: 5, height: 5, background: st.dot }} />
             {st.label}
           </button>
+
+          {onLogTime && !isSelectionMode && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onLogTime(); }}
+              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+              title="Zarejestruj czas"
+            >
+              <Clock size={13} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -586,6 +610,24 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
 
       {/* Right meta — project + date */}
       <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
+        {loggedLabel && (
+          <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-500" title="Zarejestrowane godziny">
+            <Clock size={13} />
+            {loggedLabel}
+          </span>
+        )}
+
+        {onLogTime && !isSelectionMode && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onLogTime(); }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#b0b5be] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+            title="Zarejestruj czas"
+          >
+            <Clock size={14} />
+          </button>
+        )}
+
         {subtaskProgress.total > 0 && (
           <span
             className="rounded-md bg-[#f7f7f4] text-[11px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400"
@@ -782,11 +824,13 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, isSelectionMode, is
   );
 }
 
-function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSelectionMode, selectedIds, onSelect, activeProjectId }: {
+function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, onDelete, onAdd, isSelectionMode, selectedIds, onSelect, activeProjectId }: {
   group: Group;
   projects: Project[];
   onToggle: (id: string) => void;
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
+  onLogTime?: (task: Task) => void;
   onDelete: (id: string) => void;
   onAdd: (content: string, priority: TaskPriority, dueDate?: string, projectId?: string, status?: import('../../../shared/types').TaskStatus, description?: string) => void;
   isSelectionMode?: boolean;
@@ -849,6 +893,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
               onToggle={() => completeTaskWithAnimation(task.id)}
               onClick={() => { if (!isSelectionMode) setEditingTask(task); }}
               onEdit={updates => onEdit(task.id, updates)}
+              onLogTime={onLogTime ? () => onLogTime(task) : undefined}
               isSelectionMode={isSelectionMode}
               isSelected={selectedIds?.includes(task.id)}
               onSelect={() => onSelect?.(task.id)}
@@ -873,6 +918,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
           onSave={updates => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onComplete={onComplete}
           onClose={() => setEditingTask(null)}
         />
       )}
@@ -890,13 +936,14 @@ function GroupBlock({ group, projects, onToggle, onEdit, onDelete, onAdd, isSele
 }
 
 
-export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading, activeProjectId }: Props) {
+export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete, onLogTime, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading, activeProjectId }: Props) {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkPicker, setBulkPicker] = useState<{ type: 'priority' | 'status' | 'date'; rect: DOMRect } | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
+  const [loggingTask, setLoggingTask] = useState<Task | null>(null);
   const [groupMode, setGroupMode] = useState<GroupMode>('dueDate');
 
   const [filterSearch, setFilterSearch] = useState('');
@@ -1288,6 +1335,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
           projects={projects}
           onToggle={onToggle}
           onEdit={onEdit}
+          onComplete={onComplete}
+          onLogTime={onLogTime ? setLoggingTask : undefined}
           onDelete={onDelete}
           onAdd={onAdd}
           isSelectionMode={isSelectionMode}
@@ -1370,6 +1419,12 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
                           <span className="truncate">{projects.find(p => p.id === task.project_id)?.name}</span>
                         </div>
                       )}
+                      {task.loggedMinutes && task.loggedMinutes > 0 && (
+                        <div className="inline-flex items-center gap-1.5 font-semibold text-orange-500">
+                          <Clock size={12} />
+                          <span>{formatLoggedHours(task.loggedMinutes)}</span>
+                        </div>
+                      )}
                     </div>
 
                     <span
@@ -1410,6 +1465,22 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
 
                   {/* Date placeholder to keep alignment */}
                   <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#d4d4d0' }}>
+                    {task.loggedMinutes && task.loggedMinutes > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-500" title="Zarejestrowane godziny">
+                        <Clock size={13} />
+                        {formatLoggedHours(task.loggedMinutes)}
+                      </span>
+                    )}
+                    {onLogTime && (
+                      <button
+                        type="button"
+                        onClick={(e) => { e.stopPropagation(); setLoggingTask(task); }}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-[#b0b5be] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+                        title="Zarejestruj czas"
+                      >
+                        <Clock size={14} />
+                      </button>
+                    )}
                     <div className="flex items-center gap-1.5 text-[13px]" style={{ minWidth: 76 }}>
                       <CalIcon />
                       <span>{task.dueDate ? getDateLabel(task.dueDate) : '—'}</span>
@@ -1428,10 +1499,21 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onDelete, o
               onSave={updates => onEdit(editingCompleted.id, updates)}
               onDelete={() => { onDelete(editingCompleted.id); setEditingCompleted(null); }}
               onToggleComplete={() => { onToggle(editingCompleted.id); setEditingCompleted(null); }}
+              onComplete={onComplete}
               onClose={() => setEditingCompleted(null)}
             />
           )}
         </div>
+      )}
+
+      {loggingTask && onLogTime && (
+        <TaskTimeEntryModal
+          mode="log"
+          task={loggingTask}
+          projects={projects}
+          onLogTime={onLogTime}
+          onClose={() => setLoggingTask(null)}
+        />
       )}
     </div>
   );

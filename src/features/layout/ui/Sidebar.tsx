@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Target } from 'lucide-react';
+import { BarChart3, Brain, Target } from 'lucide-react';
 import type { User, Space, Project } from '../../../shared/types';
 import { BrandMark } from '../../../shared/ui/BrandMark';
 import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkeletons';
@@ -7,8 +7,8 @@ import { SidebarSkeleton, SkeletonBlock } from '../../../shared/ui/LoadingSkelet
 type ActiveTab = SidebarContentProps['activeTab'];
 
 export interface SidebarContentProps {
-  activeTab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
-  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings') => void;
+  activeTab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'insights' | 'brain' | 'calendar' | 'settings';
+  setActiveTab: (tab: 'dashboard' | 'notes' | 'tasks' | 'goals' | 'insights' | 'brain' | 'calendar' | 'settings') => void;
   user: User | null;
   spaces: Space[];
   projects: Project[];
@@ -63,6 +63,9 @@ export const SidebarContent: React.FC<SidebarContentProps> = ({
     },
     {
       id: 'goals', label: 'Cele', icon: <Target className="h-5 w-5" />
+    },
+    {
+      id: 'insights', label: 'Insights', icon: <BarChart3 className="h-5 w-5" />
     },
     {
       id: 'brain', label: 'Brain', icon: <Brain className="h-5 w-5" />

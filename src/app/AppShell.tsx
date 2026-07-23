@@ -5,9 +5,10 @@ import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, Q
 import { NotesGrid } from '../features/notes/ui';
 import { BrainView } from '../features/brain';
 import { GoalsView } from '../features/goals';
+import { InsightsView } from '../features/insights';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
-import { Brain, Target } from 'lucide-react';
+import { BarChart3, Brain, Target } from 'lucide-react';
 import {
   loadPomodoroSettings,
   PomodoroOverlay,
@@ -23,6 +24,7 @@ import { useTasks } from '../features/tasks';
 import { getSpaces, createSpace, deleteSpace, updateSpace } from '../features/spaces';
 import { getMe, uploadAvatar } from '../features/users';
 import { getProjects, createProject, deleteProject, updateProject, ProjectSettingsModal } from '../features/projects';
+import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../features/tasks/api/timeEntriesApi';
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
 import { BrandMark } from '../shared/ui/BrandMark';
@@ -30,13 +32,13 @@ import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton, 
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
 
-type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'goals' | 'brain' | 'calendar' | 'settings';
+type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'goals' | 'insights' | 'brain' | 'calendar' | 'settings';
 type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
 type EffectiveTheme = 'light' | 'dark' | 'gray';
 
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
-  const { tasks, isLoading: isTasksLoading, addTask, editTask, removeTask, refreshTasks } = useTasks(isLoggedIn);
+  const { tasks, isLoading: isTasksLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks } = useTasks(isLoggedIn);
   const {
     suggestions: aiSuggestions,
     quota: aiQuota,
@@ -239,6 +241,14 @@ export function AppShell() {
     await editTask(id, updates);
   };
 
+  const handleCompleteTask = async (id: string, dto: CompleteTaskDto) => {
+    await completeTask(id, dto);
+  };
+
+  const handleLogTimeEntry = async (id: string, dto: CreateTaskTimeEntryDto) => {
+    await logTimeEntry(id, dto);
+  };
+
   const handleDeleteTask = async (id: string) => {
     await removeTask(id);
   };
@@ -439,6 +449,10 @@ export function AppShell() {
         <Target className="h-6 w-6" />
         <span className="text-[10px] font-medium">Cele</span>
       </button>
+      <button onClick={() => { setActiveTab('insights'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'insights' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+        <BarChart3 className="h-6 w-6" />
+        <span className="text-[10px] font-medium">Insights</span>
+      </button>
       <button onClick={() => { setActiveTab('brain'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'brain' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
         <Brain className="h-6 w-6" />
         <span className="text-[10px] font-medium">Brain</span>
@@ -512,6 +526,7 @@ export function AppShell() {
                     {activeTab === 'notes' && 'Twoja baza wiedzy.'}
                     {activeTab === 'tasks' && 'Wszystkie zadania.'}
                     {activeTab === 'goals' && 'Cele.'}
+                    {activeTab === 'insights' && 'Insights.'}
                     {activeTab === 'brain' && 'Brain.'}
                     {activeTab === 'calendar' && 'Kalendarz.'}
                     {activeTab === 'settings' && 'Ustawienia.'}
@@ -520,6 +535,7 @@ export function AppShell() {
                     {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
                     {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
                     {activeTab === 'goals' && 'Planuj dzień wokół konkretnych wyników i nawyków.'}
+                    {activeTab === 'insights' && 'Przegląd zarejestrowanego czasu pracy.'}
                     {activeTab === 'brain' && 'Mapa celów i zależności.'}
                     {activeTab === 'calendar' && 'Planuj dzień, tydzień i miesiąc z timeblockingiem.'}
                     {activeTab === 'settings' && 'Dostosuj aplikację do swoich potrzeb.'}
@@ -544,7 +560,7 @@ export function AppShell() {
 
             <div
               className={`min-h-0 flex-1 custom-scrollbar px-6 ${
-                activeTab === 'calendar' || activeTab === 'brain'
+                activeTab === 'calendar' || activeTab === 'brain' || activeTab === 'insights'
                   ? 'overflow-hidden pb-28 lg:pb-6'
                   : 'overflow-y-auto pb-36 lg:pb-24'
               }`}
@@ -583,14 +599,14 @@ export function AppShell() {
                   {todayTasks.length > 0 && (
                     <div>
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Na dziś / Zaległe</h2>
-                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} showDueSubtasks />
+                      <TaskList tasks={todayTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onComplete={handleCompleteTask} onLogTime={handleLogTimeEntry} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} showDueSubtasks />
                     </div>
                   )}
 
                   {importantTasks.length > 0 && (
                     <div>
                       <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-4 uppercase tracking-wider">Ważne (P1)</h2>
-                      <TaskList tasks={importantTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} />
+                      <TaskList tasks={importantTasks} projects={projects} onToggle={handleToggleTask} onEdit={handleEditTask} onComplete={handleCompleteTask} onLogTime={handleLogTimeEntry} onDelete={handleDeleteTask} onAdd={handleAddTask} compactMode isLoading={isWorkspaceLoading} />
                     </div>
                   )}
 
@@ -634,6 +650,8 @@ export function AppShell() {
                         projects={projects}
                         onToggle={handleToggleTask}
                         onEdit={handleEditTask}
+                        onComplete={handleCompleteTask}
+                        onLogTime={handleLogTimeEntry}
                         onDelete={handleDeleteTask}
                         onAdd={handleAddTask}
                         onBulkEdit={handleBulkEdit}
@@ -648,6 +666,7 @@ export function AppShell() {
                           tasks={spaceSortedTasks}
                           projects={projects}
                           onEdit={handleEditTask}
+                          onComplete={handleCompleteTask}
                           onToggle={handleToggleTask}
                           onAdd={handleAddTask}
                           onDelete={handleDeleteTask}
@@ -660,6 +679,7 @@ export function AppShell() {
                         tasks={spaceTasks}
                         projects={projects}
                         onEdit={handleEditTask}
+                        onComplete={handleCompleteTask}
                         onToggle={handleToggleTask}
                         onDelete={handleDeleteTask}
                         onAdd={handleAddTask}
@@ -678,6 +698,12 @@ export function AppShell() {
                 </div>
               )}
 
+              {activeTab === 'insights' && (
+                <div className="h-full min-h-0 animate-fade-in">
+                  <InsightsView projects={projects} />
+                </div>
+              )}
+
               {activeTab === 'goals' && (
                 <div className="animate-fade-in">
                   <GoalsView tasks={sortedAllTasks} projects={projects} />
@@ -691,6 +717,7 @@ export function AppShell() {
                     projects={projects}
                     onAdd={handleAddTask}
                     onEdit={handleEditTask}
+                    onComplete={handleCompleteTask}
                     onToggle={handleToggleTask}
                     onDelete={handleDeleteTask}
                     onStartFocus={setPomodoroLaunchRequest}

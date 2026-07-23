@@ -20,6 +20,7 @@ import {
 import type { Project, Subtask, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import { getToken } from '../../../shared/api/client';
+import type { CompleteTaskDto } from '../api/timeEntriesApi';
 import {
   createCalendarBlock,
   deleteCalendarBlock,
@@ -32,6 +33,7 @@ import {
 import { TaskEditModal } from './TaskEditModal';
 import { TomatoIcon, type PomodoroLaunchRequest } from '../../pomodoro';
 import { CalendarSkeleton } from '../../../shared/ui/LoadingSkeletons';
+import { TimePickerField } from '../../../shared/ui/TimePickerField';
 
 type CalendarMode = 'day' | 'week' | 'month';
 type FilterMenu = 'projects' | 'priorities' | 'statuses' | null;
@@ -66,6 +68,7 @@ interface CalendarViewProps {
     subtasks?: Subtask[],
   ) => Promise<Task | void> | Task | void;
   onEdit: (id: string, updates: Partial<Task>) => void;
+  onComplete?: (id: string, dto: CompleteTaskDto) => void | Promise<void>;
   onToggle: (id: string) => void;
   onDelete?: (id: string) => void;
   onStartFocus: (request: PomodoroLaunchRequest) => void;
@@ -395,7 +398,7 @@ function CalendarTaskAddModal({
   function addSubtask() {
     const content = newSubtask.trim();
     if (!content) return;
-    setSubtasks(prev => [...prev, { id: crypto.randomUUID(), content, isCompleted: false }]);
+    setSubtasks(prev => [...prev, { id: crypto.randomUUID(), content, isCompleted: false, status: 'NotStarted' }]);
     setNewSubtask('');
   }
 
@@ -578,15 +581,15 @@ function CalendarTaskAddModal({
             <div className={ROW} style={{ cursor: 'default' }}>
               <span className={LABEL}><ClockIcon /> Czas</span>
               <span className={`${VALUE} grid grid-cols-3 gap-2`}>
-                <label className="text-[10.5px] font-medium text-[#9098a4]">
-                  Od
-                  <input
-                    type="time"
-                    value={formatMinutes(startMinutes)}
-                    onChange={e => setStartMinutes(clamp(parseTimeToMinutes(e.target.value), DAY_START, DAY_END - MIN_BLOCK))}
-                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
-                  />
-                </label>
+                <TimePickerField
+                  label="Od"
+                  value={formatMinutes(startMinutes)}
+                  onChange={value => setStartMinutes(clamp(parseTimeToMinutes(value), DAY_START, DAY_END - MIN_BLOCK))}
+                  clearable={false}
+                  minMinutes={DAY_START}
+                  maxMinutes={DAY_END - MIN_BLOCK}
+                  size="compact"
+                />
                 <label className="text-[10.5px] font-medium text-[#9098a4]">
                   Czas
                   <input
@@ -598,15 +601,14 @@ function CalendarTaskAddModal({
                     className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
                   />
                 </label>
-                <label className="text-[10.5px] font-medium text-[#9098a4]">
-                  Do
-                  <input
-                    type="time"
-                    value={formatMinutes(endMinutes)}
-                    readOnly
-                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#5a606b] outline-none"
-                  />
-                </label>
+                <TimePickerField
+                  label="Do"
+                  value={formatMinutes(endMinutes)}
+                  onChange={() => undefined}
+                  clearable={false}
+                  readOnly
+                  size="compact"
+                />
               </span>
             </div>
 
@@ -870,15 +872,15 @@ function CalendarBlockEditModal({
             <div className={ROW}>
               <span className={LABEL}><ClockIcon /> Czas</span>
               <span className={`${VALUE} grid grid-cols-3 gap-2`}>
-                <label className="text-[10.5px] font-medium text-[#9098a4]">
-                  Od
-                  <input
-                    type="time"
-                    value={formatMinutes(startMinutes)}
-                    onChange={e => setStartMinutes(clamp(parseTimeToMinutes(e.target.value), DAY_START, DAY_END - MIN_BLOCK))}
-                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
-                  />
-                </label>
+                <TimePickerField
+                  label="Od"
+                  value={formatMinutes(startMinutes)}
+                  onChange={value => setStartMinutes(clamp(parseTimeToMinutes(value), DAY_START, DAY_END - MIN_BLOCK))}
+                  clearable={false}
+                  minMinutes={DAY_START}
+                  maxMinutes={DAY_END - MIN_BLOCK}
+                  size="compact"
+                />
                 <label className="text-[10.5px] font-medium text-[#9098a4]">
                   Czas
                   <input
@@ -890,15 +892,14 @@ function CalendarBlockEditModal({
                     className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20"
                   />
                 </label>
-                <label className="text-[10.5px] font-medium text-[#9098a4]">
-                  Do
-                  <input
-                    type="time"
-                    value={formatMinutes(endMinutes)}
-                    readOnly
-                    className="mt-1 w-full rounded-[6px] border border-[#ececec] bg-[#f7f7f4] px-2 py-1.5 text-[12px] font-medium text-[#5a606b] outline-none"
-                  />
-                </label>
+                <TimePickerField
+                  label="Do"
+                  value={formatMinutes(endMinutes)}
+                  onChange={() => undefined}
+                  clearable={false}
+                  readOnly
+                  size="compact"
+                />
               </span>
             </div>
           </div>
@@ -932,7 +933,7 @@ function getIsMobile() {
   return typeof window !== 'undefined' && window.matchMedia(MOBILE_QUERY).matches;
 }
 
-export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelete, onStartFocus, isLoading = false }: CalendarViewProps) {
+export function CalendarView({ tasks, projects, onAdd, onEdit, onComplete, onToggle, onDelete, onStartFocus, isLoading = false }: CalendarViewProps) {
   const [isMobile, setIsMobile] = useState(getIsMobile);
   const [mode, setMode] = useState<CalendarMode>(() => (getIsMobile() ? 'day' : 'week'));
   const [anchorDate, setAnchorDate] = useState(() => new Date());
@@ -2280,6 +2281,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onToggle, onDelet
           onSave={(updates) => onEdit(editingTask.id, updates)}
           onDelete={() => { onDelete?.(editingTask.id); clearBlocksForTask(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
+          onComplete={onComplete}
           onClose={() => setEditingTask(null)}
         />
       )}

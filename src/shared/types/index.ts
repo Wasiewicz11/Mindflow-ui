@@ -52,6 +52,7 @@ export interface Subtask {
   id: string;
   content: string;
   isCompleted: boolean;
+  status?: TaskStatus;
   description?: string;
   dueDate?: string;
   sortOrder?: number;
@@ -67,6 +68,7 @@ export interface Task {
   dueDate?: string;
   clearDueDate?: boolean;
   estimatedHours?: number;
+  loggedMinutes?: number;
   createdAt: Date;
   source?: 'app' | 'telegram';
   project_id?: string | null;

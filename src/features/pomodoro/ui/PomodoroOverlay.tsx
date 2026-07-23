@@ -13,6 +13,7 @@ import {
 import { usePomodoroTimer } from '../model/usePomodoroTimer';
 import { usePomodoroRemainingSeconds } from '../model/usePomodoroRemainingSeconds';
 import { TomatoIcon } from './TomatoIcon';
+import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
 
 interface PomodoroOverlayProps {
   settings: PomodoroSettings;
@@ -134,7 +135,14 @@ function PomodoroMiniTime({ endsAt, fallbackSeconds, isRunning }: Pick<PomodoroC
 }
 
 export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProps) {
-  const { session, start, pause, resetPhase, skip, startGlobalCycle, setMinimized, stop } = usePomodoroTimer(settings, launchRequest);
+  const { confirm } = useConfirmDialog();
+  const confirmReplaceSession = useCallback(() => confirm({
+    title: 'Rozpocząć nową sesję?',
+    message: 'Masz już aktywną sesję Pomodoro. Nowa sesja zastąpi aktualny cykl.',
+    confirmLabel: 'Rozpocznij nową',
+    tone: 'danger',
+  }), [confirm]);
+  const { session, start, pause, resetPhase, skip, startGlobalCycle, setMinimized, stop } = usePomodoroTimer(settings, launchRequest, confirmReplaceSession);
   const [isGlobalPlannerOpen, setIsGlobalPlannerOpen] = useState(false);
   const [globalFocusSessionCount, setGlobalFocusSessionCount] = useState(1);
   const [globalPlannerAnchorMs, setGlobalPlannerAnchorMs] = useState(() => Date.now());
@@ -329,8 +337,16 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
   const visibleFocusSessionsCount = visibleSchedule.filter(item => item.phase === 'focus').length;
   const visibleBreaksCount = visibleSchedule.filter(item => item.phase !== 'focus').length;
 
-  const handleStop = () => {
-    if (!session.isComplete && !window.confirm('Przerwać cały cykl Pomodoro? Tej akcji nie da się cofnąć.')) return;
+  const handleStop = async () => {
+    if (!session.isComplete) {
+      const confirmed = await confirm({
+        title: 'Przerwać cykl Pomodoro?',
+        message: 'Aktualna sesja zostanie zakończona. Tej akcji nie da się cofnąć.',
+        confirmLabel: 'Przerwij cykl',
+        tone: 'danger',
+      });
+      if (!confirmed) return;
+    }
     stop();
   };
 

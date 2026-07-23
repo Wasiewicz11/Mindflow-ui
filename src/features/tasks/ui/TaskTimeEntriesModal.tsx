@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { createPortal } from 'react-dom';
 import { CalendarDays, Clock, Pencil, Plus, Trash2, X } from 'lucide-react';
 import type { Project, Task } from '../../../shared/types';
+import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
 import {
   createTaskTimeEntry,
   deleteTimeEntry,
@@ -67,6 +68,7 @@ function parseHours(value: string) {
 }
 
 export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange, onTaskUpdated, onClose }: Props) {
+  const { confirm } = useConfirmDialog();
   const [entries, setEntries] = useState<ApiTaskTimeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -149,7 +151,13 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
 
   async function handleDeleteEntry(entry: ApiTaskTimeEntry) {
     if (deletingId) return;
-    if (!window.confirm('Usunąć ten wpis czasu?')) return;
+    const confirmed = await confirm({
+      title: 'Usunąć wpis czasu?',
+      message: 'Ten wpis zniknie z ewidencji zadania i widoku Insights.',
+      confirmLabel: 'Usuń wpis',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setActionError(null);
     setDeletingId(entry.id);

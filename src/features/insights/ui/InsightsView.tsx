@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
 import type { Project, TaskPriority } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
+import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
 import {
   deleteTimeEntry,
   getTimeEntries,
@@ -131,6 +132,7 @@ function blockStyle(entry: PositionedEntry, hourHeight: number): CSSProperties {
 }
 
 export function InsightsView({ projects }: { projects: Project[] }) {
+  const { confirm } = useConfirmDialog();
   const [mode, setMode] = useState<InsightMode>('week');
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [entries, setEntries] = useState<ApiTaskTimeEntry[]>([]);
@@ -246,7 +248,13 @@ export function InsightsView({ projects }: { projects: Project[] }) {
 
   async function handleDeleteEntry(entry: ApiTaskTimeEntry) {
     if (deletingId) return;
-    if (!window.confirm('Usunąć ten wpis czasu?')) return;
+    const confirmed = await confirm({
+      title: 'Usunąć wpis czasu?',
+      message: 'Ten wpis zniknie z ewidencji zadania i widoku Insights.',
+      confirmLabel: 'Usuń wpis',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
 
     setActionError(null);
     setDeletingId(entry.id);

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Clock } from 'lucide-react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
 import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../api/timeEntriesApi';
 import { formatLoggedHours } from '../model/timeFormatting';
 import { TaskEditModal } from './TaskEditModal';
@@ -48,6 +49,7 @@ const TaskList: React.FC<TaskListProps> = ({
   activeProjectId = null,
   showDueSubtasks = false
 }) => {
+  const { confirm } = useConfirmDialog();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loggingTask, setLoggingTask] = useState<Task | null>(null);
@@ -408,8 +410,14 @@ const TaskList: React.FC<TaskListProps> = ({
 
         {/* Usuń zaznaczone */}
         <button
-          onClick={() => {
-            if (!window.confirm(`Czy na pewno chcesz usunąć ${selectedIds.length} zadań?`)) return;
+          onClick={async () => {
+            const confirmed = await confirm({
+              title: 'Usunąć zaznaczone zadania?',
+              message: `Zostanie usuniętych ${selectedIds.length} zadań. Tej akcji nie da się cofnąć.`,
+              confirmLabel: 'Usuń zadania',
+              tone: 'danger',
+            });
+            if (!confirmed) return;
             selectedIds.forEach(id => onDelete(id));
             setIsSelectionMode(false);
             setSelectedIds([]);

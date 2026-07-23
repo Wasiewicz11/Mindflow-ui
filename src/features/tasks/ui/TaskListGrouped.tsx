@@ -10,6 +10,7 @@ import { TaskEditModal } from './TaskEditModal';
 import { TaskAddModal } from './TaskAddModal';
 import { TaskTimeEntryModal } from './TaskTimeEntryModal';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
+import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
 
 type ChipMeta = { fg: string; bg: string; darkFg: string; darkBg: string };
 
@@ -1020,6 +1021,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
 
 
 export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete, onLogTime, onDelete, onAdd, onBulkEdit, onClearCompleted, isLoading, activeProjectId }: Props) {
+  const { confirm } = useConfirmDialog();
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -1132,8 +1134,14 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
 
           {/* Usuń */}
           <button
-            onClick={() => {
-              if (!window.confirm(`Czy na pewno chcesz usunąć ${selectedIds.length} zadań?`)) return;
+            onClick={async () => {
+              const confirmed = await confirm({
+                title: 'Usunąć zaznaczone zadania?',
+                message: `Zostanie usuniętych ${selectedIds.length} zadań. Tej akcji nie da się cofnąć.`,
+                confirmLabel: 'Usuń zadania',
+                tone: 'danger',
+              });
+              if (!confirmed) return;
               selectedIds.forEach(id => onDelete(id));
               exitSelection();
             }}

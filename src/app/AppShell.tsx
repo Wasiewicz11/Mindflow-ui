@@ -29,6 +29,7 @@ import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../features/tasks/
 import { SpaceSettingsModal } from '../features/spaces/ui';
 import { ProjectView } from '../views/ProjectView';
 import { BrandMark } from '../shared/ui/BrandMark';
+import { useConfirmDialog } from '../shared/ui/confirmDialog';
 import { AppHeaderSkeleton, DashboardSkeleton, NotesSkeleton, SettingsSkeleton, SkeletonBlock } from '../shared/ui/LoadingSkeletons';
 import type { Note, User, Space, Project, Task } from '../shared/types';
 import { TaskPriority } from '../shared/types';
@@ -38,6 +39,7 @@ type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
 type EffectiveTheme = 'light' | 'dark' | 'gray';
 
 export function AppShell() {
+  const { confirm } = useConfirmDialog();
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
   const { tasks, isLoading: isTasksLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks } = useTasks(isLoggedIn);
   const {
@@ -280,10 +282,16 @@ export function AppShell() {
     ids.forEach(id => handleEditTask(id, updates));
   };
 
-  const handleClearCompleted = () => {
+  const handleClearCompleted = async () => {
     const toDelete = tasks.filter(t => t.isCompleted);
     if (toDelete.length === 0) return;
-    if (!window.confirm(`Czy na pewno chcesz usunąć ${toDelete.length} wykonanych zadań?`)) return;
+    const confirmed = await confirm({
+      title: 'Usunąć wykonane zadania?',
+      message: `Zostanie usuniętych ${toDelete.length} wykonanych zadań. Tej akcji nie da się cofnąć.`,
+      confirmLabel: 'Usuń zadania',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     toDelete.forEach(t => removeTask(t.id));
   };
 

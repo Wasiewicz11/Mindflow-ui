@@ -15,8 +15,10 @@ import { deletePomodoroSession, upsertPomodoroSession } from '../api/pomodoroApi
 export function usePomodoroTimer(
   settings: PomodoroSettings,
   launchRequest: PomodoroLaunchRequest | null,
+  confirmReplaceSession: () => Promise<boolean>,
 ) {
   const [session, setSession] = useState<PomodoroSession | null>(loadPomodoroSession);
+  const sessionRef = useRef<PomodoroSession | null>(session);
   const handledRequestRef = useRef<string | null>(null);
   const completingKeyRef = useRef<string | null>(null);
   const remoteSignatureRef = useRef<string | null>(null);
@@ -30,6 +32,7 @@ export function usePomodoroTimer(
   }, [settings]);
 
   useEffect(() => {
+    sessionRef.current = session;
     savePomodoroSession(session);
   }, [session]);
 
@@ -85,21 +88,40 @@ export function usePomodoroTimer(
     if (!launchRequest || handledRequestRef.current === launchRequest.requestId) return;
     handledRequestRef.current = launchRequest.requestId;
 
-    setSession(current => {
+    let cancelled = false;
+
+    const openSession = async () => {
+      const current = sessionRef.current;
       if (current && !current.isComplete) {
         const opensExistingTaskSession = Boolean(
           launchRequest.taskId && current.taskId === launchRequest.taskId,
         );
         if (opensExistingTaskSession) {
-          return { ...current, isMinimized: false, updatedAt: new Date().toISOString() };
+          if (!cancelled) {
+            setSession({ ...current, isMinimized: false, updatedAt: new Date().toISOString() });
+          }
+          return;
         }
 
-        const replace = window.confirm('Masz już aktywną sesję Pomodoro. Czy chcesz rozpocząć nową?');
-        if (!replace) return { ...current, isMinimized: false };
+        const replace = await confirmReplaceSession();
+        if (cancelled) return;
+        if (!replace) {
+          setSession({ ...current, isMinimized: false, updatedAt: new Date().toISOString() });
+          return;
+        }
       }
-      return createPomodoroSession(launchRequest, settings);
-    });
-  }, [launchRequest, settings]);
+
+      if (!cancelled) {
+        setSession(createPomodoroSession(launchRequest, settings));
+      }
+    };
+
+    void openSession();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [confirmReplaceSession, launchRequest, settings]);
 
   useEffect(() => {
     if (!session?.isRunning || !session.endsAt || session.isComplete) return;

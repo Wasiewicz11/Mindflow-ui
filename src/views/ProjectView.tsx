@@ -4,6 +4,7 @@ import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask } from '../
 import { MobileTasksNav } from '../features/layout/ui';
 import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../features/tasks/api/timeEntriesApi';
 import type { Project, Space, Task, TaskPriority, TaskStatus } from '../shared/types';
+import { useConfirmDialog } from '../shared/ui/confirmDialog';
 
 type ViewMode = 'list' | 'week' | 'board';
 
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function ProjectView({ projectId, project, projects, spaces, activeSpaceId, taskCountByProjectId, onSelectSpace, onSelectProject }: Props) {
+  const { confirm } = useConfirmDialog();
   const { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask } = useProjectTasks(projectId);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
@@ -56,10 +58,16 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
     await logTimeEntry(id, dto);
   };
 
-  const handleClearCompleted = () => {
+  const handleClearCompleted = async () => {
     const completed = tasks.filter(t => t.isCompleted);
     if (completed.length === 0) return;
-    if (!window.confirm(`Czy na pewno chcesz usunąć ${completed.length} wykonanych zadań?`)) return;
+    const confirmed = await confirm({
+      title: 'Usunąć wykonane zadania?',
+      message: `Zostanie usuniętych ${completed.length} wykonanych zadań z projektu. Tej akcji nie da się cofnąć.`,
+      confirmLabel: 'Usuń zadania',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     completed.forEach(t => removeTask(t.id));
   };
 

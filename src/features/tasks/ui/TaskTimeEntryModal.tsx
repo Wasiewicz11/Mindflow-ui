@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, Check, Clock, Folder, TimerReset, X } from 'lucide-react';
+import { CalendarDays, Check, Clock, FileText, Folder, TimerReset, X } from 'lucide-react';
 import type { Project, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
-import { TimePickerField } from '../../../shared/ui/TimePickerField';
 import type { ApiTaskTimeEntry, CompleteTaskDto, CreateTaskTimeEntryDto, UpdateTaskTimeEntryDto } from '../api/timeEntriesApi';
 
 type Mode = 'log' | 'complete' | 'edit';
@@ -58,42 +57,10 @@ function parseDurationMinutes(value: string): number | undefined {
   return minutes > 0 ? minutes : undefined;
 }
 
-function parseTimeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return undefined;
-  return hours * 60 + minutes;
-}
-
-function toLocalIsoWithOffset(date: string, minutes: number) {
-  const [year, month, day] = date.split('-').map(Number);
-  const localDate = new Date(year, month - 1, day, Math.floor(minutes / 60), minutes % 60, 0, 0);
-  const offsetMinutes = -localDate.getTimezoneOffset();
-  const sign = offsetMinutes >= 0 ? '+' : '-';
-  const absOffset = Math.abs(offsetMinutes);
-  const offsetHours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-  const offsetMins = String(absOffset % 60).padStart(2, '0');
-
-  return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}T${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}:00${sign}${offsetHours}:${offsetMins}`;
-}
-
-function toTimeInput(value?: string | null) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
 function minutesToHoursInput(minutes?: number | null) {
   if (!minutes || minutes <= 0) return '';
   const value = minutes / 60;
   return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
-}
-
-function durationLabel(minutes: number) {
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m ? `${h} godz. ${m} min` : `${h} godz.`;
 }
 
 export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLogTime, onUpdateTime, onComplete }: Props) {
@@ -102,8 +69,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
     entry?.estimatedHours != null ? String(entry.estimatedHours) : task.estimatedHours != null ? String(task.estimatedHours) : '',
   );
   const [durationHours, setDurationHours] = useState(minutesToHoursInput(entry?.durationMinutes));
-  const [startTime, setStartTime] = useState(toTimeInput(entry?.startAt));
-  const [endTime, setEndTime] = useState(toTimeInput(entry?.endAt));
+  const [notes, setNotes] = useState(entry?.notes ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -113,21 +79,13 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
   const isCompleteMode = mode === 'complete';
   const isEditMode = mode === 'edit';
 
-  const derivedDuration = useMemo(() => {
-    if (!startTime || !endTime) return undefined;
-    const start = parseTimeToMinutes(startTime);
-    const end = parseTimeToMinutes(endTime);
-    if (start === undefined || end === undefined || end <= start) return undefined;
-    return end - start;
-  }, [endTime, startTime]);
-
   function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | UpdateTaskTimeEntryDto | null {
     setError(null);
     const dto: CompleteTaskDto = {};
     const estimate = parseDecimal(estimatedHours, { allowZero: true });
     const clearedEstimate = estimatedHours.trim() === '' && (task.estimatedHours != null || entry?.estimatedHours != null);
     const durationMinutes = parseDurationMinutes(durationHours);
-    const hasStartOrEnd = Boolean(startTime || endTime);
+    const normalizedNotes = notes.trim();
 
     if (!workDate) {
       setError('Podaj datę pracy.');
@@ -138,28 +96,11 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
     if (clearedEstimate) dto.clearEstimatedHours = true;
 
     if (workDate) dto.workDate = workDate;
-
-    if (hasStartOrEnd) {
-      const start = parseTimeToMinutes(startTime);
-      const end = parseTimeToMinutes(endTime);
-      if (start === undefined || end === undefined) {
-        setError('Podaj godzinę od i do.');
-        return null;
-      }
-      if (end <= start) {
-        setError('Godzina zakończenia musi być późniejsza niż rozpoczęcia.');
-        return null;
-      }
-
-      dto.startAt = toLocalIsoWithOffset(workDate, start);
-      dto.endAt = toLocalIsoWithOffset(workDate, end);
-      dto.durationMinutes = end - start;
-    } else if (durationMinutes !== undefined) {
-      dto.durationMinutes = durationMinutes;
-    }
+    if (durationMinutes !== undefined) dto.durationMinutes = durationMinutes;
+    if (normalizedNotes || isEditMode) dto.notes = normalizedNotes;
 
     if (!isCompleteMode && !dto.durationMinutes) {
-      setError('Podaj czas pracy albo godziny od-do.');
+      setError('Podaj czas pracy.');
       return null;
     }
 
@@ -204,14 +145,12 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
       <div
-        className="absolute inset-0 backdrop-blur-[2px]"
-        style={{ background: 'rgba(15,17,21,.18)' }}
+        className="absolute inset-0 bg-[#0f1115]/[0.18] backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       <div
-        className="relative z-10 flex w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#27272A]"
-        style={{ maxHeight: '90vh' }}
+        className="relative z-10 flex max-h-[90vh] w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#27272A]"
         onClick={e => e.stopPropagation()}
       >
         <div className="flex flex-none items-center justify-between border-b border-[#f1f0ed] px-5 py-4 dark:border-white/8">
@@ -303,24 +242,18 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
               </label>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <TimePickerField
-                label="Od"
-                value={startTime}
-                onChange={setStartTime}
+            <label className="grid gap-1.5">
+              <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#9098a4]">
+                <FileText size={13} /> Notatki
+              </span>
+              <textarea
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="Opcjonalnie"
+                rows={4}
+                className="min-h-[96px] resize-none rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-[13px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white"
               />
-              <TimePickerField
-                label="Do"
-                value={endTime}
-                onChange={setEndTime}
-              />
-            </div>
-
-            {derivedDuration !== undefined && (
-              <div className="rounded-lg bg-[#f7f7f4] px-3 py-2 text-[12px] font-medium text-[#5a606b] dark:bg-white/8 dark:text-gray-300">
-                {durationLabel(derivedDuration)}
-              </div>
-            )}
+            </label>
 
             {error && (
               <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] font-medium text-red-600">

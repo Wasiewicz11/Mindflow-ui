@@ -16,6 +16,7 @@ export interface ApiTaskTimeEntry {
   startAt?: string | null;
   endAt?: string | null;
   estimatedHours?: number | null;
+  notes?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,10 +24,9 @@ export interface ApiTaskTimeEntry {
 export interface CreateTaskTimeEntryDto {
   workDate?: string;
   durationMinutes?: number;
-  startAt?: string;
-  endAt?: string;
   estimatedHours?: number;
   clearEstimatedHours?: boolean;
+  notes?: string;
 }
 
 export type UpdateTaskTimeEntryDto = CreateTaskTimeEntryDto;

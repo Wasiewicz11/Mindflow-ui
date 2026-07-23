@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Pencil, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { BarChart3, CalendarDays, ChevronLeft, ChevronRight, Clock, FileText, Pencil, Trash2 } from 'lucide-react';
 import type { Project, TaskPriority } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
@@ -13,14 +13,6 @@ import {
 import { TaskTimeEntryModal } from '../../tasks/ui/TaskTimeEntryModal';
 
 type InsightMode = 'day' | 'week' | 'month';
-type PositionedEntry = ApiTaskTimeEntry & { displayStartMinutes: number };
-
-const DAY_START = 0;
-const DAY_END = 24 * 60;
-const TIME_HEADER_HEIGHT = 56;
-const DEFAULT_HOUR_HEIGHT = 28;
-const MIN_HOUR_HEIGHT = 10;
-const DEFAULT_FLOATING_START = 9 * 60;
 
 const PRIORITY_META: Record<TaskPriority, { fg: string; bg: string; ring: string; label: string }> = {
   [Priority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)', bg: 'oklch(0.96 0.03 25)', ring: 'oklch(0.78 0.12 25)' },
@@ -64,21 +56,6 @@ function getMonthDays(anchor: Date) {
   return Array.from({ length: 42 }, (_, index) => addDays(start, index));
 }
 
-function formatMinutes(minutes: number) {
-  if (minutes === 24 * 60) return '24:00';
-  const normalized = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
-  const h = Math.floor(normalized / 60);
-  const m = normalized % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-}
-
-function minutesFromIso(value?: string | null) {
-  if (!value) return undefined;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return undefined;
-  return date.getHours() * 60 + date.getMinutes();
-}
-
 function formatDuration(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -92,43 +69,12 @@ function formatTotal(minutes: number) {
   return `${h}:${String(m).padStart(2, '0')}`;
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), max);
-}
-
 function getPriorityMeta(priority: TaskPriority | undefined) {
   return priority && PRIORITY_META[priority] ? PRIORITY_META[priority] : PRIORITY_META[Priority.P4];
 }
 
-function getPositionedEntries(entries: ApiTaskTimeEntry[]): PositionedEntry[] {
-  const sorted = [...entries].sort((a, b) => {
-    const aStart = minutesFromIso(a.startAt);
-    const bStart = minutesFromIso(b.startAt);
-    if (aStart !== undefined && bStart !== undefined) return aStart - bStart;
-    if (aStart !== undefined) return -1;
-    if (bStart !== undefined) return 1;
-    return a.createdAt.localeCompare(b.createdAt);
-  });
-
-  let floatingCursor = DEFAULT_FLOATING_START;
-  return sorted.map(entry => {
-    const explicitStart = minutesFromIso(entry.startAt);
-    const displayStartMinutes = explicitStart ?? floatingCursor;
-    if (explicitStart === undefined) {
-      floatingCursor = Math.min(DAY_END - 15, floatingCursor + Math.max(30, entry.durationMinutes) + 15);
-    }
-    return { ...entry, displayStartMinutes };
-  });
-}
-
-function blockStyle(entry: PositionedEntry, hourHeight: number): CSSProperties {
-  const start = clamp(entry.displayStartMinutes, DAY_START, DAY_END - 15);
-  const duration = clamp(entry.durationMinutes, 15, DAY_END - start);
-  const minBlockHeight = Math.min(36, Math.max(18, hourHeight * 0.85));
-  return {
-    top: ((start - DAY_START) / 60) * hourHeight,
-    height: Math.max(minBlockHeight, (duration / 60) * hourHeight),
-  };
+function sortLoggedEntries(entries: ApiTaskTimeEntry[]) {
+  return [...entries].sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 }
 
 export function InsightsView({ projects }: { projects: Project[] }) {
@@ -141,8 +87,6 @@ export function InsightsView({ projects }: { projects: Project[] }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [editingEntry, setEditingEntry] = useState<ApiTaskTimeEntry | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const timeGridRef = useRef<HTMLDivElement>(null);
-  const [hourHeight, setHourHeight] = useState(DEFAULT_HOUR_HEIGHT);
 
   const days = useMemo(
     () => mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate],
@@ -178,36 +122,13 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     };
   }, [fromKey, toKey]);
 
-  useEffect(() => {
-    if (mode === 'month') return;
-
-    const grid = timeGridRef.current;
-    if (!grid) return;
-
-    const updateHourHeight = () => {
-      const availableHeight = grid.clientHeight - TIME_HEADER_HEIGHT;
-      const hourCount = (DAY_END - DAY_START) / 60;
-      const nextHourHeight = availableHeight > 0
-        ? Math.max(MIN_HOUR_HEIGHT, availableHeight / hourCount)
-        : DEFAULT_HOUR_HEIGHT;
-      setHourHeight(nextHourHeight);
-    };
-
-    updateHourHeight();
-
-    if (typeof ResizeObserver === 'undefined') return undefined;
-
-    const observer = new ResizeObserver(updateHourHeight);
-    observer.observe(grid);
-    return () => observer.disconnect();
-  }, [entries.length, isLoading, mode]);
-
   const entriesByDate = useMemo(() => {
     const groups = new Map<string, ApiTaskTimeEntry[]>();
     for (const entry of entries) {
       const key = entry.workDate;
       groups.set(key, [...(groups.get(key) ?? []), entry]);
     }
+    for (const [key, group] of groups) groups.set(key, sortLoggedEntries(group));
     return groups;
   }, [entries]);
 
@@ -269,114 +190,115 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     }
   }
 
-  function renderEntryBlock(entry: PositionedEntry) {
+  function openEntry(entry: ApiTaskTimeEntry) {
+    setEditingEntry(entry);
+  }
+
+  function handleCardKeyDown(event: React.KeyboardEvent<HTMLElement>, entry: ApiTaskTimeEntry) {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openEntry(entry);
+  }
+
+  function renderEntryCard(entry: ApiTaskTimeEntry, compact = false) {
     const meta = getPriorityMeta(entry.taskPriority);
     const project = getProject(entry);
-    const start = minutesFromIso(entry.startAt) ?? entry.displayStartMinutes;
-    const end = minutesFromIso(entry.endAt) ?? start + entry.durationMinutes;
 
     return (
       <article
         key={entry.id}
-        className="group absolute left-1 right-1 overflow-hidden rounded-lg border px-2 py-2 text-left shadow-sm transition-[transform,box-shadow] duration-200 ease hover:-translate-y-0.5 hover:shadow-md"
-        style={{ ...blockStyle(entry, hourHeight), color: meta.fg, background: meta.bg, borderColor: meta.ring }}
-        title={`${entry.taskContent} · ${formatDuration(entry.durationMinutes)}`}
+        role="button"
+        tabIndex={0}
+        onClick={() => openEntry(entry)}
+        onKeyDown={event => handleCardKeyDown(event, entry)}
+        className={`group rounded-xl border bg-white text-left shadow-sm transition-[border-color,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-[#27272A] ${compact ? 'px-2 py-1.5' : 'px-3 py-3'}`}
+        style={{ borderColor: meta.ring }}
+        title="Kliknij, aby edytować wpis czasu"
       >
-        <div className="absolute right-1.5 top-1.5 z-10 flex items-center gap-1 opacity-0 transition-opacity duration-150 ease group-hover:opacity-100">
-          <button
-            type="button"
-            onClick={event => { event.stopPropagation(); setEditingEntry(entry); }}
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-white/85 text-[#5a606b] shadow-sm transition-colors hover:bg-white hover:text-[#0f1115]"
-            title="Edytuj wpis czasu"
-          >
-            <Pencil size={12} />
-          </button>
-          <button
-            type="button"
-            onClick={event => { event.stopPropagation(); void handleDeleteEntry(entry); }}
-            disabled={deletingId === entry.id}
-            className="flex h-6 w-6 items-center justify-center rounded-md bg-white/85 text-[#9098a4] shadow-sm transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Usuń wpis czasu"
-          >
-            <Trash2 size={12} />
-          </button>
-        </div>
-        <div className="flex h-full min-h-0 flex-col">
+        <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
-            <div className="mb-1 flex items-center gap-1.5">
-              <span className="rounded-md bg-white/60 px-1.5 py-0.5 text-[10px] font-semibold">{meta.label}</span>
-              <span className="text-[10.5px] font-semibold text-[#5a606b]">{formatDuration(entry.durationMinutes)}</span>
+            <div className="mb-1 flex min-w-0 items-center gap-1.5">
+              <span className="rounded-md bg-[#f7f7f4] px-1.5 py-0.5 text-[10px] font-semibold text-[#9098a4] dark:bg-white/8">{meta.label}</span>
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-500">
+                <Clock size={12} />
+                {formatDuration(entry.durationMinutes)}
+              </span>
             </div>
-            <p className="break-words text-[12.5px] font-semibold leading-tight tracking-[-0.01em] text-[#0f1115]">
+            <p className={`${compact ? 'truncate text-[11px]' : 'text-[13px]'} font-semibold leading-tight text-[#0f1115] dark:text-white`}>
               {entry.taskContent}
             </p>
-            <p className="mt-1 text-[10.5px] font-medium text-[#5a606b]">
-              {formatMinutes(start)}-{formatMinutes(end)}
-            </p>
+            {!compact && project && (
+              <p className="mt-1 truncate text-[11.5px] font-medium text-[#9098a4]">{project.name}</p>
+            )}
           </div>
-          {project && <p className="mt-auto truncate text-[10.5px] font-medium text-[#5a606b]">{project.name}</p>}
+
+          <div className="flex flex-none items-center gap-1 opacity-0 transition-opacity duration-150 ease group-hover:opacity-100 group-focus-within:opacity-100">
+            <button
+              type="button"
+              onClick={event => { event.stopPropagation(); openEntry(entry); }}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+              title="Edytuj wpis czasu"
+            >
+              <Pencil size={13} />
+            </button>
+            <button
+              type="button"
+              onClick={event => { event.stopPropagation(); void handleDeleteEntry(entry); }}
+              disabled={deletingId === entry.id}
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#c0c5cc] transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-500/10"
+              title="Usuń wpis czasu"
+            >
+              <Trash2 size={13} />
+            </button>
+          </div>
         </div>
+
+        {!compact && entry.notes && (
+          <div className="mt-2 flex gap-1.5 rounded-lg bg-[#fbfbf9] px-2 py-1.5 text-[11.5px] leading-5 text-[#5a606b] dark:bg-white/5 dark:text-gray-400">
+            <FileText size={12} className="mt-0.5 flex-none text-[#9098a4]" />
+            <p className="line-clamp-3">{entry.notes}</p>
+          </div>
+        )}
       </article>
     );
   }
 
   const weekGridClass = mode === 'week'
-    ? 'grid-cols-7 min-w-[700px] sm:min-w-[760px] lg:min-w-0'
+    ? 'grid-cols-1 md:grid-cols-7 md:min-w-[760px] lg:min-w-0'
     : 'grid-cols-1';
 
-  function renderTimeGrid() {
-    const hourCount = (DAY_END - DAY_START) / 60;
-    const timeGridHeight = hourCount * hourHeight;
-
+  function renderDayColumns() {
     return (
-      <div ref={timeGridRef} className="flex h-full flex-1 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
-        <div className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden custom-scrollbar">
-          <div className="flex">
-            <div className="sticky left-0 z-40 w-12 shrink-0 border-r border-[#f1f0ed] bg-[#f7f7f4] sm:w-16 dark:border-white/8 dark:bg-[#232326]">
-              <div className="sticky top-0 z-[45] h-14 border-b border-[#f1f0ed] bg-[#f7f7f4] dark:border-white/8 dark:bg-[#232326]" />
-              {Array.from({ length: hourCount }, (_, index) => (
-                <div
-                  key={index}
-                  className="relative pr-1.5 text-right text-[9.5px] font-medium leading-none text-[#9098a4] sm:pr-3 sm:text-[10.5px]"
-                  style={{ height: hourHeight }}
-                >
-                  {formatMinutes(DAY_START + index * 60)}
-                </div>
-              ))}
-            </div>
+      <div className="flex h-full min-h-0 overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-sm dark:border-white/10 dark:bg-[#27272A] dark:shadow-none">
+        <div className="min-w-0 flex-1 overflow-x-auto custom-scrollbar">
+          <div className={`grid h-full ${weekGridClass}`}>
+            {days.map(day => {
+              const key = toDateKey(day);
+              const dayEntries = entriesByDate.get(key) ?? [];
+              const dayTotal = dayEntries.reduce((sum, entry) => sum + entry.durationMinutes, 0);
+              return (
+                <section key={key} className="flex min-h-0 flex-col border-r border-[#f1f0ed] last:border-r-0 dark:border-white/8">
+                  <header className="flex h-14 flex-none items-center justify-between gap-2 border-b border-[#f1f0ed] px-3 dark:border-white/8">
+                    <div className={`flex min-h-9 min-w-9 flex-col justify-center rounded-lg px-2 transition-colors duration-200 ease ${key === todayKey ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#0f1115] dark:text-gray-100'}`}>
+                      <span className="text-[11px] font-semibold uppercase tracking-[0.06em]">{day.toLocaleDateString('pl-PL', { weekday: 'short' })} {day.getDate()}</span>
+                      {dayTotal > 0 && <span className="text-[10px] font-semibold opacity-70">{formatTotal(dayTotal)} h</span>}
+                    </div>
+                  </header>
 
-            <div className="flex-1">
-              <div className={`sticky top-0 z-[35] grid h-14 border-b border-[#f1f0ed] bg-white dark:border-white/8 dark:bg-[#27272A] ${weekGridClass}`}>
-                {days.map(day => {
-                  const key = toDateKey(day);
-                  const dayEntries = entriesByDate.get(key) ?? [];
-                  const dayTotal = dayEntries.reduce((sum, entry) => sum + entry.durationMinutes, 0);
-                  return (
-                    <div key={key} className="flex items-center justify-center border-r border-[#f1f0ed] last:border-r-0 dark:border-white/8">
-                      <div className={`flex min-h-9 min-w-9 flex-col items-center justify-center rounded-lg px-2 transition-colors duration-200 ease ${key === todayKey ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#0f1115] dark:text-gray-100'}`}>
-                        <span className="text-[11px] font-semibold uppercase tracking-[0.06em]">{day.toLocaleDateString('pl-PL', { weekday: 'short' })} {day.getDate()}</span>
-                        {dayTotal > 0 && <span className="text-[10px] font-semibold opacity-70">{formatTotal(dayTotal)}</span>}
+                  <div className="min-h-0 flex-1 overflow-y-auto p-3 custom-scrollbar">
+                    {dayEntries.length === 0 ? (
+                      <div className="flex h-full min-h-[120px] items-center justify-center rounded-xl border border-dashed border-[#f1f0ed] px-3 text-center text-[12px] font-medium text-[#b0b5be] dark:border-white/8">
+                        Brak wpisów
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className={`grid ${weekGridClass}`} style={{ height: timeGridHeight }}>
-                {days.map(day => {
-                  const key = toDateKey(day);
-                  const dayEntries = getPositionedEntries(entriesByDate.get(key) ?? []);
-                  return (
-                    <div key={key} className="relative border-r border-[#f1f0ed] bg-white last:border-r-0 dark:border-white/8 dark:bg-[#27272A]">
-                      {Array.from({ length: hourCount }, (_, index) => (
-                        <div key={index} className="border-b border-[#f1f0ed] dark:border-white/8" style={{ height: hourHeight }} />
-                      ))}
-                      {dayEntries.map(renderEntryBlock)}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {dayEntries.map(entry => renderEntryCard(entry))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -400,37 +322,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
                 {dayTotal > 0 && <span className="rounded-md bg-[#f7f7f4] px-1.5 py-0.5 text-[10.5px] font-semibold text-[#5a606b] dark:bg-white/8 dark:text-gray-300">{formatTotal(dayTotal)}</span>}
               </div>
               <div className="space-y-1">
-                {dayEntries.slice(0, 4).map(entry => {
-                  const meta = getPriorityMeta(entry.taskPriority);
-                  const project = getProject(entry);
-                  return (
-                    <div key={entry.id} className="group/month flex min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-[11px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[#f7f7f4] dark:text-gray-100 dark:hover:bg-[#323238]">
-                      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: meta.fg }} />
-                      <span className="truncate">{entry.taskContent}</span>
-                      <span className="shrink-0 text-[#9098a4]">{formatDuration(entry.durationMinutes)}</span>
-                      {project && <span className="hidden shrink-0 text-[#b0b5be] lg:inline">{project.name}</span>}
-                      <span className="ml-auto hidden shrink-0 items-center gap-0.5 group-hover/month:inline-flex">
-                        <button
-                          type="button"
-                          onClick={() => setEditingEntry(entry)}
-                          className="flex h-5 w-5 items-center justify-center rounded-md text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115]"
-                          title="Edytuj wpis czasu"
-                        >
-                          <Pencil size={11} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => void handleDeleteEntry(entry)}
-                          disabled={deletingId === entry.id}
-                          className="flex h-5 w-5 items-center justify-center rounded-md text-[#b0b5be] transition-colors hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
-                          title="Usuń wpis czasu"
-                        >
-                          <Trash2 size={11} />
-                        </button>
-                      </span>
-                    </div>
-                  );
-                })}
+                {dayEntries.slice(0, 4).map(entry => renderEntryCard(entry, true))}
                 {dayEntries.length > 4 && <p className="px-1.5 text-[10.5px] font-medium text-[#9098a4]">+{dayEntries.length - 4} więcej</p>}
               </div>
             </div>
@@ -496,7 +388,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
             <CalendarDays className="mb-3 h-8 w-8 text-[#c0c5cc]" />
             <p className="text-[14px] font-medium text-[#9098a4]">Brak zarejestrowanego czasu w tym zakresie.</p>
           </div>
-        ) : mode === 'month' ? renderMonth() : renderTimeGrid()}
+        ) : mode === 'month' ? renderMonth() : renderDayColumns()}
       </div>
 
       {editingEntry && (

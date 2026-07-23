@@ -31,25 +31,11 @@ function formatWorkDate(value: string) {
   });
 }
 
-function formatTime(value?: string | null) {
-  if (!value) return null;
-  return new Date(value).toLocaleTimeString('pl-PL', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatTimeRange(entry: ApiTaskTimeEntry) {
-  const start = formatTime(entry.startAt);
-  const end = formatTime(entry.endAt);
-  return start && end ? `${start} - ${end}` : 'Bez zakresu godzin';
-}
-
 function sortEntries(entries: ApiTaskTimeEntry[]) {
   return [...entries].sort((a, b) => {
     const byDate = b.workDate.localeCompare(a.workDate);
     if (byDate !== 0) return byDate;
-    return (a.startAt ?? a.createdAt).localeCompare(b.startAt ?? b.createdAt);
+    return b.createdAt.localeCompare(a.createdAt);
   });
 }
 
@@ -175,14 +161,12 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
   return createPortal(
     <div className="fixed inset-0 z-[90] flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 backdrop-blur-[2px]"
-        style={{ background: 'rgba(15,17,21,.22)' }}
+        className="absolute inset-0 bg-[#0f1115]/[0.22] backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       <div
-        className="relative z-10 flex w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.24)] dark:border-white/10 dark:bg-[#27272A]"
-        style={{ maxHeight: '84vh' }}
+        className="relative z-10 flex max-h-[84vh] w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.24)] dark:border-white/10 dark:bg-[#27272A]"
         onClick={event => event.stopPropagation()}
       >
         <div className="flex flex-none items-start justify-between gap-4 border-b border-[#f1f0ed] px-5 py-4 dark:border-white/8">
@@ -272,13 +256,15 @@ export function TaskTimeEntriesModal({ task, projects = [], onTotalMinutesChange
                       <CalendarDays size={14} className="flex-none text-[#9098a4]" />
                       <span className="truncate">{formatWorkDate(entry.workDate)}</span>
                     </div>
-                    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] font-medium text-[#9098a4]">
+                    <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[12px] font-semibold text-orange-500">
                       <Clock size={13} className="flex-none" />
-                      <span className="truncate">{formatTimeRange(entry)}</span>
+                      <span className="truncate">{formatLoggedHours(entry.durationMinutes)}</span>
                     </div>
-                  </div>
-                  <div className="flex-none rounded-lg bg-orange-50 px-2 py-1 text-[12px] font-semibold text-orange-500">
-                    {formatLoggedHours(entry.durationMinutes)}
+                    {entry.notes && (
+                      <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-[#5a606b] dark:text-gray-400">
+                        {entry.notes}
+                      </p>
+                    )}
                   </div>
                   <div className="flex flex-none items-center gap-1">
                     <button

@@ -466,7 +466,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       <div
         className="relative z-10 w-full flex flex-col"
         style={{
-          maxWidth: 420,
+          maxWidth: 840,
           maxHeight: '90vh',
           background: '#fff',
           border: '1px solid #e8e8e4',
@@ -983,7 +983,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         title="Status podzadania"
                       >
                         <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: subStatusMeta.dot }} />
-                        <span className="max-w-[130px] truncate">{subStatusMeta.name}</span>
+                        <span className="max-w-[220px] truncate">{subStatusMeta.name}</span>
                       </button>
 
                       <button

@@ -134,10 +134,11 @@ interface ProjectPickerProps {
   value: string | null;
   onChange: (projectId: string | null) => void;
   placement?: 'top' | 'bottom';
+  variant?: 'default' | 'bare';
   disabled?: boolean;
 }
 
-function ProjectPicker({ projects, value, onChange, placement = 'bottom', disabled = false }: ProjectPickerProps) {
+function ProjectPicker({ projects, value, onChange, placement = 'bottom', variant = 'default', disabled = false }: ProjectPickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
   const selected = value ? projects.find(project => project.id === value) : null;
@@ -156,6 +157,9 @@ function ProjectPicker({ projects, value, onChange, placement = 'bottom', disabl
   }, [isOpen]);
 
   const popupPosition = placement === 'top' ? 'bottom-full mb-2' : 'top-full mt-2';
+  const triggerClass = variant === 'bare'
+    ? `inline-flex h-8 w-8 items-center justify-center gap-1 rounded-lg text-[#5a606b] transition-[background-color,color,opacity] duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300 dark:hover:bg-white/8 dark:hover:text-white dark:focus:ring-white/10 ${isOpen ? 'bg-[#f1f0ed] text-[#0f1115] dark:bg-white/8 dark:text-white' : ''}`
+    : `inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-2.5 text-[12px] font-medium text-[#5a606b] transition-[background-color,border-color,color,opacity] duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8 dark:focus:ring-white/10 ${isOpen ? 'border-[#c0c5cc] bg-white text-[#0f1115] dark:border-white/20 dark:bg-[#323238] dark:text-white' : ''}`;
 
   return (
     <div ref={pickerRef} className="relative flex-none">
@@ -163,7 +167,7 @@ function ProjectPicker({ projects, value, onChange, placement = 'bottom', disabl
         type="button"
         onClick={() => setIsOpen(prev => !prev)}
         disabled={disabled}
-        className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-2.5 text-[12px] font-medium text-[#5a606b] transition-[background-color,border-color,color,opacity] duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/8 dark:focus:ring-white/10 ${isOpen ? 'border-[#c0c5cc] bg-white text-[#0f1115] dark:border-white/20 dark:bg-[#323238] dark:text-white' : ''}`}
+        className={triggerClass}
         title={selected ? `Projekt: ${selected.name}` : 'Wybierz projekt'}
         aria-expanded={isOpen}
       >
@@ -259,7 +263,7 @@ function InsightQuickAddTime({
       <div className="mx-auto max-w-3xl pointer-events-auto">
         <form
           onSubmit={handleSubmit}
-          className="relative flex flex-wrap items-center gap-2 rounded-xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/95 sm:flex-nowrap"
+          className="relative grid grid-cols-[minmax(0,2fr)_minmax(118px,1fr)_auto] items-center gap-2 rounded-xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/95"
         >
           <input
             ref={inputRef}
@@ -268,36 +272,39 @@ function InsightQuickAddTime({
             onChange={event => setContent(event.target.value)}
             placeholder="Dodaj godziny..."
             disabled={isSaving}
-            className="min-w-[180px] flex-[2_1_220px] bg-transparent text-sm text-gray-600 outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300"
+            className="min-w-0 bg-transparent text-sm text-gray-600 outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300"
           />
 
-          <label className="flex h-9 min-w-[112px] flex-[1_1_112px] items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-2.5 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-white/5 dark:focus-within:border-white/15 dark:focus-within:bg-[#323238]">
-            <Clock size={15} className="flex-none text-[#9098a4]" />
-            <input
-              type="text"
-              inputMode="decimal"
-              value={hours}
-              onChange={event => setHours(event.target.value)}
-              placeholder="0 h"
-              autoComplete="off"
+          <div className="flex min-w-0 items-center gap-2 border-l border-[#e8e8e4] pl-3 dark:border-white/10">
+            <label className="flex min-w-0 flex-1 items-center gap-2 transition-colors duration-200 ease">
+              <Clock size={15} className="flex-none text-[#9098a4]" />
+              <input
+                type="text"
+                inputMode="decimal"
+                value={hours}
+                onChange={event => setHours(event.target.value)}
+                placeholder="0 h"
+                autoComplete="off"
+                disabled={isSaving}
+                className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white"
+                aria-label="Liczba godzin"
+              />
+            </label>
+
+            <ProjectPicker
+              projects={projects}
+              value={projectId}
+              onChange={onProjectChange}
+              placement="top"
+              variant="bare"
               disabled={isSaving}
-              className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[#0f1115] outline-none placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white"
-              aria-label="Liczba godzin"
             />
-          </label>
-
-          <ProjectPicker
-            projects={projects}
-            value={projectId}
-            onChange={onProjectChange}
-            placement="top"
-            disabled={isSaving}
-          />
+          </div>
 
           <button
             type="submit"
             disabled={isSaving}
-            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-[#0f1115] text-white transition-[opacity,transform] duration-200 ease hover:-translate-y-px hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:focus:ring-white/10"
+            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0f1115] text-white transition-[opacity,transform] duration-200 ease hover:-translate-y-px hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:focus:ring-white/10"
             title="Dodaj godziny"
           >
             <SendHorizontal size={15} />

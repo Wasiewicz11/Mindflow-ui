@@ -29,6 +29,14 @@ export interface CreateTaskTimeEntryDto {
   notes?: string;
 }
 
+export interface CreateStandaloneTimeEntryDto {
+  content: string;
+  projectId?: string | null;
+  workDate?: string;
+  durationMinutes?: number;
+  notes?: string;
+}
+
 export type UpdateTaskTimeEntryDto = CreateTaskTimeEntryDto;
 export type CompleteTaskDto = CreateTaskTimeEntryDto;
 
@@ -57,6 +65,13 @@ export function getTaskTimeEntries(taskId: string): Promise<ApiTaskTimeEntry[]> 
 
 export function createTaskTimeEntry(taskId: string, dto: CreateTaskTimeEntryDto): Promise<TaskTimeEntryMutationResponse> {
   return apiFetch<TaskTimeEntryMutationResponse>(`/tasks/${taskId}/time-entries`, {
+    method: 'POST',
+    body: JSON.stringify(dto),
+  });
+}
+
+export function createStandaloneTimeEntry(dto: CreateStandaloneTimeEntryDto): Promise<ApiTaskTimeEntry> {
+  return apiFetch<ApiTaskTimeEntry>('/time-entries', {
     method: 'POST',
     body: JSON.stringify(dto),
   });

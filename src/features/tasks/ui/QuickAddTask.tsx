@@ -190,7 +190,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
             setSelectedProjectId(activeProjectId);
             setMobileOpen(true);
           }}
-          className={`fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#0f1115] text-white shadow-[0_8px_24px_rgba(15,17,21,.22)] transition duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${mobileOpen ? 'pointer-events-none scale-90 opacity-0' : 'scale-100 opacity-100'}`}
+          className={`fixed bottom-[calc(5.375rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#0f1115] text-white shadow-[0_8px_24px_rgba(15,17,21,.22)] transition duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${mobileOpen ? 'pointer-events-none scale-90 opacity-0' : 'scale-100 opacity-100'}`}
         >
           <Plus size={23} strokeWidth={2.2} />
         </button>
@@ -206,7 +206,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
             setShowProjectPicker(false);
             setError(null);
           }}
-          className={`fixed inset-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-40 bg-[#0f1115]/10 backdrop-blur-[1px] transition-opacity duration-200 ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
+          className={`fixed inset-0 bottom-[calc(4.375rem+env(safe-area-inset-bottom))] z-40 bg-[#0f1115]/10 backdrop-blur-[1px] transition-opacity duration-200 ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
         />
 
         <form
@@ -214,7 +214,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
           aria-hidden={!mobileOpen}
           aria-busy={isSaving}
           inert={!mobileOpen}
-          className={`mf-mobile-form fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-[45] flex flex-col gap-1.5 border-t border-[#e8e8e4] bg-white px-3 py-2.5 shadow-[0_-12px_32px_rgba(15,17,21,.10)] transition-transform duration-200 ease dark:border-white/10 dark:bg-[#1C1C1E] ${mobileOpen ? 'translate-y-0' : 'pointer-events-none translate-y-[calc(100%+1px)]'}`}
+          className={`mf-mobile-form fixed inset-x-0 bottom-[calc(4.375rem+env(safe-area-inset-bottom))] z-[45] flex flex-col gap-1.5 border-t border-[#e8e8e4] bg-white px-3 py-2.5 shadow-[0_-12px_32px_rgba(15,17,21,.10)] transition-transform duration-200 ease dark:border-white/10 dark:bg-[#1C1C1E] ${mobileOpen ? 'translate-y-0' : 'pointer-events-none translate-y-[calc(100%+1px)]'}`}
         >
           {error && (
             <p role="alert" className="absolute inset-x-3 bottom-full mb-2 rounded-lg bg-red-50 px-3 py-2 text-[12px] font-medium text-red-600 shadow-sm dark:bg-red-950/80 dark:text-red-300">

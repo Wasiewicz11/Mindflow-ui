@@ -510,7 +510,7 @@ export function AppShell() {
   const mobileBottomNav = (
     <nav
       aria-label="Główna nawigacja"
-      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-[#e8e8e4]/80 bg-white/95 px-4 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur-xl transition-colors duration-200 ease lg:hidden dark:border-white/8 dark:bg-black/92"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-[#e8e8e4]/80 bg-white/95 px-4 pt-1.5 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-xl transition-colors duration-200 ease lg:hidden dark:border-white/8 dark:bg-black/92"
     >
       <button onClick={() => setActiveTab('tasks')} className={mobileNavButtonClass('tasks')}>
         <CheckCircle2 className="h-[22px] w-[22px]" strokeWidth={activeTab === 'tasks' ? 2.4 : 1.9} />
@@ -654,8 +654,8 @@ export function AppShell() {
             <div
               className={`min-h-0 flex-1 custom-scrollbar px-4 lg:px-6 ${
                 activeTab === 'calendar' || activeTab === 'brain' || activeTab === 'insights'
-                  ? 'overflow-hidden pb-24 lg:pb-6'
-                  : 'overflow-y-auto pb-28 lg:pb-24'
+                  ? 'overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-6'
+                  : 'overflow-y-auto pb-[calc(8rem+env(safe-area-inset-bottom))] lg:pb-24'
               }`}
             >
               {activeTab === 'dashboard' && (

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent, type TouchEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { BarChart3, BookOpen, CalendarDays, Check, ChevronLeft, ChevronRight, Clock, FileText, Pencil, SendHorizontal, Settings, Trash2, X } from 'lucide-react';
 import type { Project, TaskPriority } from '../../../shared/types';
@@ -17,6 +17,11 @@ import { TaskTimeEntryModal } from '../../tasks/ui/TaskTimeEntryModal';
 
 type InsightMode = 'day' | 'week' | 'month';
 const DEFAULT_PROJECT_STORAGE_KEY = 'mindflow_insights_default_project_id';
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
+
+function getInitialInsightMode(): InsightMode {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_MEDIA_QUERY).matches ? 'day' : 'week';
+}
 
 const PRIORITY_META: Record<TaskPriority, { fg: string; bg: string; ring: string; label: string }> = {
   [Priority.P1]: { label: 'P1', fg: 'oklch(0.62 0.18 25)', bg: 'oklch(0.96 0.03 25)', ring: 'oklch(0.78 0.12 25)' },
@@ -226,12 +231,14 @@ type TimeEntryDraftInput = {
 function InsightQuickAddTime({
   projects,
   projectId,
+  workDate,
   onProjectChange,
   onSubmit,
   isSaving,
 }: {
   projects: Project[];
   projectId: string | null;
+  workDate: string;
   onProjectChange: (projectId: string | null) => void;
   onSubmit: (input: TimeEntryDraftInput) => Promise<boolean>;
   isSaving: boolean;
@@ -248,7 +255,7 @@ function InsightQuickAddTime({
       content,
       hours,
       projectId,
-      workDate: toDateKey(new Date()),
+      workDate,
     });
 
     if (saved) {
@@ -259,11 +266,11 @@ function InsightQuickAddTime({
   }
 
   return createPortal(
-    <div className="fixed bottom-[90px] left-0 right-0 z-40 px-4 pointer-events-none lg:bottom-4 lg:left-[220px] lg:px-6">
-      <div className="mx-auto max-w-3xl pointer-events-auto">
+    <div className="pointer-events-none fixed bottom-[calc(3.75rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-0 lg:bottom-4 lg:left-[220px] lg:px-6">
+      <div className="pointer-events-auto mx-auto max-w-3xl">
         <form
           onSubmit={handleSubmit}
-          className="relative grid grid-cols-[minmax(0,2fr)_minmax(118px,1fr)_auto] items-center gap-2 rounded-xl border border-gray-200 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/95"
+          className="relative flex flex-nowrap items-center gap-1.5 border-t border-gray-200 bg-white/95 px-3 py-2.5 shadow-[0_-12px_32px_rgba(15,17,21,.10)] backdrop-blur-xl dark:border-white/10 dark:bg-[#1C1C1E]/95 lg:gap-2 lg:rounded-xl lg:border lg:px-3 lg:py-2 lg:shadow-sm"
         >
           <input
             ref={inputRef}
@@ -272,12 +279,12 @@ function InsightQuickAddTime({
             onChange={event => setContent(event.target.value)}
             placeholder="Dodaj godziny..."
             disabled={isSaving}
-            className="min-w-0 bg-transparent text-sm text-gray-600 outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300"
+            className="min-w-0 flex-1 bg-transparent text-[16px] text-gray-600 outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-gray-300 lg:min-w-[180px] lg:flex-[2_1_220px] lg:text-sm"
           />
 
-          <div className="flex min-w-0 items-center gap-2 border-l border-[#e8e8e4] pl-3 dark:border-white/10">
-            <label className="flex min-w-0 flex-1 items-center gap-2 transition-colors duration-200 ease">
-              <Clock size={15} className="flex-none text-[#9098a4]" />
+          <div className="flex min-w-0 items-center gap-1.5 lg:gap-2 lg:border-l lg:border-[#e8e8e4] lg:pl-3 lg:dark:border-white/10">
+            <label className="flex h-10 w-[76px] min-w-0 flex-none items-center gap-1.5 rounded-lg bg-[#f7f7f4] px-2 transition-colors duration-200 ease focus-within:bg-white focus-within:ring-1 focus-within:ring-[#9098a4] dark:bg-white/5 dark:focus-within:bg-[#323238] lg:h-9 lg:min-w-[112px] lg:flex-[1_1_112px] lg:gap-2 lg:border lg:border-[#e8e8e4] lg:px-2.5">
+              <Clock size={14} className="flex-none text-[#9098a4]" />
               <input
                 type="text"
                 inputMode="decimal"
@@ -286,7 +293,7 @@ function InsightQuickAddTime({
                 placeholder="0 h"
                 autoComplete="off"
                 disabled={isSaving}
-                className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white"
+                className="min-w-0 flex-1 bg-transparent text-[16px] font-semibold text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white lg:text-[13px]"
                 aria-label="Liczba godzin"
               />
             </label>
@@ -304,7 +311,7 @@ function InsightQuickAddTime({
           <button
             type="submit"
             disabled={isSaving}
-            className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0f1115] text-white transition-[opacity,transform] duration-200 ease hover:-translate-y-px hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:focus:ring-white/10"
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-[#0f1115] text-white transition-[opacity,transform] duration-200 ease hover:-translate-y-px hover:opacity-85 focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-[#f7f7f4] dark:text-[#18181B] dark:focus:ring-white/10 lg:h-8 lg:w-8 lg:rounded-lg"
             title="Dodaj godziny"
           >
             <SendHorizontal size={15} />
@@ -374,7 +381,7 @@ function StandaloneTimeEntryModal({
   });
 
   return createPortal(
-    <div className="fixed inset-0 z-[90] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 lg:items-center lg:p-4" onKeyDown={handleKeyDown}>
       <div
         className="absolute inset-0 backdrop-blur-[2px]"
         style={{ background: 'rgba(15,17,21,.18)' }}
@@ -383,10 +390,13 @@ function StandaloneTimeEntryModal({
 
       <form
         onSubmit={handleSubmit}
-        className="relative z-10 flex w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#27272A]"
+        className="relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] border border-b-0 border-[#e8e8e4] bg-white shadow-[0_-16px_42px_-16px_rgba(15,17,21,.28)] dark:border-white/10 dark:bg-[#27272A] lg:max-h-[90vh] lg:max-w-[460px] lg:rounded-[18px] lg:border-b lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={event => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-[#f1f0ed] px-5 py-4 dark:border-white/8">
+        <div className="flex justify-center pb-1 pt-2.5 lg:hidden" aria-hidden="true">
+          <span className="h-1 w-9 rounded-full bg-[#d4d4d0] dark:bg-white/20" />
+        </div>
+        <div className="flex items-start justify-between gap-4 border-b border-[#f1f0ed] px-4 pb-3 pt-2 dark:border-white/8 lg:px-5 lg:py-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Dodaj godziny</p>
             <h2 className="mt-1 truncate text-[18px] font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">
@@ -396,14 +406,14 @@ function StandaloneTimeEntryModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:hover:bg-[#323238] dark:hover:text-white dark:focus:ring-white/10"
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:hover:bg-[#323238] dark:hover:text-white dark:focus:ring-white/10 lg:h-8 lg:w-8"
             title="Zamknij"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="grid gap-3 px-5 py-4">
+        <div className="grid gap-3 overflow-y-auto px-4 py-4 lg:px-5">
           <label className="grid gap-1.5">
             <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#9098a4]">
               <CalendarDays size={13} /> Wpis
@@ -415,7 +425,7 @@ function StandaloneTimeEntryModal({
               onChange={event => setContent(event.target.value)}
               placeholder="Co robiłeś?"
               disabled={isSaving}
-              className="h-10 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-[13px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-[#232326] dark:text-white dark:focus:ring-white/10"
+              className="h-10 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-[16px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-white/10 dark:bg-[#232326] dark:text-white dark:focus:ring-white/10 lg:text-[13px]"
             />
           </label>
 
@@ -433,7 +443,7 @@ function StandaloneTimeEntryModal({
                   placeholder="0 h"
                   autoComplete="off"
                   disabled={isSaving}
-                  className="min-w-0 flex-1 bg-transparent text-[13px] font-semibold text-[#0f1115] outline-none placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] font-semibold text-[#0f1115] outline-none placeholder:text-[#b0b5be] disabled:cursor-not-allowed disabled:opacity-40 dark:text-white lg:text-[13px]"
                 />
                 <span className="text-[12px] font-medium text-[#9098a4]">h</span>
               </div>
@@ -457,7 +467,7 @@ function StandaloneTimeEntryModal({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[#f1f0ed] px-5 py-3 dark:border-white/8">
+        <div className="flex items-center justify-end gap-2 border-t border-[#f1f0ed] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-white/8 lg:px-5 lg:py-3">
           <button
             type="button"
             onClick={onClose}
@@ -482,7 +492,7 @@ function StandaloneTimeEntryModal({
 
 export function InsightsView({ projects }: { projects: Project[] }) {
   const { confirm } = useConfirmDialog();
-  const [mode, setMode] = useState<InsightMode>('week');
+  const [mode, setMode] = useState<InsightMode>(getInitialInsightMode);
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [entries, setEntries] = useState<ApiTaskTimeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -496,6 +506,17 @@ export function InsightsView({ projects }: { projects: Project[] }) {
   const [isCreatingEntry, setIsCreatingEntry] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const syncMode = () => {
+      if (media.matches) setMode('day');
+    };
+    syncMode();
+    media.addEventListener('change', syncMode);
+    return () => media.removeEventListener('change', syncMode);
+  }, []);
 
   const days = useMemo(
     () => mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate],
@@ -574,11 +595,40 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     : mode === 'week'
       ? `${days[0].toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })} - ${days[6].toLocaleDateString('pl-PL', { day: 'numeric', month: 'short', year: 'numeric' })}`
       : anchorDate.toLocaleDateString('pl-PL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const mobileEntries = useMemo(
+    () => sortLoggedEntries(entriesByDate.get(toDateKey(anchorDate)) ?? []),
+    [anchorDate, entriesByDate],
+  );
+  const mobileDateTitle = anchorDate.toLocaleDateString('pl-PL', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  const mobileIsToday = toDateKey(anchorDate) === todayKey;
 
   function shiftDate(amount: number) {
     if (mode === 'day') setAnchorDate(prev => addDays(prev, amount));
     if (mode === 'week') setAnchorDate(prev => addDays(prev, amount * 7));
     if (mode === 'month') setAnchorDate(prev => new Date(prev.getFullYear(), prev.getMonth() + amount, 1, 12));
+  }
+
+  function handleMobileTouchStart(event: TouchEvent<HTMLDivElement>) {
+    const touch = event.touches[0];
+    swipeStartRef.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  }
+
+  function handleMobileTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    const start = swipeStartRef.current;
+    const touch = event.changedTouches[0];
+    swipeStartRef.current = null;
+    if (!start || !touch) return;
+
+    const deltaX = touch.clientX - start.x;
+    const deltaY = touch.clientY - start.y;
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY) * 1.2) return;
+
+    // Gest produktu: przeciągnięcie w lewo pokazuje poprzedni, a w prawo następny dzień.
+    shiftDate(deltaX < 0 ? -1 : 1);
   }
 
   function getProject(entry: ApiTaskTimeEntry) {
@@ -845,7 +895,128 @@ export function InsightsView({ projects }: { projects: Project[] }) {
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-0 lg:gap-4">
+      <div
+        className="flex min-h-0 flex-1 flex-col pt-[max(0.75rem,env(safe-area-inset-top))] lg:hidden"
+        onTouchStart={handleMobileTouchStart}
+        onTouchEnd={handleMobileTouchEnd}
+      >
+        <div className="flex flex-none items-center border-b border-[#e8e8e4] pb-3 dark:border-white/10">
+          <button
+            type="button"
+            onClick={() => shiftDate(-1)}
+            aria-label="Poprzedni dzień"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[#5a606b] transition-colors hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:text-gray-300 dark:hover:bg-white/10"
+          >
+            <ChevronLeft size={20} />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setAnchorDate(new Date())}
+            className="min-w-0 flex-1 px-2 text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115]"
+          >
+            <span className="block truncate text-[17px] font-semibold capitalize tracking-[-0.015em] text-[#0f1115] dark:text-white">
+              {mobileDateTitle}
+            </span>
+            <span className="mt-0.5 block text-[11.5px] font-medium text-[#9098a4]">
+              {mobileIsToday ? 'Dzisiaj' : 'Dotknij, aby wrócić do dzisiaj'} · {formatTotal(totalMinutes)} h
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => shiftDate(1)}
+            aria-label="Następny dzień"
+            className="flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[#5a606b] transition-colors hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:text-gray-300 dark:hover:bg-white/10"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </div>
+
+        {(error || actionError) && (
+          <div className="mt-3 border-l-2 border-red-500 bg-red-50 px-3 py-2 text-[13px] font-medium text-red-600">
+            {actionError ?? error}
+          </div>
+        )}
+
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pb-28">
+          {isLoading ? (
+            <div className="divide-y divide-[#f1f0ed] dark:divide-white/8">
+              {[1, 2, 3, 4].map(item => (
+                <div key={item} className="flex min-h-[68px] animate-pulse items-center gap-3 py-3">
+                  <span className="h-9 w-9 rounded-lg bg-[#f1f0ed] dark:bg-white/8" />
+                  <span className="h-4 flex-1 rounded bg-[#f1f0ed] dark:bg-white/8" />
+                  <span className="h-4 w-12 rounded bg-[#f1f0ed] dark:bg-white/8" />
+                </div>
+              ))}
+            </div>
+          ) : mobileEntries.length === 0 ? (
+            <div className="flex min-h-[48vh] flex-col items-center justify-center px-8 text-center">
+              <Clock size={25} strokeWidth={1.6} className="mb-3 text-[#b0b5be]" />
+              <p className="text-[15px] font-semibold text-[#5a606b] dark:text-gray-300">Brak wpisów tego dnia</p>
+              <p className="mt-1 max-w-[260px] text-[13px] leading-5 text-[#9098a4]">
+                Wpisz poniżej, co robiłeś i ile czasu to zajęło.
+              </p>
+            </div>
+          ) : (
+            <div className="divide-y divide-[#f1f0ed] dark:divide-white/8">
+              {mobileEntries.map(entry => {
+                const project = getProject(entry);
+                return (
+                  <div
+                    key={entry.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setEditingEntry(entry)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        setEditingEntry(entry);
+                      }
+                    }}
+                    className="flex min-h-[66px] items-center gap-3 py-2.5 outline-none transition-colors active:bg-[#f7f7f4] focus-visible:bg-[#f7f7f4] dark:active:bg-white/5 dark:focus-visible:bg-white/5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[15.5px] font-medium leading-5 text-[#0f1115] dark:text-white">
+                        {entry.taskContent}
+                      </p>
+                      <div className="mt-1 flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[12px] text-[#9098a4]">
+                        {project ? (
+                          <>
+                            <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: project.color || '#9098a4' }} />
+                            <span className="truncate">{project.name}</span>
+                          </>
+                        ) : (
+                          <span>Bez projektu</span>
+                        )}
+                      </div>
+                    </div>
+
+                    <span className="flex-none text-[13px] font-semibold tabular-nums text-[#5a606b] dark:text-gray-300">
+                      {formatDuration(entry.durationMinutes)}
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`Usuń wpis ${entry.taskContent}`}
+                      onClick={event => {
+                        event.stopPropagation();
+                        void handleDeleteEntry(entry);
+                      }}
+                      disabled={deletingId === entry.id}
+                      className="flex h-11 w-11 flex-none items-center justify-center rounded-lg text-[#b0b5be] transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-500 disabled:opacity-40 dark:hover:bg-red-500/10"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="hidden min-h-0 flex-1 flex-col gap-4 lg:flex">
       <div className="flex flex-none flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">
@@ -945,16 +1116,16 @@ export function InsightsView({ projects }: { projects: Project[] }) {
           </div>
         ) : mode === 'month' ? renderMonth() : renderDayColumns()}
       </div>
+      </div>
 
-      {!isLoading && (
-        <InsightQuickAddTime
-          projects={projects}
-          projectId={effectiveQuickProjectId}
-          onProjectChange={setQuickProjectId}
-          onSubmit={handleCreateStandaloneEntry}
-          isSaving={isCreatingEntry}
-        />
-      )}
+      <InsightQuickAddTime
+        projects={projects}
+        projectId={effectiveQuickProjectId}
+        workDate={toDateKey(anchorDate)}
+        onProjectChange={setQuickProjectId}
+        onSubmit={handleCreateStandaloneEntry}
+        isSaving={isCreatingEntry || isLoading}
+      />
 
       {selectedWorkDate && (
         <StandaloneTimeEntryModal

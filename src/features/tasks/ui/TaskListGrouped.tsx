@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, ChevronDown, CircleDot, Clock, Flag } from 'lucide-react';
+import { CalendarDays, ChevronDown, CircleDot, Clock, Flag, Search, SlidersHorizontal } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Task, Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
@@ -97,7 +97,7 @@ const GROUP_MODE_OPTIONS: Array<{ value: GroupMode; label: string; icon: typeof 
 
 function parseLocalDate(dateStr: string): Date {
   // "2026-05-21" → local midnight (avoids UTC offset shifting the day)
-  const [y, m, d] = dateStr.split('-').map(Number);
+  const [y, m, d] = dateStr.slice(0, 10).split('-').map(Number);
   return new Date(y, m - 1, d);
 }
 
@@ -109,6 +109,14 @@ function getDateLabel(dateStr: string): string {
   if (diff === 0) return 'Dzisiaj';
   if (diff === 1) return 'Jutro';
   return d.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' });
+}
+
+function getMobileDateLabel(dateStr: string, dueTime?: string): string {
+  const date = parseLocalDate(dateStr);
+  const dateLabel = date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' }).replace('.', '');
+  const embeddedTime = dateStr.match(/T(\d{2}):(\d{2})/);
+  const timeLabel = dueTime?.slice(0, 5) || (embeddedTime ? `${embeddedTime[1]}:${embeddedTime[2]}` : '');
+  return timeLabel ? `${dateLabel}, ${timeLabel}` : dateLabel;
 }
 
 function getDueRank(task: Task): number {
@@ -404,7 +412,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
   const dateLabel = task.dueDate ? getDateLabel(task.dueDate) : '';
   const dueLabel = [dateLabel, task.dueTime].filter(Boolean).join(' · ');
   const overdue = task.dueDate
-    ? new Date(task.dueDate).setHours(0,0,0,0) < new Date().setHours(0,0,0,0)
+    ? parseLocalDate(task.dueDate).getTime() < new Date().setHours(0, 0, 0, 0)
     : false;
   const subtaskProgress = getSubtaskProgress(task);
   const subtasks = task.subtasks ?? [];
@@ -460,10 +468,9 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
     <>
     <div
       onClick={handleRowClick}
-      className={`task-complete-collapse group flex cursor-pointer select-none items-start border-b border-[#f1f0ed] transition-[background-color,opacity] sm:items-center dark:border-white/8 dark:hover:bg-[#202125] ${isSelected ? 'bg-[#eef2ff] dark:bg-[#232326]' : ''} ${isClosing ? 'bg-[#f1f0ed] dark:bg-[#232326]' : ''} ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''}`}
+      className={`task-complete-collapse group flex min-h-[58px] cursor-pointer select-none items-center gap-2.5 border-b border-[#f1f0ed] py-1.5 transition-[background-color,opacity] lg:min-h-0 lg:py-[9px] dark:border-white/8 dark:hover:bg-[#202125] ${isSelected ? 'bg-[#eef2ff] dark:bg-[#232326]' : ''} ${isClosing ? 'bg-[#f1f0ed] dark:bg-[#232326]' : ''} ${closingPhase === 'fading' ? 'is-fading' : ''} ${closingPhase === 'collapsing' ? 'is-completing' : ''}`}
       style={{
-        padding: closingPhase === 'collapsing' ? '0' : '9px 0',
-        gap: 10,
+        padding: closingPhase === 'collapsing' ? 0 : undefined,
         opacity: isClosing ? 0 : isSelectionMode && !isSelected ? 0.45 : task.isCompleted ? 0.68 : 1,
         borderRadius: isSelected ? 6 : 0,
       }}
@@ -472,7 +479,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
       {isSelectionMode ? (
         <button
           onClick={e => { e.stopPropagation(); onSelect?.(); }}
-          className={`flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 transition-all ${
+          className={`relative flex h-5 w-5 flex-none items-center justify-center rounded-full border-2 transition-all after:absolute after:-inset-3 after:content-[''] ${
             isSelected
               ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
               : 'border-[#d4d4d0] bg-transparent dark:border-[#62666d]'
@@ -487,7 +494,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
       ) : (
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          className={`flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
+          className={`relative flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease after:absolute after:-inset-3 after:content-[''] hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
             isDoneVisual
               ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
               : 'border-[#d4d4d0] bg-transparent dark:border-[#747984]'
@@ -501,97 +508,44 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
         </button>
       )}
 
-      <div className="flex min-w-0 flex-1 flex-col gap-1.5 sm:hidden">
+      <div className="flex min-w-0 flex-1 flex-col gap-0.5 lg:hidden">
         <span
-          className={`min-w-0 text-[15px] font-medium leading-5 transition-colors duration-200 ease dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
+          className={`min-w-0 truncate text-[15.5px] font-medium leading-5 tracking-[-0.01em] transition-colors duration-200 ease dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         >
           {task.content}
         </span>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-[#9098a4]">
-          <button
-            onClick={handleDateClick}
-            className={`inline-flex items-center gap-1.5 rounded-lg border-0 bg-transparent px-0 py-0.5 font-[inherit] transition-colors hover:text-[#5a606b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${overdue ? 'text-red-400' : ''} ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
-            style={{
-              color: task.dueDate ? (overdue ? undefined : '#9098a4') : '#b0b5be',
-            }}
-            title={onEdit && !isSelectionMode ? 'Zmień termin' : undefined}
-          >
-            <CalIcon />
-            <span>{task.dueDate ? dueLabel : 'Bez terminu'}</span>
-          </button>
-
-          {project && (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <span
-                className="flex-none rounded-full"
-                style={{ width: 6, height: 6, background: project.color || '#9aa0aa' }}
-              />
-              <span className="truncate">{project.name}</span>
-            </div>
-          )}
-          {loggedLabel && (
-            <div className="inline-flex items-center gap-1.5 font-semibold text-orange-500">
-              <Clock size={12} />
-              <span>{loggedLabel}</span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
-          {hasInlineSubtasks ? (
-            <button
-              type="button"
-              onClick={handleSubtasksClick}
-              aria-expanded={subtasksOpen}
-              className="inline-flex flex-none items-center gap-1 rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#5a606b] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-white/8 dark:text-gray-400 dark:hover:bg-white/12 dark:hover:text-gray-200"
-              title={subtasksOpen ? 'Ukryj podzadania' : 'Pokaż podzadania'}
-            >
-              <span>{subtaskProgress.completed}/{subtaskProgress.total}</span>
-              <ChevronDown size={12} strokeWidth={2.2} className={`transition-transform duration-200 ease ${subtasksOpen ? 'rotate-180' : ''}`} />
-            </button>
-          ) : subtaskProgress.total > 0 && (
-            <span className="inline-flex flex-none items-center rounded-lg bg-[#f7f7f4] px-[7px] py-0.5 text-[10.5px] font-semibold text-[#9098a4] dark:bg-white/8 dark:text-gray-400">
-              {subtaskProgress.completed}/{subtaskProgress.total}
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap text-[12px] leading-4 text-[#9098a4]">
+          {task.dueDate && (
+            <span className={`inline-flex flex-none items-center gap-1 ${overdue ? 'font-medium text-[#e05050]' : ''}`}>
+              <CalIcon />
+              <span>{getMobileDateLabel(task.dueDate, task.dueTime)}</span>
             </span>
           )}
-
-          <button
-            onClick={handlePriorityClick}
-            className={`mf-chip min-w-7 flex-none rounded-lg border-0 px-[7px] py-0.5 text-center text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
-            style={{ ...chipStyle(p), letterSpacing: '0.03em' }}
-            title={onEdit && !isSelectionMode ? 'Zmień priorytet' : undefined}
-          >
-            {p.label}
-          </button>
-
-          <button
-            onClick={handleStatusClick}
-            className={`mf-chip inline-flex flex-none items-center gap-[4px] rounded-lg border-0 px-[7px] py-0.5 text-[10.5px] font-semibold transition-colors hover:opacity-80 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${onEdit && !isSelectionMode ? 'cursor-pointer' : 'cursor-default'}`}
-            title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
-            style={{ ...chipStyle(st), letterSpacing: '0.02em' }}
-          >
-            <span className="flex-none rounded-full" style={{ width: 5, height: 5, background: st.dot }} />
-            {st.label}
-          </button>
-
-          {onLogTime && !isSelectionMode && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onLogTime(); }}
-              className="inline-flex h-6 w-6 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
-              title="Zarejestruj czas"
-            >
-              <Clock size={13} />
-            </button>
+          {project && (
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: project.color || '#9aa0aa' }} />
+              <span className="truncate">{project.name}</span>
+            </span>
           )}
+          <span className="inline-flex min-w-0 flex-none items-center gap-1.5">
+            <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: st.dot }} />
+            <span className="max-w-[108px] truncate">{st.label}</span>
+          </span>
+          {subtaskProgress.total > 0 && (
+            <span className="flex-none text-[#b0b5be]">{subtaskProgress.completed}/{subtaskProgress.total}</span>
+          )}
+          <span className="ml-auto inline-flex flex-none items-center gap-1 font-medium" style={{ color: p.fg }} aria-label={p.name}>
+            <Flag size={11} fill="currentColor" aria-hidden="true" />
+            {p.label}
+          </span>
         </div>
       </div>
 
       {/* Priority badge — clickable */}
       <button
         onClick={handlePriorityClick}
-        className="mf-chip hidden flex-none rounded-[5px] text-[10.5px] font-semibold transition-opacity sm:block"
+        className="mf-chip hidden flex-none rounded-[5px] text-[10.5px] font-semibold transition-opacity lg:block"
         style={{
           padding: '2px 6px',
           ...chipStyle(p),
@@ -610,7 +564,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
       {/* Status badge — clickable */}
       <button
         onClick={handleStatusClick}
-        className="mf-chip hidden flex-none items-center gap-[4px] rounded-[5px] text-[10.5px] font-semibold sm:inline-flex"
+        className="mf-chip hidden flex-none items-center gap-[4px] rounded-[5px] text-[10.5px] font-semibold lg:inline-flex"
         title={onEdit && !isSelectionMode ? 'Zmień status' : st.label}
         style={{
           padding: '2px 7px', ...chipStyle(st), letterSpacing: '0.02em', flexShrink: 0,
@@ -623,14 +577,14 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
 
       {/* Title */}
       <span
-        className={`hidden sm:block flex-1 text-[14px] truncate min-w-0 transition-colors duration-200 ease dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
+        className={`hidden min-w-0 flex-1 truncate text-[14px] transition-colors duration-200 ease lg:block dark:text-white ${isDoneVisual ? 'text-[#9098a4] line-through dark:text-gray-500' : 'text-[#0f1115]'}`}
         style={{ fontWeight: 450 }}
       >
         {task.content}
       </span>
 
       {/* Right meta — project + date */}
-      <div className="hidden sm:flex items-center gap-5 flex-none" style={{ color: '#9098a4' }}>
+      <div className="hidden flex-none items-center gap-5 lg:flex" style={{ color: '#9098a4' }}>
         {loggedLabel && (
           <span className="inline-flex items-center gap-1 rounded-md bg-orange-50 px-1.5 py-0.5 text-[11px] font-semibold text-orange-500" title="Zarejestrowane godziny">
             <Clock size={13} />
@@ -938,10 +892,10 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
   };
 
   return (
-    <div className="mb-8">
+    <div className="mb-5 lg:mb-8">
       {/* Group header */}
       <div
-        className="flex items-center gap-2 cursor-pointer select-none mb-1"
+        className="mb-0.5 flex min-h-9 cursor-pointer select-none items-center gap-2 lg:mb-1"
         onClick={() => setOpen(o => !o)}
         style={{ padding: '4px 0 6px' }}
       >
@@ -949,7 +903,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
           <ChevronIcon open={open} />
         </span>
         <span
-          className={`text-[15px] font-semibold ${isOverdue ? 'text-[#e05050]' : 'text-[#8a909a] dark:text-gray-500'}`}
+          className={`text-[14px] font-semibold lg:text-[15px] ${isOverdue ? 'text-[#e05050]' : 'text-[#8a909a] dark:text-gray-500'}`}
         >
           {group.label}
         </span>
@@ -963,7 +917,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
           {group.tasks.length}
         </span>
         {group.sublabel && (
-          <span className="ml-auto text-[12.5px] text-[#b0b5be]">{group.sublabel}</span>
+          <span className="ml-auto hidden text-[12.5px] text-[#b0b5be] lg:inline">{group.sublabel}</span>
         )}
       </div>
 
@@ -987,7 +941,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
 
           <button
             type="button"
-            className="mt-1 flex items-center gap-2 py-2 text-[13px] text-[#c0c5cc] transition-colors hover:text-[#9098a4] dark:text-gray-500 dark:hover:text-gray-300"
+            className="mt-1 hidden items-center gap-2 py-2 text-[13px] text-[#c0c5cc] transition-colors hover:text-[#9098a4] lg:flex dark:text-gray-500 dark:hover:text-gray-300"
             onClick={() => setAddingOpen(true)}
           >
             <PlusIcon /> Dodaj zadanie
@@ -1035,6 +989,31 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterPriority, setFilterPriority] = useState('all');
   const [filterProjectId, setFilterProjectId] = useState('all');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1023px)');
+    const clearHiddenProjectFilter = () => {
+      if (media.matches) setFilterProjectId('all');
+    };
+    clearHiddenProjectFilter();
+    media.addEventListener('change', clearHiddenProjectFilter);
+    return () => media.removeEventListener('change', clearHiddenProjectFilter);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileFiltersOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMobileFiltersOpen(false);
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [mobileFiltersOpen]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
@@ -1056,7 +1035,18 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   }, [tasks, filterSearch, filterStatus, filterPriority, filterProjectId]);
 
   const hasActiveFilter = filterSearch || filterStatus !== 'all' || filterPriority !== 'all' || filterProjectId !== 'all';
-  const clearFilters = () => { setFilterSearch(''); setFilterStatus('all'); setFilterPriority('all'); setFilterProjectId('all'); };
+  const hasMobileViewChanges = hasActiveFilter || groupMode !== 'dueDate';
+  const clearFilters = () => {
+    setFilterSearch('');
+    setFilterStatus('all');
+    setFilterPriority('all');
+    setFilterProjectId('all');
+  };
+  const clearMobileView = () => {
+    clearFilters();
+    setGroupMode('dueDate');
+  };
+  const mobileFilterCount = Number(filterStatus !== 'all') + Number(filterPriority !== 'all') + Number(groupMode !== 'dueDate');
 
   const openBulkPicker = (type: 'priority' | 'status' | 'date', e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -1161,6 +1151,114 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
     )
     : null;
 
+  const mobileFiltersPortal = typeof document !== 'undefined' ? createPortal(
+    <div
+      className="fixed inset-0 z-[80] lg:hidden"
+      style={{ pointerEvents: mobileFiltersOpen ? 'auto' : 'none' }}
+      aria-hidden={!mobileFiltersOpen}
+      inert={!mobileFiltersOpen}
+    >
+      <div
+        className="absolute inset-0 bg-[#0f1115]/20 backdrop-blur-[2px] transition-opacity duration-200 ease"
+        style={{ opacity: mobileFiltersOpen ? 1 : 0 }}
+        onClick={() => setMobileFiltersOpen(false)}
+      />
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label="Filtry zadań"
+        className="absolute inset-x-0 bottom-0 flex max-h-[78dvh] flex-col rounded-t-[18px] border-t border-[#e8e8e4] bg-white shadow-[0_-24px_48px_-12px_rgba(15,17,21,.22)] transition-transform duration-[0.22s] ease dark:border-white/10 dark:bg-[#27272A]"
+        style={{ transform: mobileFiltersOpen ? 'translateY(0)' : 'translateY(100%)' }}
+        onClick={event => event.stopPropagation()}
+      >
+        <div className="flex-none pb-1 pt-2.5">
+          <div className="mx-auto h-1 w-9 rounded-full bg-[#e3e3df] dark:bg-white/15" />
+        </div>
+
+        <div className="flex items-center justify-between border-b border-[#f1f0ed] px-5 py-3 dark:border-white/8">
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Widok listy</p>
+            <h2 className="mt-0.5 text-[19px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Filtry i grupowanie</h2>
+          </div>
+          {hasMobileViewChanges && (
+            <button
+              type="button"
+              onClick={clearMobileView}
+              className="rounded-lg px-2.5 py-2 text-[13px] font-medium text-[#9098a4] transition-[background-color,color] duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+            >
+              Wyczyść
+            </button>
+          )}
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 custom-scrollbar">
+          <label className="flex min-h-14 items-center gap-3 border-b border-[#f1f0ed] dark:border-white/8">
+            <CircleDot size={17} className="flex-none text-[#9098a4]" />
+            <span className="flex-1 text-[14px] font-medium text-[#0f1115] dark:text-white">Status</span>
+            <span className="relative flex max-w-[58%] items-center">
+              <select
+                value={filterStatus}
+                onChange={event => setFilterStatus(event.target.value)}
+                className="w-full appearance-none rounded-lg bg-transparent py-2 pl-2 pr-7 text-right text-[16px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease focus-visible:bg-[#f7f7f4] dark:text-gray-300 dark:focus-visible:bg-white/8"
+              >
+                <option value="all">Wszystkie</option>
+                <option value="NotStarted">Nie rozpoczęto</option>
+                <option value="InProgress">W trakcie</option>
+                <option value="Completed">Ukończone</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-0 text-[#9098a4]" />
+            </span>
+          </label>
+
+          <label className="flex min-h-14 items-center gap-3 border-b border-[#f1f0ed] dark:border-white/8">
+            <Flag size={17} className="flex-none text-[#9098a4]" />
+            <span className="flex-1 text-[14px] font-medium text-[#0f1115] dark:text-white">Priorytet</span>
+            <span className="relative flex max-w-[58%] items-center">
+              <select
+                value={filterPriority}
+                onChange={event => setFilterPriority(event.target.value)}
+                className="w-full appearance-none rounded-lg bg-transparent py-2 pl-2 pr-7 text-right text-[16px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease focus-visible:bg-[#f7f7f4] dark:text-gray-300 dark:focus-visible:bg-white/8"
+              >
+                <option value="all">Wszystkie</option>
+                <option value={TaskPriority.P1}>P1 — Pilne</option>
+                <option value={TaskPriority.P2}>P2 — Wysokie</option>
+                <option value={TaskPriority.P3}>P3 — Średnie</option>
+                <option value={TaskPriority.P4}>P4 — Niskie</option>
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-0 text-[#9098a4]" />
+            </span>
+          </label>
+
+          <label className="flex min-h-14 items-center gap-3 border-b border-[#f1f0ed] dark:border-white/8">
+            <CalendarDays size={17} className="flex-none text-[#9098a4]" />
+            <span className="flex-1 text-[14px] font-medium text-[#0f1115] dark:text-white">Grupuj</span>
+            <span className="relative flex max-w-[58%] items-center">
+              <select
+                value={groupMode}
+                onChange={event => setGroupMode(event.target.value as GroupMode)}
+                className="w-full appearance-none rounded-lg bg-transparent py-2 pl-2 pr-7 text-right text-[16px] font-medium text-[#5a606b] outline-none transition-colors duration-200 ease focus-visible:bg-[#f7f7f4] dark:text-gray-300 dark:focus-visible:bg-white/8"
+              >
+                {GROUP_MODE_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+              <ChevronDown size={14} className="pointer-events-none absolute right-0 text-[#9098a4]" />
+            </span>
+          </label>
+        </div>
+
+        <div className="flex-none px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen(false)}
+            className="flex h-11 w-full items-center justify-center rounded-lg bg-[#0f1115] text-[14px] font-semibold text-white transition-[background-color,opacity] duration-200 ease hover:bg-[#2b2e33] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-[#f7f7f4] dark:text-[#18181B]"
+          >
+            Gotowe
+          </button>
+        </div>
+      </section>
+    </div>,
+    document.body,
+  ) : null;
+
   const bulkPickerPortal = bulkPicker && typeof document !== 'undefined' ? createPortal(
     <>
       <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={closeBulkPicker} />
@@ -1261,11 +1359,14 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
 
   if (groups.length === 0 && completedTasks.length === 0 && !hasActiveFilter) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-[14px] text-[#9098a4]">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</p>
+      <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
+        <p className="text-[14px] text-[#9098a4]">
+          <span className="lg:hidden">Brak zadań. Dodaj pierwsze przyciskiem poniżej.</span>
+          <span className="hidden lg:inline">Brak zadań. Dodaj pierwsze za pomocą panelu na dole!</span>
+        </p>
         <button
           type="button"
-          className="flex items-center gap-2 rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
+          className="hidden items-center gap-2 rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] lg:flex dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
           onClick={() => setAddModalOpen(true)}
         >
           <PlusIcon /> Nowe zadanie
@@ -1283,12 +1384,13 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   }
 
   return (
-    <div className="pt-2">
+    <div className="pt-0 lg:pt-2">
       {floatingToolbar}
+      {mobileFiltersPortal}
       {bulkPickerPortal}
 
       {/* Top-level add button + Wybierz wiele */}
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 hidden items-center justify-between gap-3 lg:flex">
         <button
           type="button"
           className="flex items-center gap-2 rounded-lg bg-[#f5f4f1] px-3 py-1.5 text-[13px] font-medium text-[#9098a4] transition-colors hover:bg-[#eceae6] hover:text-[#0f1115] dark:bg-[#27272A] dark:text-gray-300 dark:hover:bg-[#323238] dark:hover:text-white"
@@ -1324,8 +1426,42 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
         />
       )}
 
+      <div className="mb-2 flex min-h-11 items-center border-b border-[#e8e8e4] lg:hidden dark:border-white/8">
+        <Search size={17} className="mr-2.5 flex-none text-[#9098a4]" />
+        <input
+          type="search"
+          placeholder="Szukaj zadań"
+          value={filterSearch}
+          onChange={event => setFilterSearch(event.target.value)}
+          className="min-w-0 flex-1 rounded-lg bg-transparent py-2 text-[16px] text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] focus-visible:bg-[#f7f7f4] dark:text-white dark:focus-visible:bg-white/8"
+        />
+        {filterSearch && (
+          <button
+            type="button"
+            onClick={() => setFilterSearch('')}
+            aria-label="Wyczyść wyszukiwanie"
+            className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-[background-color,color] duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-white/8 dark:hover:text-white"
+          >
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setMobileFiltersOpen(true)}
+          aria-label="Filtry i grupowanie"
+          className="relative ml-1 flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#5a606b] transition-[background-color,color] duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:text-gray-300 dark:hover:bg-white/8 dark:hover:text-white"
+        >
+          <SlidersHorizontal size={18} />
+          {mobileFilterCount > 0 && (
+            <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#0f1115] px-1 text-[9px] font-semibold text-white dark:bg-[#f7f7f4] dark:text-[#18181B]">
+              {mobileFilterCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Filter bar */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="mb-4 hidden flex-wrap items-center gap-2 lg:flex">
         <div
           className={`flex items-center gap-2 rounded-[7px] border bg-white text-[#0f1115] transition-all dark:bg-[#232326] dark:text-gray-100 ${
             filterSearch

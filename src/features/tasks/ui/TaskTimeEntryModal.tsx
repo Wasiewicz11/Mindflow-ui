@@ -143,17 +143,20 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
   const submit = isCompleteMode ? 'Oznacz jako wykonane' : isEditMode ? 'Zapisz zmiany' : 'Zapisz czas';
 
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 lg:items-center lg:p-4" onKeyDown={handleKeyDown}>
       <div
         className="absolute inset-0 bg-[#0f1115]/[0.18] backdrop-blur-[2px]"
         onClick={onClose}
       />
 
       <div
-        className="relative z-10 flex max-h-[90vh] w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#27272A]"
+        className="relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] border border-b-0 border-[#e8e8e4] bg-white shadow-[0_-16px_42px_-16px_rgba(15,17,21,.28)] dark:border-white/10 dark:bg-[#27272A] lg:max-h-[90vh] lg:max-w-[460px] lg:rounded-[18px] lg:border-b lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-none items-center justify-between border-b border-[#f1f0ed] px-5 py-4 dark:border-white/8">
+        <div className="flex justify-center pb-1 pt-2.5 lg:hidden" aria-hidden="true">
+          <span className="h-1 w-9 rounded-full bg-[#d4d4d0] dark:bg-white/20" />
+        </div>
+        <div className="flex flex-none items-center justify-between border-b border-[#f1f0ed] px-4 pb-3 pt-2 dark:border-white/8 lg:px-5 lg:py-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">{title}</p>
             <h2 className="mt-1 truncate text-[18px] font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">
@@ -163,14 +166,14 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white lg:h-8 lg:w-8"
             title="Zamknij"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 custom-scrollbar">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span
               className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px] font-semibold"
@@ -204,7 +207,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                   onChange={e => setEstimatedHours(e.target.value)}
                   placeholder="Opcjonalnie"
                   autoComplete="off"
-                  className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white lg:text-[13px]"
                 />
                 <span className="text-[12px] font-medium text-[#9098a4]">h</span>
               </div>
@@ -219,7 +222,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                   type="date"
                   value={workDate}
                   onChange={e => setWorkDate(e.target.value)}
-                  className="h-10 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-[13px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white"
+                  className="h-10 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 text-[16px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white lg:text-[13px]"
                 />
               </label>
 
@@ -235,7 +238,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                     onChange={e => setDurationHours(e.target.value)}
                     placeholder="Opcjonalnie"
                     autoComplete="off"
-                    className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
+                    className="min-w-0 flex-1 bg-transparent text-[16px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white lg:text-[13px]"
                   />
                   <span className="text-[12px] font-medium text-[#9098a4]">h</span>
                 </div>
@@ -251,7 +254,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Opcjonalnie"
                 rows={4}
-                className="min-h-[96px] resize-none rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-[13px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white"
+                className="min-h-[96px] resize-none rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-[16px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease placeholder:text-[#b0b5be] hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white lg:text-[13px]"
               />
             </label>
 
@@ -263,9 +266,9 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
           </div>
         </div>
 
-        <div className="flex flex-none items-center justify-between border-t border-[#f1f0ed] px-5 py-3 dark:border-white/8">
-          <span className="text-[11.5px] text-[#c0c5cc]">⌘ + Enter aby zapisać</span>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-none items-center justify-between border-t border-[#f1f0ed] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-white/8 lg:px-5 lg:py-3">
+          <span className="hidden text-[11.5px] text-[#c0c5cc] lg:inline">⌘ + Enter aby zapisać</span>
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}

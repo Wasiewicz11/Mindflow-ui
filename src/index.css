@@ -576,3 +576,13 @@
   height: 0;
   pointer-events: none;
 }
+
+/* iOS powiększa viewport przy fokusie pól mniejszych niż 16 px. */
+@media (max-width: 1023px) {
+  .mf-mobile-form input,
+  .mf-mobile-form textarea,
+  .mf-mobile-form select,
+  .mf-mobile-form [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}

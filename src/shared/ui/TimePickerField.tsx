@@ -91,6 +91,7 @@ export function TimePickerField({
     [maxMinutes, minMinutes, stepMinutes],
   );
   const isCompact = size === 'compact';
+  const isMobilePicker = typeof window !== 'undefined' && window.matchMedia('(max-width: 1023px)').matches;
 
   const labelClass = isCompact
     ? 'text-[10.5px] font-medium text-[#9098a4]'
@@ -165,7 +166,7 @@ export function TimePickerField({
             onBlur={handleInputBlur}
             onKeyDown={handleInputKeyDown}
             placeholder="--:--"
-            className="min-w-0 flex-1 bg-transparent font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] read-only:cursor-default dark:text-white"
+            className="min-w-0 flex-1 bg-transparent text-[16px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] read-only:cursor-default dark:text-white lg:text-[13px]"
           />
         </div>
         {clearable && value && !readOnly && (
@@ -182,12 +183,15 @@ export function TimePickerField({
 
       {pickerRect && typeof document !== 'undefined' && createPortal(
         <>
-          <div className="fixed inset-0 z-[90]" onClick={() => setPickerRect(null)} />
+          <div className="fixed inset-0 z-[120] bg-[#0f1115]/10 lg:bg-transparent" onClick={() => setPickerRect(null)} />
           <div
-            className="fixed z-[91] overflow-hidden rounded-xl border border-[#e8e8e4] bg-white shadow-[0_16px_36px_-12px_rgba(15,17,21,.25)] dark:border-white/10 dark:bg-[#2D2D31]"
-            style={getPickerStyle(pickerRect)}
+            className="fixed z-[121] overflow-hidden rounded-t-[18px] border border-b-0 border-[#e8e8e4] bg-white pb-[env(safe-area-inset-bottom)] shadow-[0_-16px_42px_-16px_rgba(15,17,21,.28)] dark:border-white/10 dark:bg-[#2D2D31] lg:rounded-xl lg:border-b lg:pb-0 lg:shadow-[0_16px_36px_-12px_rgba(15,17,21,.25)]"
+            style={isMobilePicker ? { insetInline: 0, bottom: 0, maxHeight: '70dvh' } : getPickerStyle(pickerRect)}
             onClick={event => event.stopPropagation()}
           >
+            <div className="flex justify-center pb-1 pt-2.5 lg:hidden" aria-hidden="true">
+              <span className="h-1 w-9 rounded-full bg-[#d4d4d0] dark:bg-white/20" />
+            </div>
             <div className="flex items-center justify-between border-b border-[#f1f0ed] px-3 py-2 dark:border-white/8">
               <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">
                 {label}
@@ -202,7 +206,7 @@ export function TimePickerField({
                 </button>
               )}
             </div>
-            <div className="grid max-h-[218px] grid-cols-4 gap-1 overflow-y-auto p-2 custom-scrollbar">
+            <div className="custom-scrollbar grid max-h-[min(55dvh,360px)] grid-cols-3 gap-1 overflow-y-auto p-2 sm:grid-cols-4 lg:max-h-[218px]">
               {options.map(option => {
                 const active = option === value;
 

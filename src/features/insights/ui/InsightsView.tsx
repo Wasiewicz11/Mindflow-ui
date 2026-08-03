@@ -266,7 +266,7 @@ function InsightQuickAddTime({
   }
 
   return createPortal(
-    <div className="pointer-events-none fixed bottom-[calc(4.375rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-0 lg:bottom-4 lg:left-[220px] lg:px-6">
+    <div className="pointer-events-none fixed bottom-[calc(4.0625rem+env(safe-area-inset-bottom))] left-0 right-0 z-40 px-0 lg:bottom-4 lg:left-[220px] lg:px-6">
       <div className="pointer-events-auto mx-auto max-w-3xl">
         <form
           onSubmit={handleSubmit}

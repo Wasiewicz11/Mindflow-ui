@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { ArrowUp, CalendarDays, Check, Folder, Plus, X } from 'lucide-react';
 import type { Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
+import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 
 interface Props {
   activeProjectId: string | null;
@@ -23,6 +24,45 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
   [TaskPriority.P3]: 'Priorytet 3',
   [TaskPriority.P4]: 'Priorytet 4',
 };
+
+const QUICK_ADD_PREFERENCES_STORAGE_KEY = 'mindflow_quick_add_preferences_v1';
+
+interface QuickAddPreferences {
+  priority: TaskPriority;
+  dueDate: string;
+  projectId: string | null;
+}
+
+function getQuickAddPreferences(activeProjectId: string | null): QuickAddPreferences {
+  const fallback = {
+    priority: TaskPriority.P4,
+    dueDate: '',
+    projectId: activeProjectId,
+  };
+
+  if (typeof window === 'undefined') return fallback;
+
+  try {
+    const stored = localStorage.getItem(QUICK_ADD_PREFERENCES_STORAGE_KEY);
+    if (!stored) return fallback;
+
+    const parsed: unknown = JSON.parse(stored);
+    if (!parsed || typeof parsed !== 'object') return fallback;
+
+    const preferences = parsed as Partial<QuickAddPreferences>;
+    return {
+      priority: Object.values(TaskPriority).includes(preferences.priority as TaskPriority)
+        ? preferences.priority as TaskPriority
+        : TaskPriority.P4,
+      dueDate: typeof preferences.dueDate === 'string' ? preferences.dueDate : '',
+      projectId: typeof preferences.projectId === 'string' || preferences.projectId === null
+        ? preferences.projectId
+        : activeProjectId,
+    };
+  } catch {
+    return fallback;
+  }
+}
 
 function formatQuickDate(value: string) {
   const [year, month, day] = value.split('-').map(Number);
@@ -45,35 +85,63 @@ function FlagIcon({ className }: { className?: string }) {
 
 export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
   const [value, setValue] = useState('');
-  const [priority, setPriority] = useState<TaskPriority>(TaskPriority.P4);
-  const [dueDate, setDueDate] = useState('');
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(activeProjectId);
+  const [preferences, setPreferences] = useState<QuickAddPreferences>(() => getQuickAddPreferences(activeProjectId));
   const [showPicker, setShowPicker] = useState(false);
   const [showProjectPicker, setShowProjectPicker] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const desktopInputRef = useRef<HTMLInputElement>(null);
   const mobileInputRef = useRef<HTMLInputElement>(null);
   const desktopPickerRef = useRef<HTMLDivElement>(null);
+  const desktopProjectPickerRef = useRef<HTMLDivElement>(null);
+  const desktopDatePickerRef = useRef<HTMLDivElement>(null);
   const mobilePickerRef = useRef<HTMLDivElement>(null);
   const mobileProjectPickerRef = useRef<HTMLDivElement>(null);
+  const mobileDatePickerRef = useRef<HTMLDivElement>(null);
+
+  const { priority, dueDate, projectId: selectedProjectId } = preferences;
+
+  const setPriority = (nextPriority: TaskPriority) => {
+    setPreferences(current => ({ ...current, priority: nextPriority }));
+  };
+
+  const setDueDate = (nextDueDate: string) => {
+    setPreferences(current => ({ ...current, dueDate: nextDueDate }));
+  };
+
+  const setSelectedProjectId = (projectId: string | null) => {
+    setPreferences(current => ({ ...current, projectId }));
+  };
 
   useEffect(() => {
-    if (!showPicker && !showProjectPicker) return;
+    try {
+      localStorage.setItem(QUICK_ADD_PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+    } catch {
+      // The quick-add form remains usable when browser storage is unavailable.
+    }
+  }, [preferences]);
+
+  useEffect(() => {
+    if (!showPicker && !showProjectPicker && !showDatePicker) return;
     const handler = (event: MouseEvent) => {
       if (
         !desktopPickerRef.current?.contains(event.target as Node)
+        && !desktopProjectPickerRef.current?.contains(event.target as Node)
+        && !desktopDatePickerRef.current?.contains(event.target as Node)
         && !mobilePickerRef.current?.contains(event.target as Node)
         && !mobileProjectPickerRef.current?.contains(event.target as Node)
+        && !mobileDatePickerRef.current?.contains(event.target as Node)
       ) {
         setShowPicker(false);
         setShowProjectPicker(false);
+        setShowDatePicker(false);
       }
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [showPicker, showProjectPicker]);
+  }, [showPicker, showProjectPicker, showDatePicker]);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -83,6 +151,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
         setMobileOpen(false);
         setShowPicker(false);
         setShowProjectPicker(false);
+        setShowDatePicker(false);
       }
     };
     document.addEventListener('keydown', handleEscape);
@@ -92,8 +161,10 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
     };
   }, [mobileOpen]);
 
-  const activeProject = activeProjectId ? projects.find(project => project.id === activeProjectId) : null;
   const selectedProject = selectedProjectId ? projects.find(project => project.id === selectedProjectId) : null;
+  const effectiveProjectId = selectedProjectId && projects.length > 0 && !selectedProject
+    ? null
+    : selectedProjectId;
 
   const handleSubmit = async (source: 'desktop' | 'mobile') => {
     if (!value.trim() || isSaving) return;
@@ -103,15 +174,13 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
       await onAdd(
         value.trim(),
         priority,
-        source === 'mobile' && dueDate ? dueDate : undefined,
-        source === 'mobile' ? selectedProjectId ?? '' : activeProjectId ?? undefined,
+        dueDate || undefined,
+        effectiveProjectId ?? undefined,
       );
       setValue('');
-      setPriority(TaskPriority.P4);
-      setDueDate('');
-      setSelectedProjectId(activeProjectId);
       setShowPicker(false);
       setShowProjectPicker(false);
+      setShowDatePicker(false);
       if (source === 'mobile') {
         setMobileOpen(false);
       } else {
@@ -149,33 +218,83 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
               className="min-w-0 flex-1 bg-transparent text-sm text-gray-600 outline-none placeholder:text-gray-300 dark:text-gray-300 dark:placeholder:text-gray-600"
             />
 
-            {activeProject && (
-              <span
-                className="inline-flex flex-none items-center gap-1 whitespace-nowrap rounded-md px-2 py-0.5 text-[11px] font-medium"
-                style={{
-                  color: activeProject.color || '#9098a4',
-                  background: (activeProject.color || '#9098a4') + '22',
+            <div ref={desktopProjectPickerRef} className="relative flex-none">
+              <button
+                type="button"
+                aria-label={selectedProject ? `Projekt: ${selectedProject.name}` : 'Wybierz projekt'}
+                aria-haspopup="listbox"
+                aria-expanded={showProjectPicker}
+                onClick={() => {
+                  setShowPicker(false);
+                  setShowDatePicker(false);
+                  setShowProjectPicker(current => !current);
                 }}
+                disabled={isSaving}
+                title={selectedProject ? `Projekt: ${selectedProject.name}` : 'Wybierz projekt'}
+                className={`relative rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showProjectPicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
               >
-                <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: activeProject.color || '#9098a4' }} />
-                {activeProject.name}
-              </span>
-            )}
+                <Folder size={16} strokeWidth={1.9} className={selectedProject ? 'text-[#0f1115] dark:text-white' : 'text-[#9098a4]'} />
+                {selectedProject && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-white dark:border-[#1C1C1E]"
+                    style={{ background: selectedProject.color || '#9098a4' }}
+                  />
+                )}
+              </button>
+
+              <ProjectPicker
+                isOpen={showProjectPicker}
+                projects={projects}
+                selectedProjectId={effectiveProjectId}
+                onChange={setSelectedProjectId}
+                onClose={() => setShowProjectPicker(false)}
+              />
+            </div>
+
+            <div ref={desktopDatePickerRef} className="relative flex-none">
+              <button
+                type="button"
+                aria-label={dueDate ? `Termin: ${formatQuickDate(dueDate)}` : 'Wybierz termin zadania'}
+                aria-haspopup="dialog"
+                aria-expanded={showDatePicker}
+                onClick={() => {
+                  setShowPicker(false);
+                  setShowProjectPicker(false);
+                  setShowDatePicker(current => !current);
+                }}
+                disabled={isSaving}
+                title={dueDate ? `Termin: ${formatQuickDate(dueDate)}` : 'Wybierz termin zadania'}
+                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
+              >
+                <CalendarDays size={16} strokeWidth={1.9} className={dueDate ? 'text-[#ef5350]' : 'text-[#9098a4]'} />
+              </button>
+
+              <div
+                aria-hidden={!showDatePicker}
+                inert={!showDatePicker}
+                className={`absolute bottom-full right-0 z-[60] mb-2 w-[20rem] origin-bottom-right transition-all duration-200 ease ${showDatePicker ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}
+              >
+                <CalendarDatePicker value={dueDate} onChange={setDueDate} onClose={() => setShowDatePicker(false)} />
+              </div>
+            </div>
 
             <div ref={desktopPickerRef} className="relative flex-none">
               <button
                 type="button"
-                onClick={() => setShowPicker(!showPicker)}
+                onClick={() => {
+                  setShowProjectPicker(false);
+                  setShowDatePicker(false);
+                  setShowPicker(current => !current);
+                }}
                 disabled={isSaving}
                 title={PRIORITY_LABELS[priority]}
-                className={`rounded-lg p-1.5 transition-colors ${showPicker ? 'bg-gray-100 dark:bg-white/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showPicker ? 'bg-gray-100 dark:bg-white/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'}`}
               >
                 <FlagIcon className={`h-4 w-4 ${PRIORITY_COLORS[priority]}`} />
               </button>
 
-              {showPicker && (
-                <PriorityPicker priority={priority} onChange={setPriority} onClose={() => setShowPicker(false)} />
-              )}
+              <PriorityPicker isOpen={showPicker} priority={priority} onChange={setPriority} onClose={() => setShowPicker(false)} />
             </div>
           </form>
         </div>
@@ -187,7 +306,6 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
           aria-label="Dodaj zadanie"
           onClick={() => {
             setError(null);
-            setSelectedProjectId(activeProjectId);
             setMobileOpen(true);
           }}
           className={`fixed bottom-[calc(5.0625rem+env(safe-area-inset-bottom))] right-4 z-40 flex h-[52px] w-[52px] items-center justify-center rounded-full bg-[#0f1115] text-white shadow-[0_8px_24px_rgba(15,17,21,.22)] transition duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${mobileOpen ? 'pointer-events-none scale-90 opacity-0' : 'scale-100 opacity-100'}`}
@@ -204,6 +322,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
             setMobileOpen(false);
             setShowPicker(false);
             setShowProjectPicker(false);
+            setShowDatePicker(false);
             setError(null);
           }}
           className={`fixed inset-0 bottom-[calc(4.0625rem+env(safe-area-inset-bottom))] z-40 bg-[#0f1115]/10 backdrop-blur-[1px] transition-opacity duration-200 ${mobileOpen ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0'}`}
@@ -229,6 +348,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 setMobileOpen(false);
                 setShowPicker(false);
                 setShowProjectPicker(false);
+                setShowDatePicker(false);
                 setError(null);
               }}
               className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-white/10 dark:hover:text-white"
@@ -264,20 +384,32 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
           </div>
 
           <div className="flex w-full items-center gap-1.5 border-t border-[#efefec] pt-1.5 dark:border-white/8">
-            <label
-              className={`relative flex h-9 flex-none cursor-pointer items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors hover:bg-[#f1f0ed] dark:hover:bg-white/10 ${dueDate ? 'text-[#ef5350]' : 'text-[#7f8793]'}`}
-            >
-              <CalendarDays size={16} strokeWidth={1.9} />
-              <span>{dueDate ? formatQuickDate(dueDate) : 'Termin'}</span>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(event) => setDueDate(event.target.value)}
+            <div ref={mobileDatePickerRef} className="relative flex-none">
+              <button
+                type="button"
+                aria-label={dueDate ? `Termin: ${formatQuickDate(dueDate)}` : 'Wybierz termin zadania'}
+                aria-haspopup="dialog"
+                aria-expanded={showDatePicker}
+                onClick={() => {
+                  setShowPicker(false);
+                  setShowProjectPicker(false);
+                  setShowDatePicker(current => !current);
+                }}
                 disabled={isSaving}
-                aria-label="Wybierz termin zadania"
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-              />
-            </label>
+                className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/10'} ${dueDate ? 'text-[#ef5350]' : 'text-[#7f8793]'}`}
+              >
+                <CalendarDays size={16} strokeWidth={1.9} />
+                <span>{dueDate ? formatQuickDate(dueDate) : 'Termin'}</span>
+              </button>
+
+              <div
+                aria-hidden={!showDatePicker}
+                inert={!showDatePicker}
+                className={`absolute bottom-full left-0 z-[60] mb-2 w-[min(20rem,calc(100vw-1.5rem))] origin-bottom-left transition-all duration-200 ease ${showDatePicker ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}
+              >
+                <CalendarDatePicker value={dueDate} onChange={setDueDate} onClose={() => setShowDatePicker(false)} />
+              </div>
+            </div>
 
             <div ref={mobileProjectPickerRef} className="relative min-w-0 flex-1">
               <button
@@ -286,6 +418,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 aria-expanded={showProjectPicker}
                 onClick={() => {
                   setShowPicker(false);
+                  setShowDatePicker(false);
                   setShowProjectPicker(current => !current);
                 }}
                 disabled={isSaving}
@@ -301,14 +434,13 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 <span className="truncate">{selectedProject?.name ?? 'Projekt'}</span>
               </button>
 
-              {showProjectPicker && (
-                <ProjectPicker
-                  projects={projects}
-                  selectedProjectId={selectedProjectId}
-                  onChange={setSelectedProjectId}
-                  onClose={() => setShowProjectPicker(false)}
-                />
-              )}
+              <ProjectPicker
+                isOpen={showProjectPicker}
+                projects={projects}
+                selectedProjectId={effectiveProjectId}
+                onChange={setSelectedProjectId}
+                onClose={() => setShowProjectPicker(false)}
+              />
             </div>
 
             <div ref={mobilePickerRef} className="relative flex-none">
@@ -316,6 +448,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 type="button"
                 onClick={() => {
                   setShowProjectPicker(false);
+                  setShowDatePicker(false);
                   setShowPicker(current => !current);
                 }}
                 disabled={isSaving}
@@ -324,9 +457,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
               >
                 <FlagIcon className={`h-4 w-4 ${PRIORITY_COLORS[priority]}`} />
               </button>
-              {showPicker && (
-                <PriorityPicker priority={priority} onChange={setPriority} onClose={() => setShowPicker(false)} />
-              )}
+              <PriorityPicker isOpen={showPicker} priority={priority} onChange={setPriority} onClose={() => setShowPicker(false)} />
             </div>
           </div>
         </form>
@@ -337,16 +468,22 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
 }
 
 function PriorityPicker({
+  isOpen,
   priority,
   onChange,
   onClose,
 }: {
+  isOpen: boolean;
   priority: TaskPriority;
   onChange: (priority: TaskPriority) => void;
   onClose: () => void;
 }) {
   return (
-    <div className="absolute bottom-full right-0 z-50 mb-2 w-40 overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg dark:border-white/10 dark:bg-[#2C2C2E]">
+    <div
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      className={`absolute bottom-full right-0 z-50 mb-2 w-40 origin-bottom-right overflow-hidden rounded-xl border border-gray-100 bg-white py-1 shadow-lg transition-all duration-200 ease dark:border-white/10 dark:bg-[#2C2C2E] ${isOpen ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}
+    >
       {Object.values(TaskPriority).map(option => (
         <button
           key={option}
@@ -363,11 +500,13 @@ function PriorityPicker({
 }
 
 function ProjectPicker({
+  isOpen,
   projects,
   selectedProjectId,
   onChange,
   onClose,
 }: {
+  isOpen: boolean;
   projects: Project[];
   selectedProjectId: string | null;
   onChange: (projectId: string | null) => void;
@@ -382,7 +521,9 @@ function ProjectPicker({
     <div
       role="listbox"
       aria-label="Projekt zadania"
-      className="absolute bottom-full right-0 z-[60] mb-2 w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[#e8e8e4] bg-white shadow-[0_18px_48px_rgba(15,17,21,.18)] dark:border-white/10 dark:bg-[#27272A]"
+      aria-hidden={!isOpen}
+      inert={!isOpen}
+      className={`absolute bottom-full right-0 z-[60] mb-2 w-[min(18rem,calc(100vw-1.5rem))] origin-bottom-right overflow-hidden rounded-xl border border-[#e8e8e4] bg-white shadow-[0_18px_48px_rgba(15,17,21,.18)] transition-all duration-200 ease dark:border-white/10 dark:bg-[#27272A] ${isOpen ? 'pointer-events-auto translate-y-0 scale-100 opacity-100' : 'pointer-events-none -translate-y-1.5 scale-[0.97] opacity-0'}`}
     >
       <div className="border-b border-[#efefec] px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-[#9098a4] dark:border-white/8">
         Projekt

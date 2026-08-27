@@ -231,7 +231,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 }}
                 disabled={isSaving}
                 title={selectedProject ? `Projekt: ${selectedProject.name}` : 'Wybierz projekt'}
-                className={`relative rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showProjectPicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
+                className={`relative rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40 ${showProjectPicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
               >
                 <Folder size={16} strokeWidth={1.9} className={selectedProject ? 'text-[#0f1115] dark:text-white' : 'text-[#9098a4]'} />
                 {selectedProject && (
@@ -265,7 +265,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 }}
                 disabled={isSaving}
                 title={dueDate ? `Termin: ${formatQuickDate(dueDate)}` : 'Wybierz termin zadania'}
-                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
+                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40 ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/5'}`}
               >
                 <CalendarDays size={16} strokeWidth={1.9} className={dueDate ? 'text-[#ef5350]' : 'text-[#9098a4]'} />
               </button>
@@ -289,7 +289,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 }}
                 disabled={isSaving}
                 title={PRIORITY_LABELS[priority]}
-                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showPicker ? 'bg-gray-100 dark:bg-white/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'}`}
+                className={`rounded-lg p-1.5 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40 ${showPicker ? 'bg-gray-100 dark:bg-white/10' : 'hover:bg-gray-100 dark:hover:bg-white/5'}`}
               >
                 <FlagIcon className={`h-4 w-4 ${PRIORITY_COLORS[priority]}`} />
               </button>
@@ -396,7 +396,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                   setShowDatePicker(current => !current);
                 }}
                 disabled={isSaving}
-                className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/10'} ${dueDate ? 'text-[#ef5350]' : 'text-[#7f8793]'}`}
+                className={`flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] disabled:cursor-not-allowed disabled:opacity-40 ${showDatePicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'hover:bg-[#f1f0ed] dark:hover:bg-white/10'} ${dueDate ? 'text-[#ef5350]' : 'text-[#7f8793]'}`}
               >
                 <CalendarDays size={16} strokeWidth={1.9} />
                 <span>{dueDate ? formatQuickDate(dueDate) : 'Termin'}</span>
@@ -422,7 +422,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                   setShowProjectPicker(current => !current);
                 }}
                 disabled={isSaving}
-                className={`flex h-9 w-full min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors ${showProjectPicker ? 'bg-[#f1f0ed] text-[#0f1115] dark:bg-white/10 dark:text-white' : 'text-[#7f8793] hover:bg-[#f1f0ed] dark:hover:bg-white/10'}`}
+                className={`flex h-9 w-full min-w-0 items-center gap-1.5 rounded-lg px-2.5 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${showProjectPicker ? 'bg-[#f1f0ed] text-[#0f1115] dark:bg-white/10 dark:text-white' : 'text-[#7f8793] hover:bg-[#f1f0ed] dark:hover:bg-white/10'}`}
               >
                 <Folder size={16} strokeWidth={1.9} className="flex-none" />
                 {selectedProject && (
@@ -453,7 +453,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
                 }}
                 disabled={isSaving}
                 title={PRIORITY_LABELS[priority]}
-                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${showPicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'text-[#9098a4] hover:bg-[#f1f0ed] dark:hover:bg-white/10'}`}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${showPicker ? 'bg-[#f1f0ed] dark:bg-white/10' : 'text-[#9098a4] hover:bg-[#f1f0ed] dark:hover:bg-white/10'}`}
               >
                 <FlagIcon className={`h-4 w-4 ${PRIORITY_COLORS[priority]}`} />
               </button>

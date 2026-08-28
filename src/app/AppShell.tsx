@@ -7,7 +7,7 @@ import { BrainView } from '../features/brain';
 import { GoalsView } from '../features/goals';
 import { InsightsView } from '../features/insights';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
-import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
+import { ApiIntegrationsSettings, getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
 import { NotificationCenter, PushNotificationsSettings } from '../features/notifications';
 import { BarChart3, Bell, CalendarDays, CheckCircle2, UserRound } from 'lucide-react';
 import {
@@ -954,6 +954,7 @@ export function AppShell() {
                           </div>
                         )}
                         <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
+                        <ApiIntegrationsSettings isLoggedIn={isLoggedIn} />
                       </section>
                     </div>
                       </>

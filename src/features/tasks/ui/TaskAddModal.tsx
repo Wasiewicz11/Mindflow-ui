@@ -126,6 +126,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
           <textarea
             ref={titleRef}
             value={content}
+            maxLength={1000}
             onChange={e => setContent(e.target.value)}
             rows={1}
             autoFocus

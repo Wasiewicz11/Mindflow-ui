@@ -212,6 +212,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
               ref={desktopInputRef}
               type="text"
               value={value}
+              maxLength={1000}
               onChange={(event) => setValue(event.target.value)}
               disabled={isSaving}
               placeholder="Dodaj zadanie..."
@@ -360,6 +361,7 @@ export function QuickAddTask({ activeProjectId, projects, onAdd }: Props) {
               ref={mobileInputRef}
               type="text"
               value={value}
+              maxLength={1000}
               onChange={(event) => setValue(event.target.value)}
               disabled={isSaving}
               onKeyDown={(event) => {

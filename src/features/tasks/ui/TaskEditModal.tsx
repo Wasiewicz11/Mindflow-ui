@@ -644,6 +644,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             ref={titleRef}
             autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
             value={content}
+            maxLength={1000}
             onChange={e => setContent(e.target.value)}
             rows={1}
             className="w-full resize-none outline-none bg-transparent leading-snug"

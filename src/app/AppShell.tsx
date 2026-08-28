@@ -9,7 +9,7 @@ import { InsightsView } from '../features/insights';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
 import { ApiIntegrationsSettings, getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
 import { NotificationCenter, PushNotificationsSettings } from '../features/notifications';
-import { BarChart3, Bell, CalendarDays, CheckCircle2, UserRound } from 'lucide-react';
+import { BarChart3, Bell, CalendarDays, CheckCircle2, Plug, UserRound } from 'lucide-react';
 import {
   loadPomodoroSettings,
   PomodoroOverlay,
@@ -81,7 +81,7 @@ export function AppShell() {
   const [notes, setNotes] = useState<Note[]>([]);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [googleNotice, setGoogleNotice] = useState<string | null>(null);
-  const [settingsSection, setSettingsSection] = useState<'account' | 'notifications' | 'pomodoro'>('account');
+  const [settingsSection, setSettingsSection] = useState<'account' | 'notifications' | 'integrations' | 'pomodoro'>('account');
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettingsValue>(loadPomodoroSettings);
   const [pomodoroLaunchRequest, setPomodoroLaunchRequest] = useState<PomodoroLaunchRequest | null>(null);
 
@@ -120,6 +120,7 @@ export function AppShell() {
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
     void Promise.resolve().then(() => {
       setActiveTab('settings');
+      setSettingsSection('integrations');
       setGoogleNotice(message);
     });
   }, []);
@@ -850,6 +851,13 @@ export function AppShell() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setSettingsSection('integrations')}
+                      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'integrations' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                    >
+                      <Plug className="h-4 w-4" /> Integracje
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setSettingsSection('pomodoro')}
                       className={`hidden items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 lg:flex dark:focus:ring-white/15 ${settingsSection === 'pomodoro' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
                     >
@@ -947,16 +955,26 @@ export function AppShell() {
                         </div>
                       </section>
 
-                      <section className="px-6 py-5">
-                        {googleNotice && (
-                          <div className="mb-4 rounded-xl border border-[#e8e8e4] bg-[#fcfcfa] px-4 py-3 text-sm text-[#5a606b] dark:border-white/8 dark:bg-white/[0.03] dark:text-gray-300">
-                            {googleNotice}
-                          </div>
-                        )}
-                        <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
-                        <ApiIntegrationsSettings isLoggedIn={isLoggedIn} />
-                      </section>
                     </div>
+                      </>
+                    ) : settingsSection === 'integrations' ? (
+                      <>
+                        <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Połączenia</p>
+                          <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Integracje</h2>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Połącz Mindflow z kalendarzem i zewnętrznymi narzędziami, które mają działać na Twoich zadaniach.</p>
+                        </div>
+                        <section className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                          {googleNotice && (
+                            <div className="mb-4 rounded-xl border border-[#e8e8e4] bg-[#fcfcfa] px-4 py-3 text-sm text-[#5a606b] dark:border-white/8 dark:bg-white/[0.03] dark:text-gray-300">
+                              {googleNotice}
+                            </div>
+                          )}
+                          <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
+                        </section>
+                        <section className="px-6 py-5">
+                          <ApiIntegrationsSettings isLoggedIn={isLoggedIn} />
+                        </section>
                       </>
                     ) : settingsSection === 'notifications' ? (
                       <>

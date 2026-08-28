@@ -2251,7 +2251,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onComplete, onTog
             type="button"
             role="menuitem"
             onClick={() => startFocusForBlock(blockContextMenu.blockId)}
-            className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[oklch(0.96_0.03_25)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/20 dark:text-white dark:hover:bg-[oklch(0.62_0.18_25)]/10"
+            className="hidden w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-[13px] font-medium text-[#0f1115] transition-colors duration-200 ease hover:bg-[oklch(0.96_0.03_25)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/20 dark:text-white dark:hover:bg-[oklch(0.62_0.18_25)]/10 lg:flex"
           >
             <TomatoIcon className="h-4 w-4" />
             Focus

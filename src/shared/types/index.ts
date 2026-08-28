@@ -19,6 +19,7 @@ export interface User {
   lastName: string;
   avatarUrl: string | null;
   timeZone: string;
+  integrationsEnabled: boolean;
 }
 
 // Space rozszerzone o color i projects (lokalnie zarządzane)

@@ -9,14 +9,6 @@ export function useBlockNotifications(enabled: boolean, items: AgendaItem[], now
 
   useEffect(() => {
     if (!enabled) return;
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission === 'default') {
-      void Notification.requestPermission().catch(() => {});
-    }
-  }, [enabled]);
-
-  useEffect(() => {
-    if (!enabled) return;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
 
     const fired = firedRef.current;

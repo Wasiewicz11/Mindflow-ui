@@ -178,7 +178,7 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
       onClick={openGlobalPlanner}
       aria-label="Otwórz Pomodoro"
       title="Pomodoro"
-      className="fixed bottom-[218px] right-0 z-[48] flex h-11 w-12 transform-none items-center justify-center rounded-l-xl border border-r-0 border-[#e8e8e4] bg-white/95 shadow-[0_10px_28px_-14px_rgba(15,17,21,.3)] backdrop-blur transition-[background-color,box-shadow] duration-200 ease hover:transform-none hover:bg-[#f7f7f4] hover:shadow-[0_12px_30px_-14px_rgba(15,17,21,.38)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/25 max-lg:bottom-24 dark:border-white/10 dark:border-r-0 dark:bg-[#1C1C1E]/95 dark:hover:bg-[#27272A]"
+      className="fixed bottom-[218px] right-0 z-[48] hidden h-11 w-12 transform-none items-center justify-center rounded-l-xl border border-r-0 border-[#e8e8e4] bg-white/95 shadow-[0_10px_28px_-14px_rgba(15,17,21,.3)] backdrop-blur transition-[background-color,box-shadow] duration-200 ease hover:transform-none hover:bg-[#f7f7f4] hover:shadow-[0_12px_30px_-14px_rgba(15,17,21,.38)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/25 dark:border-white/10 dark:border-r-0 dark:bg-[#1C1C1E]/95 dark:hover:bg-[#27272A] lg:flex"
     >
       <TomatoIcon className="h-5 w-5" />
     </button>
@@ -191,7 +191,7 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
 
   const globalPlannerModal = (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0f1115]/20 p-4 backdrop-blur-md transition-opacity duration-200 ease"
+      className="fixed inset-0 z-[80] hidden items-center justify-center bg-[#0f1115]/20 p-4 backdrop-blur-md transition-opacity duration-200 ease lg:flex"
       onPointerDown={event => {
         if (event.target === event.currentTarget) setIsGlobalPlannerOpen(false);
       }}
@@ -339,7 +339,7 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
       type="button"
       onClick={() => setMinimized(false)}
       aria-label="Rozwiń Pomodoro"
-      className="fixed bottom-[218px] right-0 z-[48] flex transform-none items-center gap-2 rounded-l-xl border border-r-0 border-[#e8e8e4] bg-white/95 px-3 py-2.5 shadow-[0_10px_28px_-14px_rgba(15,17,21,.3)] backdrop-blur transition-[background-color,box-shadow] duration-200 ease hover:transform-none hover:bg-[#f7f7f4] hover:shadow-[0_12px_30px_-14px_rgba(15,17,21,.38)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/25 max-lg:bottom-24 dark:border-white/10 dark:border-r-0 dark:bg-[#1C1C1E]/95 dark:hover:bg-[#27272A]"
+      className="fixed bottom-[218px] right-0 z-[48] hidden transform-none items-center gap-2 rounded-l-xl border border-r-0 border-[#e8e8e4] bg-white/95 px-3 py-2.5 shadow-[0_10px_28px_-14px_rgba(15,17,21,.3)] backdrop-blur transition-[background-color,box-shadow] duration-200 ease hover:transform-none hover:bg-[#f7f7f4] hover:shadow-[0_12px_30px_-14px_rgba(15,17,21,.38)] focus:outline-none focus:ring-2 focus:ring-[oklch(0.62_0.18_25)]/25 dark:border-white/10 dark:border-r-0 dark:bg-[#1C1C1E]/95 dark:hover:bg-[#27272A] lg:flex"
     >
       <TomatoIcon className="h-5 w-5" />
       <span className="tabular-nums text-[12px] font-semibold text-[#0f1115] dark:text-white">
@@ -354,7 +354,7 @@ export function PomodoroOverlay({ settings, launchRequest }: PomodoroOverlayProp
 
   const modal = (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-[#0f1115]/20 p-4 backdrop-blur-md transition-opacity duration-200 ease"
+      className="fixed inset-0 z-[80] hidden items-center justify-center bg-[#0f1115]/20 p-4 backdrop-blur-md transition-opacity duration-200 ease lg:flex"
       onPointerDown={event => {
         if (event.target === event.currentTarget) setMinimized(true);
       }}

@@ -92,7 +92,7 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
   const VALUE = 'flex-1 text-[13px] text-[#0f1115]';
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[70] flex items-end justify-center p-0 lg:items-center lg:p-4" onKeyDown={handleKeyDown}>
       <div
         className="absolute inset-0 backdrop-blur-[2px]"
         style={{ background: 'rgba(15,17,21,.18)' }}
@@ -100,25 +100,18 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
       />
 
       <div
-        className="relative z-10 w-full flex flex-col"
-        style={{
-          maxWidth: 420,
-          maxHeight: '90vh',
-          background: '#fff',
-          border: '1px solid #e8e8e4',
-          borderRadius: 18,
-          boxShadow: '0 24px 48px -12px rgba(15,17,21,.22)',
-          overflow: 'hidden',
-        }}
+        className="mf-mobile-form relative z-10 flex max-h-[90dvh] w-full flex-col overflow-hidden rounded-t-[18px] border border-b-0 border-[#e8e8e4] bg-white shadow-[0_-16px_42px_-16px_rgba(15,17,21,.28)] lg:max-h-[90vh] lg:max-w-[420px] lg:rounded-[18px] lg:border-b lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
+        <div className="flex justify-center pb-1 pt-2.5 lg:hidden" aria-hidden="true">
+          <span className="h-1 w-9 rounded-full bg-[#d4d4d0]" />
+        </div>
         {/* Header */}
-        <div className="flex-none flex items-center justify-between px-5 pt-4 pb-3" style={{ borderBottom: '1px solid #f1f0ed' }}>
+        <div className="flex flex-none items-center justify-between px-4 pb-3 pt-2 lg:px-5 lg:pt-4" style={{ borderBottom: '1px solid #f1f0ed' }}>
           <span className="text-[13px] font-semibold text-[#0f1115]">Nowe zadanie</span>
           <button
             onClick={onClose}
-            className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
-            style={{ width: 28, height: 28 }}
+            className="flex h-10 w-10 items-center justify-center rounded-[8px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef] hover:text-[#0f1115] lg:h-7 lg:w-7 lg:rounded-[6px]"
           >
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M18 6 6 18M6 6l12 12"/>
@@ -127,10 +120,11 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-1">
+        <div className="custom-scrollbar flex-1 space-y-1 overflow-y-auto px-4 py-4 lg:px-5">
           <textarea
             ref={titleRef}
             value={content}
+            maxLength={1000}
             onChange={e => setContent(e.target.value)}
             rows={1}
             autoFocus
@@ -152,6 +146,8 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
                 </span>
               </div>
               <div
+                aria-hidden={!showStatusPicker}
+                inert={!showStatusPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170,
@@ -181,6 +177,8 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
                 </span>
               </div>
               <div
+                aria-hidden={!showPriorityPicker}
+                inert={!showPriorityPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160,
@@ -215,6 +213,8 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
                 </span>
               </div>
               <div
+                aria-hidden={!showProjectPicker}
+                inert={!showProjectPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 180,
@@ -243,10 +243,12 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
               >
                 <span className={LABEL}><CalIcon /> Termin</span>
                 <span className={VALUE} style={{ color: dueDate ? '#0f1115' : '#b0b5be' }}>
-                  {dueDate ? new Date(dueDate + 'T00:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Brak terminu'}
+                  {dueDate ? new Date(`${dueDate.slice(0, 10)}T00:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }) : 'Brak terminu'}
                 </span>
               </div>
               <div
+                aria-hidden={!showDatePicker}
+                inert={!showDatePicker}
                 style={{
                   display: 'grid',
                   gridTemplateRows: showDatePicker ? '1fr' : '0fr',
@@ -304,9 +306,9 @@ export function TaskAddModal({ projects, initialStatus = 'NotStarted', initialPr
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex items-center justify-between px-5 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
-          <p className="text-[11.5px] text-[#c0c5cc]">⌘ + Enter aby zapisać</p>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-none items-center justify-between px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-5 lg:py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
+          <p className="hidden text-[11.5px] text-[#c0c5cc] lg:block">⌘ + Enter aby zapisać</p>
+          <div className="ml-auto flex items-center gap-2">
             <button onClick={onClose} className="text-[13px] font-medium text-[#9098a4] hover:text-[#0f1115] rounded-xl transition-colors" style={{ padding: '8px 14px' }}>
               Anuluj
             </button>

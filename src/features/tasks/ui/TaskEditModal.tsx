@@ -97,8 +97,17 @@ function stringArraysEqual(a: string[] = [], b: string[] = []) {
 }
 
 function parseEstimatedHours(value: string): number | undefined {
-  const parsed = Number(value);
-  return value.trim() && Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+  const normalized = value.replace(',', '.').trim();
+  if (!normalized || !/^(?:\d+|\d*[.]\d+)$/.test(normalized)) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) && parsed > 0 && parsed <= 1000 ? parsed : undefined;
+}
+
+function formatTaskDueDate(value: string) {
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  const dateLabel = date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' });
+  const timeMatch = value.match(/T(\d{2}):(\d{2})/);
+  return timeMatch ? `${dateLabel}, ${timeMatch[1]}:${timeMatch[2]}` : dateLabel;
 }
 
 function getSubtaskStatus(subtask: Subtask): TaskStatus {
@@ -127,11 +136,15 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [subtaskDatePicker, setSubtaskDatePicker] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [subtaskDescriptionEditorId, setSubtaskDescriptionEditorId] = useState<string | null>(null);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [isSavingTask, setIsSavingTask] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showTimeEntriesModal, setShowTimeEntriesModal] = useState(false);
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const onSaveRef = useRef(onSave);
   const loggedMinutesRef = useRef(task.loggedMinutes ?? 0);
+  const saveAndCloseRef = useRef<() => Promise<boolean>>(async () => false);
+  const mobileHistoryMarkerRef = useRef<string | null>(null);
 
   useEffect(() => {
     onSaveRef.current = onSave;
@@ -145,6 +158,16 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     setLoadedTask(prev => ({ ...prev, loggedMinutes: nextMinutes }));
     void onSaveRef.current({ loggedMinutes: nextMinutes });
   }, []);
+
+  const applyTimeEntryTaskUpdate = useCallback((nextTask: Task) => {
+    syncLoggedMinutes(nextTask.loggedMinutes ?? 0);
+    setLoadedTask(prev => ({
+      ...prev,
+      estimatedHours: nextTask.estimatedHours,
+      loggedMinutes: nextTask.loggedMinutes ?? 0,
+    }));
+    setEstimatedHours(nextTask.estimatedHours != null ? String(nextTask.estimatedHours) : '');
+  }, [syncLoggedMinutes]);
 
   function applyTaskDetails(nextTask: Task) {
     loggedMinutesRef.current = nextTask.loggedMinutes ?? 0;
@@ -224,7 +247,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const completedSubtasks = subtasks.filter(subtask => getSubtaskStatus(subtask) === 'Completed').length;
   const subtaskProgress = subtasks.length > 0 ? (completedSubtasks / subtasks.length) * 100 : 0;
 
-  async function save() {
+  async function save(): Promise<boolean> {
     const updates: Partial<Task> = {
       content: content.trim() || loadedTask.content,
       priority,
@@ -237,8 +260,15 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       else updates.clearDueDate = true;
     }
 
+    const hasEstimatedHours = estimatedHours.trim() !== '';
     const parsedHours = parseEstimatedHours(estimatedHours);
-    if (parsedHours !== loadedTask.estimatedHours) {
+    if (hasEstimatedHours && parsedHours === undefined) {
+      setSaveError('Estymanta musi być liczbą od 0,01 do 1000 godzin.');
+      return false;
+    }
+    if (!hasEstimatedHours && loadedTask.estimatedHours != null) {
+      updates.estimatedHours = undefined;
+    } else if (parsedHours !== loadedTask.estimatedHours) {
       updates.estimatedHours = parsedHours;
     }
 
@@ -251,7 +281,76 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     }
 
     await onSave(updates);
+    return true;
   }
+
+  async function saveAndClose(): Promise<boolean> {
+    if (isSavingTask) return false;
+    setSaveError(null);
+    setIsSavingTask(true);
+    try {
+      const saved = await save();
+      if (saved) {
+        onClose();
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.warn('Failed to save task details:', error);
+      setSaveError('Nie udało się zapisać zmian. Spróbuj ponownie.');
+      return false;
+    } finally {
+      setIsSavingTask(false);
+    }
+  }
+
+  useEffect(() => {
+    saveAndCloseRef.current = saveAndClose;
+  });
+
+  useEffect(() => {
+    if (!window.matchMedia('(max-width: 1023px)').matches) return undefined;
+
+    const marker = `${task.id}:${Date.now()}`;
+    let active = true;
+    let didPush = false;
+
+    const pushTaskHistory = () => {
+      const currentState = window.history.state;
+      const state = currentState && typeof currentState === 'object' ? currentState : {};
+      window.history.pushState({ ...state, __mindflowTaskDetails: marker }, '', window.location.href);
+      mobileHistoryMarkerRef.current = marker;
+    };
+
+    const handlePopState = () => {
+      if (mobileHistoryMarkerRef.current !== marker) return;
+      mobileHistoryMarkerRef.current = null;
+      void saveAndCloseRef.current().then(closed => {
+        if (!closed && active) pushTaskHistory();
+      });
+    };
+
+    const frame = window.requestAnimationFrame(() => {
+      if (!active) return;
+      pushTaskHistory();
+      didPush = true;
+      window.addEventListener('popstate', handlePopState);
+    });
+
+    return () => {
+      active = false;
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener('popstate', handlePopState);
+      if (
+        didPush
+        && mobileHistoryMarkerRef.current === marker
+        && window.history.state?.__mindflowTaskDetails === marker
+      ) {
+        mobileHistoryMarkerRef.current = null;
+        window.history.back();
+      }
+    };
+  }, [task.id]);
 
   async function openCompletionModal() {
     if (loadedTask.isCompleted || !onComplete) {
@@ -260,8 +359,18 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       return;
     }
 
-    await save();
-    setShowCompletionModal(true);
+    if (isSavingTask) return;
+    setSaveError(null);
+    setIsSavingTask(true);
+    try {
+      const saved = await save();
+      if (saved) setShowCompletionModal(true);
+    } catch (error) {
+      console.warn('Failed to save task before completion:', error);
+      setSaveError('Nie udało się zapisać zmian. Spróbuj ponownie.');
+    } finally {
+      setIsSavingTask(false);
+    }
   }
 
   function applyApiTask(apiTask: Parameters<typeof mapApiTask>[0]) {
@@ -379,13 +488,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   // close pickers when clicking outside modal — handled by backdrop
   function handleBackdropClick() {
-    void save();
-    onClose();
+    void saveAndClose();
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Escape') { void save(); onClose(); }
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { void save(); onClose(); }
+    if (e.key === 'Escape') void saveAndClose();
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void saveAndClose();
   }
 
   const ROW = 'flex items-start gap-3 py-2.5 border-b border-[#f1f0ed] cursor-pointer';
@@ -426,7 +534,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
   return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-[70] flex items-stretch justify-stretch p-0 lg:items-center lg:justify-center lg:p-4"
       onKeyDown={handleKeyDown}
     >
       {/* Backdrop */}
@@ -438,28 +546,31 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
       {/* Modal */}
       <div
-        className="relative z-10 w-full flex flex-col"
-        style={{
-          maxWidth: 420,
-          maxHeight: '90vh',
-          background: '#fff',
-          border: '1px solid #e8e8e4',
-          borderRadius: 18,
-          boxShadow: '0 24px 48px -12px rgba(15,17,21,.22)',
-          overflow: 'hidden',
-        }}
+        className="mf-mobile-form relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-auto lg:max-h-[90vh] lg:max-w-[420px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
         {/* ── Header ── */}
         <div
-          className="flex-none flex items-center gap-2.5 px-5 pt-4 pb-3"
+          className="flex flex-none items-center gap-2.5 px-4 pb-2 pt-[max(0.75rem,env(safe-area-inset-top))] lg:px-5 lg:pb-3 lg:pt-4"
           style={{ borderBottom: '1px solid #f1f0ed' }}
         >
+          <button
+            type="button"
+            onClick={() => void saveAndClose()}
+            disabled={isSavingTask}
+            aria-label="Wróć do listy zadań"
+            className="-ml-2 flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#5a606b] transition-colors hover:bg-[#f1f0ed] hover:text-[#0f1115] disabled:opacity-40 lg:hidden"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+          </button>
+
           {/* Complete toggle */}
             <button
               onClick={() => void openCompletionModal()}
-            title="Oznacz jako wykonane"
-            className="flex-none rounded-full border-2 transition-all hover:border-[#0f1115]"
+              title="Oznacz jako wykonane"
+              className="relative flex-none rounded-full border-2 transition-all after:absolute after:-inset-3 hover:border-[#0f1115]"
             style={{
               width: 20, height: 20,
               borderColor: loadedTask.isCompleted ? '#0f1115' : '#d4d4d0',
@@ -494,17 +605,16 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
             <button
               onClick={onDelete}
               title="Usuń zadanie"
-              className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-red-500 hover:bg-red-50"
-              style={{ width: 28, height: 28 }}
+              className="flex h-10 w-10 items-center justify-center rounded-[8px] text-[#9098a4] transition-colors hover:bg-red-50 hover:text-red-500 lg:h-7 lg:w-7 lg:rounded-[6px]"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8">
                 <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>
               </svg>
             </button>
             <button
-              onClick={() => { void save(); onClose(); }}
-              className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef]"
-              style={{ width: 28, height: 28 }}
+              onClick={() => void saveAndClose()}
+              disabled={isSavingTask}
+              className="hidden h-10 w-10 items-center justify-center rounded-[8px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef] hover:text-[#0f1115] lg:flex lg:h-7 lg:w-7 lg:rounded-[6px]"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                 <path d="M18 6 6 18M6 6l12 12"/>
@@ -513,19 +623,26 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           </div>
         </div>
 
+        {saveError && (
+          <div role="alert" className="mx-4 mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-[12.5px] font-medium text-red-600 lg:mx-5">
+            {saveError}
+          </div>
+        )}
+
         {/* ── Scrollable body ── */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-1">
+        <div className="custom-scrollbar flex-1 space-y-1 overflow-y-auto px-4 py-4 lg:px-5">
 
           {/* Title */}
           <textarea
             ref={titleRef}
+            autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
             value={content}
+            maxLength={1000}
             onChange={e => setContent(e.target.value)}
             rows={1}
             className="w-full resize-none outline-none bg-transparent leading-snug"
             style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
             placeholder="Nazwa zadania"
-            autoFocus
           />
 
           {/* Properties */}
@@ -546,6 +663,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 </span>
               </div>
               <div
+                aria-hidden={!showStatusPicker}
+                inert={!showStatusPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 170,
@@ -583,6 +702,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 </span>
               </div>
               <div
+                aria-hidden={!showPriorityPicker}
+                inert={!showPriorityPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 160,
@@ -627,6 +748,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 </span>
               </div>
               <div
+                aria-hidden={!showProjectPicker}
+                inert={!showProjectPicker}
                 className="absolute left-[88px] top-full mt-1 z-20 rounded-xl overflow-hidden"
                 style={{
                   background: '#fff', border: '1px solid #e8e8e4', boxShadow: '0 8px 24px -6px rgba(15,17,21,.16)', minWidth: 180,
@@ -667,11 +790,13 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 <span className={LABEL}><CalIcon /> Termin</span>
                 <span className={VALUE} style={{ color: dueDate ? '#0f1115' : '#b0b5be' }}>
                   {dueDate
-                    ? new Date(dueDate + 'T00:00:00').toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' })
+                    ? formatTaskDueDate(dueDate)
                     : 'Brak terminu'}
                 </span>
               </div>
               <div
+                aria-hidden={!showDatePicker}
+                inert={!showDatePicker}
                 style={{
                   display: 'grid',
                   gridTemplateRows: showDatePicker ? '1fr' : '0fr',
@@ -702,13 +827,12 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               <span className={LABEL}><ClockIcon /> Estymanta</span>
               <div className={VALUE} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  min="0"
-                  step="0.5"
                   value={estimatedHours}
                   onChange={e => setEstimatedHours(e.target.value)}
                   placeholder="—"
+                  autoComplete="off"
                   className="w-16 bg-transparent outline-none text-[13px]"
                   style={{ color: estimatedHours ? '#0f1115' : '#b0b5be' }}
                 />
@@ -862,7 +986,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                         </svg>
                       </button>
 
-                      <div className="flex flex-none items-center opacity-0 transition-opacity group-hover/sub:opacity-100">
+                      <div className="flex flex-none items-center opacity-100 transition-opacity lg:opacity-0 lg:group-hover/sub:opacity-100">
                         <button
                           type="button"
                           onClick={() => moveSubtask(sub.id, -1)}
@@ -1041,10 +1165,10 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
         {/* ── Footer ── */}
         <div
-          className="flex-none flex items-center justify-between px-5 py-3"
+          className="flex flex-none items-center justify-between gap-3 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-5 lg:py-3"
           style={{ borderTop: '1px solid #f1f0ed' }}
         >
-          <div className="text-[11.5px] text-[#c0c5cc] flex flex-col gap-0.5">
+          <div className="hidden flex-col gap-0.5 text-[11.5px] text-[#c0c5cc] lg:flex">
             {loadedTask.createdAt && (
               <span>Dodano {new Date(loadedTask.createdAt).toLocaleDateString('pl-PL', { day: 'numeric', month: 'short' })}</span>
             )}
@@ -1052,7 +1176,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
           </div>
           <button
             onClick={() => void openCompletionModal()}
-            className="flex items-center gap-2 text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80"
+            className="ml-auto flex min-h-11 items-center gap-2 rounded-xl text-[13px] font-semibold text-white transition-opacity hover:opacity-80"
             style={{ padding: '8px 16px', background: '#0f1115' }}
           >
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -1069,7 +1193,9 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               content: content.trim() || loadedTask.content,
               loggedMinutes,
             }}
+            projects={projects}
             onTotalMinutesChange={syncLoggedMinutes}
+            onTaskUpdated={applyTimeEntryTaskUpdate}
             onClose={() => setShowTimeEntriesModal(false)}
           />
         )}

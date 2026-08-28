@@ -7,8 +7,9 @@ import { BrainView } from '../features/brain';
 import { GoalsView } from '../features/goals';
 import { InsightsView } from '../features/insights';
 import { useSuggestions, SuggestionsPanel } from '../features/suggestions';
-import { getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
-import { BarChart3, Brain, Target } from 'lucide-react';
+import { ApiIntegrationsSettings, getGoogleCalendarStatus, GoogleCalendarSettings, syncGoogleCalendar } from '../features/integrations';
+import { PushNotificationsSettings } from '../features/notifications';
+import { BarChart3, Bell, CalendarDays, CheckCircle2, Plug, UserRound } from 'lucide-react';
 import {
   loadPomodoroSettings,
   PomodoroOverlay,
@@ -36,6 +37,12 @@ type ActiveTab = 'dashboard' | 'notes' | 'tasks' | 'goals' | 'insights' | 'brain
 type ThemePreference = 'light' | 'dark' | 'gray' | 'system';
 type EffectiveTheme = 'light' | 'dark' | 'gray';
 
+const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
+
+function getIsMobileViewport() {
+  return typeof window !== 'undefined' && window.matchMedia(MOBILE_MEDIA_QUERY).matches;
+}
+
 export function AppShell() {
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
   const { tasks, isLoading: isTasksLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks } = useTasks(isLoggedIn);
@@ -54,7 +61,8 @@ export function AppShell() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSuccess, setAvatarSuccess] = useState<string | null>(null);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>('dashboard');
+  const [isMobileViewport, setIsMobileViewport] = useState(getIsMobileViewport);
+  const [activeTab, setActiveTab] = useState<ActiveTab>(() => getIsMobileViewport() ? 'tasks' : 'dashboard');
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const [taskViewMode, setTaskViewMode] = useState<'list' | 'week' | 'board'>('list');
   const [isUserLoading, setIsUserLoading] = useState(false);
@@ -70,9 +78,26 @@ export function AppShell() {
   const [notes, setNotes] = useState<Note[]>([]);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
   const [googleNotice, setGoogleNotice] = useState<string | null>(null);
-  const [settingsSection, setSettingsSection] = useState<'account' | 'pomodoro'>('account');
+  const [settingsSection, setSettingsSection] = useState<'account' | 'integrations' | 'notifications' | 'pomodoro'>('account');
   const [pomodoroSettings, setPomodoroSettings] = useState<PomodoroSettingsValue>(loadPomodoroSettings);
   const [pomodoroLaunchRequest, setPomodoroLaunchRequest] = useState<PomodoroLaunchRequest | null>(null);
+
+  useEffect(() => {
+    const media = window.matchMedia(MOBILE_MEDIA_QUERY);
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsMobileViewport(event.matches);
+      if (event.matches) {
+        setActiveTab(current => (
+          current === 'tasks' || current === 'insights' || current === 'calendar' || current === 'settings'
+            ? current
+            : 'tasks'
+        ));
+        setSettingsSection(current => current === 'pomodoro' ? 'account' : current);
+      }
+    };
+    media.addEventListener('change', handleChange);
+    return () => media.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     savePomodoroSettings(pomodoroSettings);
@@ -92,6 +117,7 @@ export function AppShell() {
     window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
     void Promise.resolve().then(() => {
       setActiveTab('settings');
+      setSettingsSection('integrations');
       setGoogleNotice(message);
     });
   }, []);
@@ -356,7 +382,7 @@ export function AppShell() {
     setAvatarSuccess(null);
     localStorage.removeItem('mindflow_user');
     setNotes([]);
-    setActiveTab('dashboard');
+    setActiveTab(isMobileViewport ? 'tasks' : 'dashboard');
   };
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -417,6 +443,13 @@ export function AppShell() {
   const matchesActiveSpace = (task: Task) => !activeSpaceProjectIds || (!!task.project_id && activeSpaceProjectIds.has(task.project_id));
   const spaceTasks = activeSpaceProjectIds ? tasks.filter(matchesActiveSpace) : tasks;
   const spaceSortedTasks = activeSpaceProjectIds ? sortedAllTasks.filter(matchesActiveSpace) : sortedAllTasks;
+  const effectiveMobileProjectId = isMobileViewport && activeSpaceId && activeProjectId
+    && !projects.some(project => project.id === activeProjectId && project.space_id === activeSpaceId)
+    ? null
+    : activeProjectId;
+  const visibleMobileTasks = isMobileViewport && effectiveMobileProjectId
+    ? spaceSortedTasks.filter(task => task.project_id === effectiveMobileProjectId)
+    : spaceSortedTasks;
   const isWorkspaceLoading = isTasksLoading || isStructureLoading;
   const isAppDataLoading = isWorkspaceLoading || isUserLoading;
 
@@ -433,53 +466,54 @@ export function AppShell() {
   }
 
   const activeProject = projects.find(p => p.id === activeProjectId);
-  const showProjectView = activeTab === 'tasks' && !!activeProjectId && !!activeProject;
+  const mobileQuickAddProjectId = effectiveMobileProjectId ?? (
+    isMobileViewport && activeSpaceId
+      ? projects.find(project => project.space_id === activeSpaceId)?.id ?? null
+      : null
+  );
+  const showProjectView = !isMobileViewport && activeTab === 'tasks' && !!activeProjectId && !!activeProject;
+
+  const mobileNavButtonClass = (tab: ActiveTab) =>
+    `flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-lg transition-[background-color,color] duration-200 ease focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] ${
+      activeTab === tab
+        ? 'text-[#0f1115] dark:text-white'
+        : 'text-[#9098a4] active:bg-[#f1f0ed] dark:text-gray-500 dark:active:bg-white/8'
+    }`;
 
   const mobileBottomNav = (
-    <nav className="lg:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-black/90 backdrop-blur-xl border-t border-gray-100/50 dark:border-white/5 z-50 px-6 pt-3 pb-8 flex justify-between items-center shadow-lg shadow-gray-200/50 dark:shadow-none transition-colors duration-300">
-      <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'dashboard' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" /></svg>
-        <span className="text-[10px] font-medium">Centrum</span>
+    <nav
+      aria-label="Główna nawigacja"
+      className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-4 border-t border-[#e8e8e4]/80 bg-white/95 px-4 pt-1.5 pb-[max(0.5rem,calc(0.375rem+env(safe-area-inset-bottom)))] backdrop-blur-xl transition-colors duration-200 ease lg:hidden dark:border-white/8 dark:bg-black/92"
+    >
+      <button onClick={() => setActiveTab('tasks')} className={mobileNavButtonClass('tasks')}>
+        <CheckCircle2 className="h-[22px] w-[22px]" strokeWidth={activeTab === 'tasks' ? 2.4 : 1.9} />
+        <span className="text-[10.5px] font-medium">Zadania</span>
       </button>
-      <button onClick={() => { setActiveTab('tasks'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'tasks' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span className="text-[10px] font-medium">Zadania</span>
+      <button onClick={() => { setActiveTab('insights'); setActiveProjectId(null); }} className={mobileNavButtonClass('insights')}>
+        <BarChart3 className="h-[22px] w-[22px]" strokeWidth={activeTab === 'insights' ? 2.4 : 1.9} />
+        <span className="text-[10.5px] font-medium">Insights</span>
       </button>
-      <button onClick={() => { setActiveTab('goals'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'goals' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <Target className="h-6 w-6" />
-        <span className="text-[10px] font-medium">Cele</span>
+      <button onClick={() => { setActiveTab('calendar'); setActiveProjectId(null); }} className={mobileNavButtonClass('calendar')}>
+        <CalendarDays className="h-[22px] w-[22px]" strokeWidth={activeTab === 'calendar' ? 2.4 : 1.9} />
+        <span className="text-[10.5px] font-medium">Kalendarz</span>
       </button>
-      <button onClick={() => { setActiveTab('insights'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'insights' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <BarChart3 className="h-6 w-6" />
-        <span className="text-[10px] font-medium">Insights</span>
-      </button>
-      <button onClick={() => { setActiveTab('brain'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'brain' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <Brain className="h-6 w-6" />
-        <span className="text-[10px] font-medium">Brain</span>
-      </button>
-      <button onClick={() => { setActiveTab('calendar'); setActiveProjectId(null); }} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'calendar' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" strokeWidth="2"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 2v4M8 2v4M3 10h18" /></svg>
-        <span className="text-[10px] font-medium">Kalendarz</span>
-      </button>
-      <button onClick={() => setActiveTab('notes')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'notes' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-        <span className="text-[10px] font-medium">Wiedza</span>
-      </button>
-      <button onClick={() => setActiveTab('settings')} className={`flex flex-col items-center gap-1 transition-colors ${activeTab === 'settings' ? 'text-gray-900 dark:text-white' : 'text-gray-400 dark:text-gray-500'}`}>
+      <button onClick={() => setActiveTab('settings')} className={mobileNavButtonClass('settings')}>
         {isUserLoading ? (
-          <SkeletonBlock className="h-6 w-6 rounded-full" />
-        ) : (
-          <div className="w-6 h-6 rounded-full overflow-hidden bg-gray-100 dark:bg-white/10">
-            {user?.avatarUrl && <img src={user.avatarUrl} alt="Profile" className="w-full h-full object-cover" />}
+          <SkeletonBlock className="h-[22px] w-[22px] rounded-full" />
+        ) : user?.avatarUrl ? (
+          <div className={`h-[22px] w-[22px] overflow-hidden rounded-full ${activeTab === 'settings' ? 'ring-1 ring-[#0f1115] ring-offset-1 dark:ring-white dark:ring-offset-black' : ''}`}>
+            <img src={user.avatarUrl} alt="Profil" className="h-full w-full object-cover" />
           </div>
+        ) : (
+          <UserRound className="h-[22px] w-[22px]" strokeWidth={activeTab === 'settings' ? 2.4 : 1.9} />
         )}
-        <span className="text-[10px] font-medium">Profil</span>
+        <span className="text-[10.5px] font-medium">Profil</span>
       </button>
     </nav>
   );
 
   return (
-    <div className="flex h-screen bg-[#FDFDFD] dark:bg-[#000000] font-sans text-gray-900 dark:text-gray-100 overflow-hidden transition-colors duration-300">
+    <div className="flex h-[100dvh] overflow-hidden bg-[#FDFDFD] font-sans text-gray-900 transition-colors duration-300 lg:h-screen dark:bg-[#000000] dark:text-gray-100">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -516,22 +550,22 @@ export function AppShell() {
 
         {!showProjectView && (
           <>
-            <header className="flex-none px-6 pt-8 pb-4 lg:py-8 flex flex-col lg:flex-row lg:items-end justify-between animate-fade-in gap-4">
+            <header className={`${activeTab === 'insights' ? 'hidden lg:flex' : 'flex'} relative ${activeTab === 'tasks' ? 'z-[30]' : 'z-auto'} flex-none items-center justify-between gap-3 px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))] animate-fade-in lg:static lg:z-auto lg:flex-row lg:items-end lg:px-6 lg:py-8`}>
               {activeTab === 'dashboard' && isAppDataLoading ? (
                 <AppHeaderSkeleton />
               ) : (
                 <div>
-                  <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-gray-900 dark:text-white">
+                  <h1 className="text-[26px] font-bold tracking-[-0.025em] text-gray-900 lg:text-3xl dark:text-white">
                     {activeTab === 'dashboard' && `Dzień dobry, ${user?.firstName ?? 'Użytkowniku'}.`}
                     {activeTab === 'notes' && 'Twoja baza wiedzy.'}
-                    {activeTab === 'tasks' && 'Wszystkie zadania.'}
+                    {activeTab === 'tasks' && <><span className="lg:hidden">Zadania</span><span className="hidden lg:inline">Wszystkie zadania.</span></>}
                     {activeTab === 'goals' && 'Cele.'}
                     {activeTab === 'insights' && 'Insights.'}
                     {activeTab === 'brain' && 'Brain.'}
                     {activeTab === 'calendar' && 'Kalendarz.'}
-                    {activeTab === 'settings' && 'Ustawienia.'}
+                    {activeTab === 'settings' && <><span className="lg:hidden">Profil</span><span className="hidden lg:inline">Ustawienia.</span></>}
                   </h1>
-                  <p className="text-gray-400 dark:text-gray-500 mt-1 lg:mt-2 font-medium text-sm lg:text-base">
+                  <p className="mt-1 hidden text-sm font-medium text-gray-400 lg:mt-2 lg:block lg:text-base dark:text-gray-500">
                     {activeTab === 'dashboard' && `Masz ${tasks.filter(t => !t.isCompleted).length} zadań do zrobienia.`}
                     {activeTab === 'tasks' && 'Zarządzaj swoimi zadaniami efektywnie.'}
                     {activeTab === 'goals' && 'Planuj dzień wokół konkretnych wyników i nawyków.'}
@@ -544,25 +578,37 @@ export function AppShell() {
               )}
 
               {activeTab === 'tasks' && (
-                <div className="mf-segmented">
-                  {(['list', 'week', 'board'] as const).map(mode => (
-                    <button
-                      key={mode}
-                      onClick={() => setTaskViewMode(mode)}
-                      className={`mf-segmented-option ${taskViewMode === mode ? 'is-active' : ''}`}
-                    >
-                      {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
-                    </button>
-                  ))}
-                </div>
+                <>
+                  <MobileTasksNav
+                    spaces={spaces}
+                    projects={projects}
+                    activeSpaceId={activeSpaceId}
+                    activeProjectId={effectiveMobileProjectId}
+                    taskCountByProjectId={activeTaskCountByProjectId}
+                    onSelectSpace={setActiveSpaceId}
+                    onSelectProject={setActiveProjectId}
+                    isLoading={isWorkspaceLoading}
+                  />
+                  <div className="mf-segmented hidden lg:flex">
+                    {(['list', 'week', 'board'] as const).map(mode => (
+                      <button
+                        key={mode}
+                        onClick={() => setTaskViewMode(mode)}
+                        className={`mf-segmented-option ${taskViewMode === mode ? 'is-active' : ''}`}
+                      >
+                        {{ list: 'Lista', week: 'Tydzień', board: 'Tablica' }[mode]}
+                      </button>
+                    ))}
+                  </div>
+                </>
               )}
             </header>
 
             <div
-              className={`min-h-0 flex-1 custom-scrollbar px-6 ${
+              className={`min-h-0 flex-1 custom-scrollbar px-4 lg:px-6 ${
                 activeTab === 'calendar' || activeTab === 'brain' || activeTab === 'insights'
-                  ? 'overflow-hidden pb-28 lg:pb-6'
-                  : 'overflow-y-auto pb-36 lg:pb-24'
+                  ? 'overflow-hidden pb-[calc(6rem+env(safe-area-inset-bottom))] lg:pb-6'
+                  : 'overflow-y-auto pb-[calc(7.5rem+env(safe-area-inset-bottom))] lg:pb-24'
               }`}
             >
               {activeTab === 'dashboard' && (
@@ -632,21 +678,10 @@ export function AppShell() {
 
               {activeTab === 'tasks' && (
                 <>
-                  <MobileTasksNav
-                    spaces={spaces}
-                    projects={projects}
-                    activeSpaceId={activeSpaceId}
-                    activeProjectId={activeProjectId}
-                    taskCountByProjectId={activeTaskCountByProjectId}
-                    onSelectSpace={setActiveSpaceId}
-                    onSelectProject={setActiveProjectId}
-                    isLoading={isWorkspaceLoading}
-                  />
-
-                  <div className={`animate-fade-in ${taskViewMode === 'week' ? 'h-full -mx-6 px-6' : taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
-                    {taskViewMode === 'list' && (
+                  <div className={`animate-fade-in ${!isMobileViewport && taskViewMode === 'week' ? 'h-full -mx-6 px-6' : !isMobileViewport && taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
+                    {(isMobileViewport || taskViewMode === 'list') && (
                       <TaskListGrouped
-                        tasks={spaceSortedTasks}
+                        tasks={visibleMobileTasks}
                         projects={projects}
                         onToggle={handleToggleTask}
                         onEdit={handleEditTask}
@@ -657,10 +692,10 @@ export function AppShell() {
                         onBulkEdit={handleBulkEdit}
                         onClearCompleted={handleClearCompleted}
                         isLoading={isWorkspaceLoading}
-                        activeProjectId={null}
+                        activeProjectId={isMobileViewport ? effectiveMobileProjectId : activeProjectId}
                       />
                     )}
-                    {taskViewMode === 'week' && (
+                    {!isMobileViewport && taskViewMode === 'week' && (
                       <div className="h-[calc(100vh-200px)]">
                         <TaskWeekView
                           tasks={spaceSortedTasks}
@@ -674,7 +709,7 @@ export function AppShell() {
                         />
                       </div>
                     )}
-                    {taskViewMode === 'board' && (
+                    {!isMobileViewport && taskViewMode === 'board' && (
                       <TaskBoardView
                         tasks={spaceTasks}
                         projects={projects}
@@ -688,7 +723,13 @@ export function AppShell() {
                     )}
                   </div>
 
-                  {!isWorkspaceLoading && <QuickAddTask activeProjectId={null} projects={projects} onAdd={handleAddTask} />}
+                  {!isWorkspaceLoading && (
+                    <QuickAddTask
+                      activeProjectId={isMobileViewport ? mobileQuickAddProjectId : activeProjectId}
+                      projects={projects}
+                      onAdd={handleAddTask}
+                    />
+                  )}
                 </>
               )}
 
@@ -700,7 +741,7 @@ export function AppShell() {
 
               {activeTab === 'insights' && (
                 <div className="h-full min-h-0 animate-fade-in">
-                  <InsightsView projects={projects} />
+                  <InsightsView projects={projects} onTasksChanged={refreshTasks} />
                 </div>
               )}
 
@@ -738,7 +779,7 @@ export function AppShell() {
 
               {activeTab === 'settings' && (
                 <div className="mx-auto w-full max-w-3xl animate-fade-in">
-                  <div className="mb-3 flex w-fit rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] p-1 dark:border-white/10 dark:bg-[#232326]">
+                  <div className="mb-3 flex w-full flex-wrap gap-1 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] p-1 sm:w-fit dark:border-white/10 dark:bg-[#232326]">
                     <button
                       type="button"
                       onClick={() => setSettingsSection('account')}
@@ -748,8 +789,22 @@ export function AppShell() {
                     </button>
                     <button
                       type="button"
+                      onClick={() => setSettingsSection('integrations')}
+                      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'integrations' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                    >
+                      <Plug className="h-4 w-4" /> Integracje
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettingsSection('notifications')}
+                      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'notifications' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                    >
+                      <Bell className="h-4 w-4" /> Powiadomienia
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setSettingsSection('pomodoro')}
-                      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:focus:ring-white/15 ${settingsSection === 'pomodoro' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
+                      className={`hidden items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-medium transition-[background-color,color,box-shadow] duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 lg:flex dark:focus:ring-white/15 ${settingsSection === 'pomodoro' ? 'bg-white text-[#0f1115] shadow-sm dark:bg-[#3F3F46] dark:text-white' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-400 dark:hover:bg-[#323238]'}`}
                     >
                       <TomatoIcon className="h-4 w-4" /> Pomodoro
                     </button>
@@ -845,15 +900,39 @@ export function AppShell() {
                         </div>
                       </section>
 
-                      <section className="px-6 py-5">
-                        {googleNotice && (
-                          <div className="mb-4 rounded-xl border border-[#e8e8e4] bg-[#fcfcfa] px-4 py-3 text-sm text-[#5a606b] dark:border-white/8 dark:bg-white/[0.03] dark:text-gray-300">
-                            {googleNotice}
-                          </div>
-                        )}
-                        <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
-                      </section>
                     </div>
+                      </>
+                    ) : settingsSection === 'integrations' ? (
+                      <>
+                        <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia integracji</p>
+                          <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Integracje</h2>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Połącz Mindflow z usługami zewnętrznymi i zarządzaj dostępem API.</p>
+                        </div>
+                        <div className="divide-y divide-[#f1f0ed] dark:divide-white/6">
+                          <section className="px-6 py-5">
+                            <ApiIntegrationsSettings isLoggedIn={isLoggedIn} />
+                          </section>
+                          <section className="px-6 py-5">
+                            {googleNotice && (
+                              <div className="mb-4 rounded-xl border border-[#e8e8e4] bg-[#fcfcfa] px-4 py-3 text-sm text-[#5a606b] dark:border-white/8 dark:bg-white/[0.03] dark:text-gray-300">
+                                {googleNotice}
+                              </div>
+                            )}
+                            <GoogleCalendarSettings isLoggedIn={isLoggedIn} />
+                          </section>
+                        </div>
+                      </>
+                    ) : settingsSection === 'notifications' ? (
+                      <>
+                        <div className="border-b border-[#f1f0ed] px-6 py-5 dark:border-white/6">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">Ustawienia powiadomień</p>
+                          <h2 className="mt-1 text-[24px] font-semibold tracking-[-0.02em] text-[#0f1115] dark:text-white">Powiadomienia</h2>
+                          <p className="mt-1 text-sm text-[#5a606b] dark:text-gray-400">Ustaw briefy dnia, podsumowanie wieczorem i przypomnienia o blokach w kalendarzu.</p>
+                        </div>
+                        <section className="px-6 py-5">
+                          <PushNotificationsSettings isLoggedIn={isLoggedIn} />
+                        </section>
                       </>
                     ) : (
                       <>
@@ -903,8 +982,12 @@ export function AppShell() {
         );
       })()}
 
-      <PomodoroOverlay settings={pomodoroSettings} launchRequest={pomodoroLaunchRequest} />
-      <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} isLoading={isWorkspaceLoading} />
+      {!isMobileViewport && (
+        <>
+          <PomodoroOverlay settings={pomodoroSettings} launchRequest={pomodoroLaunchRequest} />
+          <AgendaOverlay enabled={isLoggedIn} tasks={tasks} position={agendaPosition} isLoading={isWorkspaceLoading} />
+        </>
+      )}
     </div>
   );
 }

@@ -73,7 +73,7 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[110] flex items-stretch justify-stretch p-0 lg:items-center lg:justify-center lg:p-4" onKeyDown={handleKeyDown}>
       {/* Backdrop — klik poza obszar zapisuje i wraca do widoku zadania */}
       <div
         className="absolute inset-0 backdrop-blur-[2px]"
@@ -82,21 +82,11 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
       />
 
       <div
-        className="relative z-10 w-full flex flex-col"
-        style={{
-          maxWidth: 820,
-          height: '82vh',
-          maxHeight: '82vh',
-          background: '#fff',
-          border: '1px solid #e8e8e4',
-          borderRadius: 18,
-          boxShadow: '0 24px 48px -12px rgba(15,17,21,.22)',
-          overflow: 'hidden',
-        }}
+        className="mf-mobile-form relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-[82vh] lg:max-h-[82vh] lg:max-w-[820px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex-none flex items-start justify-between px-7 pt-5 pb-4" style={{ borderBottom: '1px solid #f1f0ed' }}>
+        <div className="flex flex-none items-start justify-between px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] lg:px-7 lg:pb-4 lg:pt-5" style={{ borderBottom: '1px solid #f1f0ed' }}>
           <div className="min-w-0">
             <p className="text-[11.5px] font-medium text-[#b0b5be] uppercase tracking-wider">Opis</p>
             {title && (
@@ -108,8 +98,7 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
           <button
             onClick={handleClose}
             title="Zamknij (Esc)"
-            className="flex items-center justify-center rounded-[6px] transition-colors text-[#9098a4] hover:text-[#0f1115] hover:bg-[#f1f1ef] flex-none"
-            style={{ width: 28, height: 28 }}
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-[8px] text-[#9098a4] transition-colors hover:bg-[#f1f1ef] hover:text-[#0f1115] lg:h-7 lg:w-7 lg:rounded-[6px]"
           >
             <CloseIcon />
           </button>
@@ -117,18 +106,18 @@ export function DescriptionEditorModal({ value, title, onChange, onClose }: Prop
 
         {/* Body — edytor */}
         <div
-          className="flex-1 overflow-y-auto custom-scrollbar px-7 py-6"
+          className="custom-scrollbar flex-1 overflow-y-auto px-4 py-5 lg:px-7 lg:py-6"
           onClick={() => editor?.chain().focus().run()}
         >
           <EditorContent editor={editor} />
         </div>
 
         {/* Footer */}
-        <div className="flex-none flex items-center justify-between px-7 py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
-          <p className="text-[11.5px] text-[#c0c5cc]">/ menu bloków · # nagłówek · [ ] checkbox · ⌘+Enter zapisz · Esc zamknij</p>
+        <div className="flex flex-none items-center justify-between px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 lg:px-7 lg:py-3" style={{ borderTop: '1px solid #f1f0ed' }}>
+          <p className="hidden text-[11.5px] text-[#c0c5cc] lg:block">/ menu bloków · # nagłówek · [ ] checkbox · ⌘+Enter zapisz · Esc zamknij</p>
           <button
             onClick={handleClose}
-            className="text-[13px] font-semibold text-white rounded-xl transition-opacity hover:opacity-80"
+            className="ml-auto min-h-11 rounded-xl text-[13px] font-semibold text-white transition-opacity hover:opacity-80"
             style={{ padding: '8px 16px', background: '#0f1115' }}
           >
             Gotowe

@@ -15,7 +15,8 @@ function toYMD(d: Date) {
 
 export function CalendarDatePicker({ value, onChange, onClose }: Props) {
   const today = new Date();
-  const initial = value ? new Date(value + 'T00:00:00') : today;
+  const selectedDate = value ? value.slice(0, 10) : '';
+  const initial = selectedDate ? new Date(selectedDate + 'T00:00:00') : today;
 
   const [view, setView] = useState(new Date(initial.getFullYear(), initial.getMonth(), 1));
 
@@ -76,8 +77,8 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
           className="flex-1 text-[12px] font-medium rounded-lg transition-colors"
           style={{
             padding: '5px 0',
-            background: value === todayYMD ? '#0f1115' : '#f1f0ed',
-            color: value === todayYMD ? '#fff' : '#3a3f47',
+            background: selectedDate === todayYMD ? '#0f1115' : '#f1f0ed',
+            color: selectedDate === todayYMD ? '#fff' : '#3a3f47',
           }}
         >
           Dziś
@@ -87,8 +88,8 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
           className="flex-1 text-[12px] font-medium rounded-lg transition-colors"
           style={{
             padding: '5px 0',
-            background: value === tomorrowYMD ? '#0f1115' : '#f1f0ed',
-            color: value === tomorrowYMD ? '#fff' : '#3a3f47',
+            background: selectedDate === tomorrowYMD ? '#0f1115' : '#f1f0ed',
+            color: selectedDate === tomorrowYMD ? '#fff' : '#3a3f47',
           }}
         >
           Jutro
@@ -145,7 +146,7 @@ export function CalendarDatePicker({ value, onChange, onClose }: Props) {
           if (!day) return <div key={`e-${i}`} />;
 
           const ymd = toYMD(new Date(year, month, day));
-          const isSelected = ymd === value;
+          const isSelected = ymd === selectedDate;
           const isToday = ymd === todayYMD;
           const isPast = ymd < todayYMD;
 

@@ -74,11 +74,9 @@ export function SidebarSkeleton() {
 
 export function MobileTasksNavSkeleton() {
   return (
-    <div role="status" aria-label="Ladowanie projektow" className="lg:hidden mb-4 flex items-center gap-2 overflow-hidden">
-      <SkeletonBlock className="h-8 w-28 flex-none rounded-full" />
-      <SkeletonBlock className="h-8 w-24 flex-none rounded-full" />
-      <SkeletonBlock className="h-8 w-32 flex-none rounded-full" />
-      <SkeletonBlock className="h-8 w-20 flex-none rounded-full" />
+    <div role="status" aria-label="Ladowanie projektow" className="ml-auto flex items-center gap-1.5 lg:hidden">
+      <SkeletonBlock className="h-9 w-[86px] flex-none rounded-lg" />
+      <SkeletonBlock className="h-9 w-[86px] flex-none rounded-lg" />
     </div>
   );
 }

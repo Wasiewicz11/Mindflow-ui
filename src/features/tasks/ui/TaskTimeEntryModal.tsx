@@ -4,16 +4,22 @@ import { CalendarDays, Check, Clock, Folder, TimerReset, X } from 'lucide-react'
 import type { Project, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import { TimePickerField } from '../../../shared/ui/TimePickerField';
-import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../api/timeEntriesApi';
+import type { ApiTaskTimeEntry, CompleteTaskDto, CreateTaskTimeEntryDto, UpdateTaskTimeEntryDto } from '../api/timeEntriesApi';
 
-type Mode = 'log' | 'complete';
+type Mode = 'log' | 'complete' | 'edit';
+type TaskTimeEntryTask = Pick<
+  Task,
+  'id' | 'content' | 'priority' | 'status' | 'dueDate' | 'estimatedHours' | 'loggedMinutes' | 'project_id' | 'description' | 'tags'
+>;
 
 interface Props {
   mode: Mode;
-  task: Task;
+  task: TaskTimeEntryTask;
+  entry?: ApiTaskTimeEntry;
   projects: Project[];
   onClose: () => void;
   onLogTime?: (taskId: string, dto: CreateTaskTimeEntryDto) => Promise<void> | void;
+  onUpdateTime?: (entryId: string, dto: UpdateTaskTimeEntryDto) => Promise<void> | void;
   onComplete?: (taskId: string, dto: CompleteTaskDto) => Promise<void> | void;
 }
 
@@ -37,22 +43,26 @@ function toDateKey(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-function parsePositiveDecimal(value: string): number | undefined {
+function parseDecimal(value: string): number | undefined {
   const normalized = value.replace(',', '.').trim();
   if (!normalized) return undefined;
+  if (!/^(?:\d+|\d*[.]\d+)$/.test(normalized)) return undefined;
   const parsed = Number(normalized);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
 }
 
 function parseDurationMinutes(value: string): number | undefined {
-  const hours = parsePositiveDecimal(value);
+  const hours = parseDecimal(value);
   if (hours === undefined) return undefined;
-  return Math.round(hours * 60);
+  const minutes = Math.round(hours * 60);
+  return minutes >= 1 && minutes <= 1440 ? minutes : undefined;
 }
 
 function parseTimeToMinutes(value: string) {
-  const [hours, minutes] = value.split(':').map(Number);
-  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return undefined;
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value);
+  if (!match) return undefined;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
   return hours * 60 + minutes;
 }
 
@@ -68,6 +78,19 @@ function toLocalIsoWithOffset(date: string, minutes: number) {
   return `${localDate.getFullYear()}-${String(localDate.getMonth() + 1).padStart(2, '0')}-${String(localDate.getDate()).padStart(2, '0')}T${String(localDate.getHours()).padStart(2, '0')}:${String(localDate.getMinutes()).padStart(2, '0')}:00${sign}${offsetHours}:${offsetMins}`;
 }
 
+function toTimeInput(value?: string | null) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function minutesToHoursInput(minutes?: number | null) {
+  if (!minutes || minutes <= 0) return '';
+  const value = minutes / 60;
+  return Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+}
+
 function durationLabel(minutes: number) {
   if (minutes < 60) return `${minutes} min`;
   const h = Math.floor(minutes / 60);
@@ -75,12 +98,16 @@ function durationLabel(minutes: number) {
   return m ? `${h} godz. ${m} min` : `${h} godz.`;
 }
 
-export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, onComplete }: Props) {
-  const [workDate, setWorkDate] = useState(toDateKey());
-  const [estimatedHours, setEstimatedHours] = useState(task.estimatedHours != null ? String(task.estimatedHours) : '');
-  const [durationHours, setDurationHours] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLogTime, onUpdateTime, onComplete }: Props) {
+  const [workDate, setWorkDate] = useState(entry?.workDate ?? toDateKey());
+  const [estimatedHours, setEstimatedHours] = useState(
+    entry?.estimatedHours != null ? String(entry.estimatedHours) : task.estimatedHours != null ? String(task.estimatedHours) : '',
+  );
+  const [durationHours, setDurationHours] = useState(
+    entry?.startAt && entry?.endAt ? '' : minutesToHoursInput(entry?.durationMinutes),
+  );
+  const [startTime, setStartTime] = useState(toTimeInput(entry?.startAt));
+  const [endTime, setEndTime] = useState(toTimeInput(entry?.endAt));
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -88,6 +115,7 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
   const priority = PRIORITY[task.priority] ?? PRIORITY[Priority.P4];
   const status = STATUS[task.status] ?? STATUS.NotStarted;
   const isCompleteMode = mode === 'complete';
+  const isEditMode = mode === 'edit';
 
   const derivedDuration = useMemo(() => {
     if (!startTime || !endTime) return undefined;
@@ -97,16 +125,25 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     return end - start;
   }, [endTime, startTime]);
 
-  function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | null {
+  function buildPayload(): CompleteTaskDto | CreateTaskTimeEntryDto | UpdateTaskTimeEntryDto | null {
     setError(null);
     const dto: CompleteTaskDto = {};
-    const estimate = parsePositiveDecimal(estimatedHours);
-    const clearedEstimate = estimatedHours.trim() === '' && task.estimatedHours != null;
+    const estimate = parseDecimal(estimatedHours);
+    const clearedEstimate = estimatedHours.trim() === '' && (task.estimatedHours != null || entry?.estimatedHours != null);
     const durationMinutes = parseDurationMinutes(durationHours);
     const hasStartOrEnd = Boolean(startTime || endTime);
 
     if (!workDate) {
       setError('Podaj datę pracy.');
+      return null;
+    }
+
+    if (estimatedHours.trim() && (estimate === undefined || estimate > 1000)) {
+      setError('Estymanta musi być liczbą od 0,01 do 1000 godzin.');
+      return null;
+    }
+    if (durationHours.trim() && durationMinutes === undefined) {
+      setError('Czas pracy musi wynosić od 1 minuty do 24 godzin.');
       return null;
     }
 
@@ -119,7 +156,7 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
       const start = parseTimeToMinutes(startTime);
       const end = parseTimeToMinutes(endTime);
       if (start === undefined || end === undefined) {
-        setError('Podaj godzinę od i do.');
+        setError('Podaj poprawne godziny od i do.');
         return null;
       }
       if (end <= start) {
@@ -151,13 +188,19 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     try {
       if (isCompleteMode) {
         await onComplete?.(task.id, payload as CompleteTaskDto);
+      } else if (isEditMode) {
+        if (!entry) {
+          setError('Brakuje wpisu czasu do edycji.');
+          return;
+        }
+        await onUpdateTime?.(entry.id, payload as UpdateTaskTimeEntryDto);
       } else {
         await onLogTime?.(task.id, payload as CreateTaskTimeEntryDto);
       }
       onClose();
     } catch (err) {
       console.warn('Failed to save task time entry:', err);
-      setError(isCompleteMode ? 'Nie udało się zamknąć zadania.' : 'Nie udało się zapisać czasu.');
+      setError(isCompleteMode ? 'Nie udało się zamknąć zadania.' : isEditMode ? 'Nie udało się zaktualizować czasu.' : 'Nie udało się zapisać czasu.');
     } finally {
       setIsSaving(false);
     }
@@ -168,11 +211,11 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleSave();
   }
 
-  const title = isCompleteMode ? 'Potwierdzenie wykonania' : 'Rejestracja czasu';
-  const submit = isCompleteMode ? 'Oznacz jako wykonane' : 'Zapisz czas';
+  const title = isCompleteMode ? 'Potwierdzenie wykonania' : isEditMode ? 'Edycja czasu' : 'Rejestracja czasu';
+  const submit = isCompleteMode ? 'Oznacz jako wykonane' : isEditMode ? 'Zapisz zmiany' : 'Zapisz czas';
 
   return createPortal(
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4" onKeyDown={handleKeyDown}>
+    <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 lg:items-center lg:p-4" onKeyDown={handleKeyDown}>
       <div
         className="absolute inset-0 backdrop-blur-[2px]"
         style={{ background: 'rgba(15,17,21,.18)' }}
@@ -180,11 +223,13 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
       />
 
       <div
-        className="relative z-10 flex w-full max-w-[460px] flex-col overflow-hidden rounded-[18px] border border-[#e8e8e4] bg-white shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)] dark:border-white/10 dark:bg-[#27272A]"
-        style={{ maxHeight: '90vh' }}
+        className="mf-mobile-form relative z-10 flex max-h-[88dvh] w-full flex-col overflow-hidden rounded-t-[18px] border border-b-0 border-[#e8e8e4] bg-white shadow-[0_-16px_42px_-16px_rgba(15,17,21,.28)] dark:border-white/10 dark:bg-[#27272A] lg:max-h-[90vh] lg:max-w-[460px] lg:rounded-[18px] lg:border-b lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-none items-center justify-between border-b border-[#f1f0ed] px-5 py-4 dark:border-white/8">
+        <div className="flex justify-center pb-1 pt-2.5 lg:hidden" aria-hidden="true">
+          <span className="h-1 w-9 rounded-full bg-[#d4d4d0] dark:bg-white/20" />
+        </div>
+        <div className="flex flex-none items-center justify-between border-b border-[#f1f0ed] px-4 pb-3 pt-2 dark:border-white/8 lg:px-5 lg:py-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[#9098a4]">{title}</p>
             <h2 className="mt-1 truncate text-[18px] font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">
@@ -194,14 +239,14 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
           <button
             type="button"
             onClick={onClose}
-            className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white"
+            className="flex h-10 w-10 flex-none items-center justify-center rounded-lg text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:bg-[#323238] dark:hover:text-white lg:h-8 lg:w-8"
             title="Zamknij"
           >
             <X size={16} />
           </button>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 custom-scrollbar">
+        <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <span
               className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-[11.5px] font-semibold"
@@ -229,13 +274,12 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
               </span>
               <div className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326]">
                 <input
-                  type="number"
+                  type="text"
                   inputMode="decimal"
-                  min="0"
-                  step="0.25"
                   value={estimatedHours}
                   onChange={e => setEstimatedHours(e.target.value)}
                   placeholder="Opcjonalnie"
+                  autoComplete="off"
                   className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
                 />
                 <span className="text-[12px] font-medium text-[#9098a4]">h</span>
@@ -261,13 +305,18 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
                 </span>
                 <div className="flex items-center gap-2 rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 transition-colors duration-200 ease focus-within:border-[#9098a4] focus-within:bg-white dark:border-white/10 dark:bg-[#232326]">
                   <input
-                    type="number"
+                    type="text"
                     inputMode="decimal"
-                    min="0"
-                    step="0.25"
                     value={durationHours}
-                    onChange={e => setDurationHours(e.target.value)}
+                    onChange={e => {
+                      setDurationHours(e.target.value);
+                      if (e.target.value.trim()) {
+                        setStartTime('');
+                        setEndTime('');
+                      }
+                    }}
                     placeholder="Opcjonalnie"
+                    autoComplete="off"
                     className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-[#0f1115] outline-none placeholder:text-[#b0b5be] dark:text-white"
                   />
                   <span className="text-[12px] font-medium text-[#9098a4]">h</span>
@@ -279,12 +328,18 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
               <TimePickerField
                 label="Od"
                 value={startTime}
-                onChange={setStartTime}
+                onChange={value => {
+                  setStartTime(value);
+                  if (value) setDurationHours('');
+                }}
               />
               <TimePickerField
                 label="Do"
                 value={endTime}
-                onChange={setEndTime}
+                onChange={value => {
+                  setEndTime(value);
+                  if (value) setDurationHours('');
+                }}
               />
             </div>
 
@@ -302,9 +357,9 @@ export function TaskTimeEntryModal({ mode, task, projects, onClose, onLogTime, o
           </div>
         </div>
 
-        <div className="flex flex-none items-center justify-between border-t border-[#f1f0ed] px-5 py-3 dark:border-white/8">
-          <span className="text-[11.5px] text-[#c0c5cc]">⌘ + Enter aby zapisać</span>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-none items-center justify-between border-t border-[#f1f0ed] px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 dark:border-white/8 lg:px-5 lg:py-3">
+          <span className="hidden text-[11.5px] text-[#c0c5cc] lg:inline">⌘ + Enter aby zapisać</span>
+          <div className="ml-auto flex items-center gap-2">
             <button
               type="button"
               onClick={onClose}

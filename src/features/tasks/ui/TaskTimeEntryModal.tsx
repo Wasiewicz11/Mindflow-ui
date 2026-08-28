@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, Check, Clock, FileText, Folder, TimerReset, X } from 'lucide-react';
+import { CalendarDays, Check, Clock, FileText, Folder, ListChecks, TimerReset, X } from 'lucide-react';
 import type { Project, Task, TaskPriority, TaskStatus } from '../../../shared/types';
 import { TaskPriority as Priority } from '../../../shared/types';
 import type { ApiTaskTimeEntry, CompleteTaskDto, CreateTaskTimeEntryDto, UpdateTaskTimeEntryDto } from '../api/timeEntriesApi';
@@ -8,7 +8,7 @@ import type { ApiTaskTimeEntry, CompleteTaskDto, CreateTaskTimeEntryDto, UpdateT
 type Mode = 'log' | 'complete' | 'edit';
 type TaskTimeEntryTask = Pick<
   Task,
-  'id' | 'content' | 'priority' | 'status' | 'dueDate' | 'estimatedHours' | 'loggedMinutes' | 'project_id' | 'description' | 'tags'
+  'id' | 'content' | 'priority' | 'status' | 'dueDate' | 'estimatedHours' | 'loggedMinutes' | 'project_id' | 'description' | 'tags' | 'subtasks'
 >;
 
 interface Props {
@@ -70,6 +70,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
   );
   const [durationHours, setDurationHours] = useState(minutesToHoursInput(entry?.durationMinutes));
   const [notes, setNotes] = useState(entry?.notes ?? '');
+  const [subtaskId, setSubtaskId] = useState(entry?.subtaskId ?? '');
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -95,6 +96,7 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
     if (estimate !== undefined) dto.estimatedHours = estimate;
     if (clearedEstimate) dto.clearEstimatedHours = true;
 
+    if (subtaskId) dto.subtaskId = subtaskId;
     if (workDate) dto.workDate = workDate;
     if (durationMinutes !== undefined) dto.durationMinutes = durationMinutes;
     if (normalizedNotes || isEditMode) dto.notes = normalizedNotes;
@@ -244,6 +246,24 @@ export function TaskTimeEntryModal({ mode, task, entry, projects, onClose, onLog
                 </div>
               </label>
             </div>
+
+            {(task.subtasks?.length ?? 0) > 0 && mode === 'log' && (
+              <label className="grid gap-1.5">
+                <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#9098a4]">
+                  <ListChecks size={13} /> Podzadanie
+                </span>
+                <select
+                  value={subtaskId}
+                  onChange={e => setSubtaskId(e.target.value)}
+                  className="rounded-lg border border-[#e8e8e4] bg-[#f7f7f4] px-3 py-2 text-[16px] font-medium text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:bg-white focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/10 dark:bg-[#232326] dark:text-white lg:text-[13px]"
+                >
+                  <option value="">Całe zadanie</option>
+                  {task.subtasks?.map(subtask => (
+                    <option key={subtask.id} value={subtask.id}>{subtask.content}</option>
+                  ))}
+                </select>
+              </label>
+            )}
 
             <label className="grid gap-1.5">
               <span className="flex items-center gap-1.5 text-[12px] font-medium text-[#9098a4]">

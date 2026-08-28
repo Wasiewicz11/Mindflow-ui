@@ -15,6 +15,8 @@ export interface ApiTask {
   createdAt?: string;
   tags?: string[];
   subtasks?: Subtask[];
+  subtasksEstimatedHours?: number;
+  subtasksLoggedMinutes?: number;
   dueSubtasks?: Subtask[];
   subtaskCompletedCount?: number;
   subtaskTotalCount?: number;

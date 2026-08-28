@@ -6,6 +6,7 @@ export interface ApiTaskTimeEntry {
   id: string;
   userId: string;
   taskId?: string | null;
+  subtaskId?: string | null;
   projectId?: string | null;
   taskContent: string;
   taskPriority: TaskPriority;
@@ -22,6 +23,7 @@ export interface ApiTaskTimeEntry {
 }
 
 export interface CreateTaskTimeEntryDto {
+  subtaskId?: string;
   workDate?: string;
   durationMinutes?: number;
   estimatedHours?: number;

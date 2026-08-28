@@ -55,6 +55,9 @@ export interface Subtask {
   status?: TaskStatus;
   description?: string;
   dueDate?: string;
+  estimatedHours?: number;
+  clearEstimatedHours?: boolean;
+  loggedMinutes?: number;
   sortOrder?: number;
 }
 

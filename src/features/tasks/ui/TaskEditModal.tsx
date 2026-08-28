@@ -1003,6 +1003,38 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                       />
 
                       <label
+                        className="mf-chip inline-flex h-7 flex-none items-center gap-0.5 rounded-lg px-1.5 text-[10.5px] font-semibold text-[#5a606b] transition-colors hover:bg-[#ececec]"
+                        style={{ background: '#f1f0ed', letterSpacing: '0.02em' }}
+                        title={sub.loggedMinutes ? `Estymata podzadania · zapisano ${Math.round(sub.loggedMinutes / 6) / 10}h` : 'Estymata podzadania w godzinach'}
+                      >
+                        <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                          <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" />
+                        </svg>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.5"
+                          value={sub.estimatedHours ?? ''}
+                          placeholder="–"
+                          onChange={e => {
+                            const raw = e.target.value;
+                            updateSubtask(sub.id, raw === ''
+                              ? { estimatedHours: undefined }
+                              : { estimatedHours: Number(raw) });
+                          }}
+                          onBlur={e => {
+                            const raw = e.currentTarget.value;
+                            updateSubtask(sub.id, raw === ''
+                              ? { estimatedHours: undefined, clearEstimatedHours: true }
+                              : { estimatedHours: Number(raw), clearEstimatedHours: false }, true);
+                          }}
+                          className="w-7 bg-transparent text-center text-[10.5px] font-semibold outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                          aria-label="Estymata podzadania w godzinach"
+                        />
+                        <span className="opacity-60">h</span>
+                      </label>
+
+                      <label
                         className="mf-chip relative inline-flex h-7 flex-none items-center gap-1 rounded-lg px-1.5 text-[10.5px] font-semibold transition-opacity hover:opacity-80"
                         style={{
                           color: subStatusMeta.fg,

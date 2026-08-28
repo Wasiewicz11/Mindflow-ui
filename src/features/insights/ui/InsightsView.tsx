@@ -14,9 +14,13 @@ import {
   type UpdateTaskTimeEntryDto,
 } from '../../tasks/api/timeEntriesApi';
 import { TaskTimeEntryModal } from '../../tasks/ui/TaskTimeEntryModal';
+import { getTasks } from '../../tasks/api/tasksApi';
+import type { ApiTask } from '../../tasks/model/taskModel';
 
 type InsightMode = 'day' | 'week' | 'month';
+type InsightSource = 'logged' | 'planned';
 const DEFAULT_PROJECT_STORAGE_KEY = 'mindflow_insights_default_project_id';
+const SOURCE_STORAGE_KEY = 'mindflow_insights_source';
 const MOBILE_MEDIA_QUERY = '(max-width: 1023px)';
 
 function getInitialInsightMode(): InsightMode {
@@ -76,6 +80,33 @@ function formatTotal(minutes: number) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return `${h}:${String(m).padStart(2, '0')}`;
+}
+
+function getStoredSource(): InsightSource {
+  if (typeof window === 'undefined') return 'logged';
+  return localStorage.getItem(SOURCE_STORAGE_KEY) === 'planned' ? 'planned' : 'logged';
+}
+
+/** Estimates live on the task, so a planned day is built from tasks due that day. */
+function toPlannedEntry(task: ApiTask): ApiTaskTimeEntry {
+  return {
+    id: `planned:${task.id}`,
+    userId: '',
+    taskId: task.id,
+    projectId: task.projectId ?? null,
+    taskContent: task.content,
+    taskPriority: (task.priority ?? Priority.P4) as ApiTaskTimeEntry['taskPriority'],
+    taskStatus: (task.status ?? 'NotStarted') as ApiTaskTimeEntry['taskStatus'],
+    tags: task.tags ?? [],
+    workDate: task.dueDate as string,
+    durationMinutes: Math.round((task.estimatedHours as number) * 60),
+    startAt: null,
+    endAt: null,
+    estimatedHours: task.estimatedHours ?? null,
+    notes: null,
+    createdAt: task.createdAt ?? '',
+    updatedAt: task.createdAt ?? '',
+  };
 }
 
 function getStoredDefaultProjectId() {
@@ -493,6 +524,9 @@ function StandaloneTimeEntryModal({
 export function InsightsView({ projects }: { projects: Project[] }) {
   const { confirm } = useConfirmDialog();
   const [mode, setMode] = useState<InsightMode>(getInitialInsightMode);
+  const [source, setSource] = useState<InsightSource>(getStoredSource);
+  const [tasks, setTasks] = useState<ApiTask[]>([]);
+  const [isTasksLoading, setIsTasksLoading] = useState(false);
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [entries, setEntries] = useState<ApiTaskTimeEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -560,6 +594,35 @@ export function InsightsView({ projects }: { projects: Project[] }) {
   }, [fromKey, toKey]);
 
   useEffect(() => {
+    if (source !== 'planned') return;
+
+    let cancelled = false;
+    void Promise.resolve().then(() => {
+      if (!cancelled) setIsTasksLoading(true);
+    });
+
+    getTasks()
+      .then(nextTasks => {
+        if (!cancelled) setTasks(nextTasks);
+      })
+      .catch(err => {
+        console.error('Failed to fetch tasks', err);
+        if (!cancelled) setError('Nie udało się pobrać zadań z estymatami.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsTasksLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [source]);
+
+  useEffect(() => {
+    localStorage.setItem(SOURCE_STORAGE_KEY, source);
+  }, [source]);
+
+  useEffect(() => {
     if (!defaultProjectId || projects.length === 0) return;
     if (projectIds.has(defaultProjectId)) return;
 
@@ -579,17 +642,32 @@ export function InsightsView({ projects }: { projects: Project[] }) {
     return () => document.removeEventListener('mousedown', handler);
   }, [showSettings]);
 
+  const plannedEntries = useMemo(
+    () => tasks
+      .filter(task => typeof task.estimatedHours === 'number'
+        && task.estimatedHours > 0
+        && task.dueDate
+        && task.dueDate >= fromKey
+        && task.dueDate <= toKey)
+      .map(toPlannedEntry),
+    [tasks, fromKey, toKey],
+  );
+
+  const isPlanned = source === 'planned';
+  const activeEntries = isPlanned ? plannedEntries : entries;
+  const isBusy = isPlanned ? isTasksLoading : isLoading;
+
   const entriesByDate = useMemo(() => {
     const groups = new Map<string, ApiTaskTimeEntry[]>();
-    for (const entry of entries) {
+    for (const entry of activeEntries) {
       const key = entry.workDate;
       groups.set(key, [...(groups.get(key) ?? []), entry]);
     }
     for (const [key, group] of groups) groups.set(key, sortLoggedEntries(group));
     return groups;
-  }, [entries]);
+  }, [activeEntries]);
 
-  const totalMinutes = entries.reduce((sum, entry) => sum + entry.durationMinutes, 0);
+  const totalMinutes = activeEntries.reduce((sum, entry) => sum + entry.durationMinutes, 0);
   const title = mode === 'month'
     ? anchorDate.toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' })
     : mode === 'week'
@@ -740,11 +818,11 @@ export function InsightsView({ projects }: { projects: Project[] }) {
         key={entry.id}
         role="button"
         tabIndex={0}
-        onClick={event => { event.stopPropagation(); openEntry(entry); }}
-        onKeyDown={event => handleCardKeyDown(event, entry)}
+        onClick={event => { if (isPlanned) return; event.stopPropagation(); openEntry(entry); }}
+        onKeyDown={event => { if (!isPlanned) handleCardKeyDown(event, entry); }}
         className={`group rounded-xl border bg-white text-left shadow-sm transition-[border-color,box-shadow,transform] duration-200 ease hover:-translate-y-0.5 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:bg-[#27272A] ${compact ? 'px-2 py-1.5' : 'px-3 py-3'}`}
         style={{ borderColor: meta.ring }}
-        title="Kliknij, aby edytować wpis czasu"
+        title={isPlanned ? 'Estymata zadania' : 'Kliknij, aby edytować wpis czasu'}
       >
         <div className="flex min-w-0 items-start justify-between gap-2">
           <div className="min-w-0">
@@ -763,6 +841,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
             )}
           </div>
 
+          {!isPlanned && (
           <div className="flex flex-none items-center gap-1 opacity-0 transition-opacity duration-150 ease group-hover:opacity-100 group-focus-within:opacity-100">
             <button
               type="button"
@@ -782,6 +861,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
               <Trash2 size={13} />
             </button>
           </div>
+          )}
         </div>
 
         {!compact && entry.notes && (
@@ -941,7 +1021,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
         )}
 
         <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto pb-28">
-          {isLoading ? (
+          {isBusy ? (
             <div className="divide-y divide-[#f1f0ed] dark:divide-white/8">
               {[1, 2, 3, 4].map(item => (
                 <div key={item} className="flex min-h-[68px] animate-pulse items-center gap-3 py-3">
@@ -1083,6 +1163,19 @@ export function InsightsView({ projects }: { projects: Project[] }) {
             <button onClick={() => shiftDate(1)} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-300 dark:hover:bg-[#323238]" title="Następny okres"><ChevronRight size={17} /></button>
           </div>
           <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1 dark:border-white/10 dark:bg-[#27272A]">
+            {(['logged', 'planned'] as InsightSource[]).map(item => (
+              <button
+                key={item}
+                onClick={() => setSource(item)}
+                title={item === 'logged' ? 'Czas faktycznie zapisany' : 'Suma estymat zadań z terminem w tym okresie'}
+                className={`rounded-lg px-2.5 py-1.5 text-[12.5px] font-medium transition-colors duration-200 ease focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 sm:px-3 dark:focus:ring-white/10 ${source === item ? 'bg-[#0f1115] text-white dark:bg-[#f7f7f4] dark:text-[#18181B]' : 'text-[#5a606b] hover:bg-[#f1f0ed] dark:text-gray-300 dark:hover:bg-[#323238]'}`}
+              >
+                <span className="hidden sm:inline">{item === 'logged' ? 'Zapisany' : 'Planowany'}</span>
+                <span className="sm:hidden">{item === 'logged' ? 'Z' : 'P'}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex rounded-lg border border-[#e8e8e4] bg-white p-1 dark:border-white/10 dark:bg-[#27272A]">
             {(['day', 'week', 'month'] as InsightMode[]).map(item => (
               <button
                 key={item}
@@ -1110,7 +1203,7 @@ export function InsightsView({ projects }: { projects: Project[] }) {
       )}
 
       <div className={`min-h-0 flex-1 ${mode === 'month' ? 'overflow-auto custom-scrollbar pb-6' : 'overflow-hidden'}`}>
-        {isLoading ? (
+        {isBusy ? (
           <div className="h-full rounded-[18px] border border-[#e8e8e4] bg-white p-4 dark:border-white/10 dark:bg-[#27272A]">
             <div className="h-full animate-pulse rounded-xl bg-[#f1f0ed] dark:bg-white/8" />
           </div>

@@ -12,6 +12,8 @@ interface Props {
   placeholder?: string;
   /** Tytuł zadania przekazywany do pełnoekranowego edytora dla kontekstu. */
   title?: string;
+  /** Dodatkowe klasy dla pola tekstowego, np. większa wysokość na desktopie. */
+  textareaClassName?: string;
 }
 
 function ExpandIcon() {
@@ -27,7 +29,7 @@ function ExpandIcon() {
  * Małe pole = szybka edycja markdown source. Ikona "Rozwiń" w prawym górnym
  * rogu otwiera pełnoekranowy edytor WYSIWYG ({@link DescriptionEditorModal}).
  */
-export function DescriptionField({ value, onChange, placeholder = 'Dodaj kontekst, linki, kroki...', title }: Props) {
+export function DescriptionField({ value, onChange, placeholder = 'Dodaj kontekst, linki, kroki...', title, textareaClassName = '' }: Props) {
   const [editorOpen, setEditorOpen] = useState(false);
 
   return (
@@ -50,8 +52,8 @@ export function DescriptionField({ value, onChange, placeholder = 'Dodaj konteks
         onChange={e => onChange(e.target.value)}
         rows={3}
         placeholder={placeholder}
-        className="w-full resize-none outline-none text-[13.5px] text-[#0f1115] rounded-xl leading-relaxed"
-        style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px', minHeight: 80 }}
+        className={`min-h-20 w-full resize-none rounded-xl text-[13.5px] leading-relaxed text-[#0f1115] outline-none ${textareaClassName}`}
+        style={{ background: '#f7f7f4', border: '1px solid #ececec', padding: '10px 12px' }}
       />
 
       {editorOpen && (

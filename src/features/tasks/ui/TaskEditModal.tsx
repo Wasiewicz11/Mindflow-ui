@@ -553,7 +553,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
       {/* Modal */}
       <div
-        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-auto lg:max-h-[90vh] lg:max-w-[840px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
+        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-auto lg:max-h-[90vh] lg:max-w-[1120px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
         {/* ── Header ── */}
@@ -637,23 +637,28 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
         )}
 
         {/* ── Scrollable body ── */}
-        <div className="custom-scrollbar flex-1 space-y-1 overflow-y-auto px-4 py-4 lg:px-5">
+        <div className="custom-scrollbar flex-1 overflow-y-auto px-4 py-4 lg:px-5">
+          <div className="space-y-1 lg:grid lg:grid-cols-[minmax(0,1.7fr)_minmax(290px,0.9fr)] lg:items-start lg:gap-x-8 lg:gap-y-5 lg:space-y-0">
 
-          {/* Title */}
-          <textarea
-            ref={titleRef}
-            autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
-            value={content}
-            maxLength={1000}
-            onChange={e => setContent(e.target.value)}
-            rows={1}
-            className="w-full resize-none outline-none bg-transparent leading-snug"
-            style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
-            placeholder="Nazwa zadania"
-          />
+            {/* Title */}
+            <div className="min-w-0">
+              <textarea
+                ref={titleRef}
+                autoFocus={typeof window !== 'undefined' && window.matchMedia('(min-width: 1024px)').matches}
+                value={content}
+                maxLength={1000}
+                onChange={e => setContent(e.target.value)}
+                rows={1}
+                className="w-full resize-none bg-transparent leading-snug outline-none"
+                style={{ fontSize: 20, fontWeight: 650, color: '#0f1115', letterSpacing: '-0.01em', minHeight: 32 }}
+                placeholder="Nazwa zadania"
+              />
+            </div>
 
-          {/* Properties */}
-          <div style={{ marginTop: 12 }}>
+            {/* Properties */}
+            <aside className="mt-3 border-t border-[#f1f0ed] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7">
+              <p className="hidden text-[11.5px] font-medium uppercase tracking-wider text-[#b0b5be] lg:block">Szczegóły</p>
+              <div style={{ marginTop: 12 }}>
 
             {/* Status */}
             <div className="relative">
@@ -931,20 +936,23 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 ))}
               </div>
             </div>
-          </div>
+              </div>
+            </aside>
 
-          {/* Divider */}
-          <div style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
+            <div className="min-w-0 lg:col-start-1">
+              {/* Divider */}
+              <div className="lg:hidden" style={{ height: 1, background: '#f1f0ed', margin: '4px 0 12px' }} />
 
-          {/* Description */}
-          <DescriptionField
-            value={description}
-            onChange={setDescription}
-            title={content.trim() || undefined}
-          />
+              {/* Description */}
+              <DescriptionField
+                value={description}
+                onChange={setDescription}
+                title={content.trim() || undefined}
+                textareaClassName="lg:min-h-[260px]"
+              />
 
-          {/* Subtasks */}
-          <div style={{ paddingTop: 6 }}>
+              {/* Subtasks */}
+              <div style={{ paddingTop: 6 }}>
             <div className="flex items-center justify-between mb-2">
               <p className="text-[11.5px] font-medium text-[#b0b5be] uppercase tracking-wider">
                 Podzadania{subtasks.length > 0 ? ` ${completedSubtasks}/${subtasks.length}` : ''}
@@ -963,7 +971,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
             {/* Subtask list */}
             <div
-              className="max-h-[230px] space-y-1 overflow-y-auto pr-1 custom-scrollbar"
+              className="max-h-[230px] space-y-1 overflow-y-auto pr-1 custom-scrollbar lg:max-h-[320px]"
               style={{ scrollbarGutter: 'stable' }}
             >
               {subtasks.map((sub, index) => {
@@ -1165,6 +1173,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               />
             </div>
           </div>
+          </div>
+        </div>
         </div>
 
         {subtaskDatePicker && typeof document !== 'undefined' && createPortal(

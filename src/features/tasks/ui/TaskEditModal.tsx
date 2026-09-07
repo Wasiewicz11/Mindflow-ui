@@ -553,7 +553,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
       {/* Modal */}
       <div
-        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-auto lg:max-h-[90vh] lg:max-w-[1120px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
+        className="relative z-10 flex h-[100dvh] w-full flex-col overflow-hidden bg-white lg:h-[90vh] lg:max-h-[90vh] lg:max-w-[1120px] lg:rounded-[18px] lg:border lg:border-[#e8e8e4] lg:shadow-[0_24px_48px_-12px_rgba(15,17,21,.22)]"
         onClick={e => e.stopPropagation()}
       >
         {/* ── Header ── */}
@@ -948,7 +948,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
                 value={description}
                 onChange={setDescription}
                 title={content.trim() || undefined}
-                textareaClassName="lg:min-h-[260px]"
+                textareaClassName="lg:min-h-[360px]"
               />
 
               {/* Subtasks */}

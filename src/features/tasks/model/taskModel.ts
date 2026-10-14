@@ -1,4 +1,4 @@
-import { TaskPriority, type Subtask, type Task, type TaskPriority as TaskPriorityType, type TaskStatus } from '../../../shared/types';
+import { TaskPriority, type Subtask, type Task, type TaskPriority as TaskPriorityType, type TaskRecurrence, type TaskStatus } from '../../../shared/types';
 import type { CreateTaskDto, UpdateTaskDto } from '../api/tasksApi';
 
 export interface ApiTask {
@@ -21,6 +21,10 @@ export interface ApiTask {
   subtaskCompletedCount?: number;
   subtaskTotalCount?: number;
   subtaskDueCount?: number;
+  isRecurringTemplate?: boolean;
+  recurringTaskId?: string;
+  recurrenceOccurrenceDate?: string;
+  recurrence?: TaskRecurrence;
 }
 
 function normalizeSubtasks(subtasks?: Subtask[]): Subtask[] | undefined {
@@ -63,6 +67,15 @@ export function mapApiTask(task: ApiTask): Task {
     subtaskCompletedCount: task.subtaskCompletedCount ?? subtasks?.filter(subtask => subtask.isCompleted).length ?? 0,
     subtaskTotalCount: task.subtaskTotalCount ?? subtasks?.length ?? 0,
     subtaskDueCount: task.subtaskDueCount ?? dueSubtasks?.length ?? fallbackDueSubtasks?.length ?? 0,
+    isRecurringTemplate: task.isRecurringTemplate ?? false,
+    recurringTaskId: task.recurringTaskId,
+    recurrenceOccurrenceDate: task.recurrenceOccurrenceDate,
+    recurrence: task.recurrence ? {
+      ...task.recurrence,
+      dueTime: task.recurrence.dueTime?.slice(0, 5),
+      notificationWindowStart: task.recurrence.notificationWindowStart?.slice(0, 5),
+      notificationWindowEnd: task.recurrence.notificationWindowEnd?.slice(0, 5),
+    } : undefined,
   };
 }
 

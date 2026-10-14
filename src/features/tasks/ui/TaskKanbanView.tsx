@@ -227,9 +227,10 @@ export function TaskKanbanView({ tasks, projects, activeProjectId, onEdit, onCom
   const [editingTask, setEditingTask] = useState<Task | null>(null);
 
   const filteredTasks = useMemo(() => {
-    if (!search.trim()) return tasks;
+    const visibleTasks = tasks.filter(task => !task.isRecurringTemplate);
+    if (!search.trim()) return visibleTasks;
     const q = search.toLowerCase();
-    return tasks.filter(t =>
+    return visibleTasks.filter(t =>
       t.content.toLowerCase().includes(q) ||
       t.tags?.some(tag => tag.toLowerCase().includes(q))
     );

@@ -1,11 +1,11 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X } from 'lucide-react';
-import type { Task, Project, Subtask, TaskStatus } from '../../../shared/types';
+import { ArrowLeft, Bell, Repeat2, X } from 'lucide-react';
+import type { Task, Project, Subtask, TaskRecurrence, TaskRecurrenceFrequency, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { CalendarDatePicker } from '../../../shared/ui/CalendarDatePicker';
 import { getProjectTags } from '../../projects';
-import { createSubtask, deleteSubtask, getTask, reorderSubtasks, updateSubtask as updateSubtaskApi } from '../api/tasksApi';
+import { createSubtask, deleteSubtask, disableTaskRecurrence, getTask, reorderSubtasks, updateTaskRecurrence, updateSubtask as updateSubtaskApi } from '../api/tasksApi';
 import { getTaskTimeEntries, type CompleteTaskDto } from '../api/timeEntriesApi';
 import { mapApiTask } from '../model/taskModel';
 import { formatLoggedHours } from '../model/timeFormatting';
@@ -24,7 +24,130 @@ interface Props {
   onDelete: () => void;
   onToggleComplete: () => void;
   onComplete?: (taskId: string, dto: CompleteTaskDto) => void | Promise<void>;
+  onOpenTask?: (taskId: string) => void;
   onClose: () => void;
+}
+
+const WEEKDAYS = [
+  { value: 1, label: 'Pn' }, { value: 2, label: 'Wt' }, { value: 3, label: 'Śr' },
+  { value: 4, label: 'Cz' }, { value: 5, label: 'Pt' }, { value: 6, label: 'So' }, { value: 0, label: 'Nd' },
+];
+
+function localDateKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function getDefaultRecurrence(task: Task): TaskRecurrence {
+  const startDate = task.dueDate?.slice(0, 10) || localDateKey();
+  const localStart = new Date(`${startDate}T12:00:00`);
+  return {
+    isEnabled: true,
+    frequency: 'Weekly',
+    interval: 1,
+    startDate,
+    daysOfWeek: [localStart.getDay()],
+    dueTime: task.dueTime,
+    notificationsEnabled: false,
+    reminderMinutesBefore: 10,
+  };
+}
+
+function RecurrencePanel({ recurrence, onChange, onSave, onDisable, onBack, isSaving }: {
+  recurrence: TaskRecurrence;
+  onChange: (next: TaskRecurrence) => void;
+  onSave: () => void;
+  onDisable: () => void;
+  onBack: () => void;
+  isSaving: boolean;
+}) {
+  const set = (patch: Partial<TaskRecurrence>) => onChange({ ...recurrence, ...patch });
+  const usesWeekdays = recurrence.frequency === 'Weekly';
+  const usesMonthDay = recurrence.frequency === 'Monthly' || recurrence.frequency === 'Yearly';
+  const usesMonth = recurrence.frequency === 'Yearly';
+  const frequencyLabels: Record<TaskRecurrenceFrequency, string> = {
+    Daily: 'Dziennie', Weekly: 'Tygodniowo', Monthly: 'Miesięcznie', Yearly: 'Rocznie',
+  };
+
+  return (
+    <div className="animate-fade-in">
+      <div className="flex items-center gap-2 border-b border-[#f1f0ed] pb-3">
+        <button type="button" onClick={onBack} className="flex h-8 w-8 items-center justify-center rounded-lg text-[#5a606b] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115]" aria-label="Wróć do szczegółów">
+          <ArrowLeft size={16} />
+        </button>
+        <div className="min-w-0">
+          <p className="text-[11.5px] font-medium uppercase tracking-[0.06em] text-[#b0b5be]">Szczegóły</p>
+          <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0f1115]">Powtarzaj</h2>
+        </div>
+      </div>
+
+      <div className="space-y-4 py-4">
+        <label className="block text-[12px] font-medium text-[#5a606b]">Częstotliwość
+          <select value={recurrence.frequency} onChange={event => set({ frequency: event.target.value as TaskRecurrenceFrequency })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] bg-white px-2.5 text-[13px] text-[#0f1115] outline-none transition-colors duration-200 ease hover:bg-[#f7f7f4] focus:border-[#9098a4]">
+            {(Object.keys(frequencyLabels) as TaskRecurrenceFrequency[]).map(value => <option key={value} value={value}>{frequencyLabels[value]}</option>)}
+          </select>
+        </label>
+
+        <div className="grid grid-cols-[1fr_86px] gap-2">
+          <label className="text-[12px] font-medium text-[#5a606b]">Od
+            <input type="date" value={recurrence.startDate} onChange={event => set({ startDate: event.target.value })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[12px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4]" />
+          </label>
+          <label className="text-[12px] font-medium text-[#5a606b]">Co ile
+            <input type="number" min="1" max="365" value={recurrence.interval} onChange={event => set({ interval: Math.max(1, Math.min(365, Number(event.target.value) || 1)) })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[13px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4]" />
+          </label>
+        </div>
+
+        <label className="block text-[12px] font-medium text-[#5a606b]">Kończy się
+          <input type="date" min={recurrence.startDate} value={recurrence.endDate ?? ''} onChange={event => set({ endDate: event.target.value || undefined })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[12px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4]" />
+        </label>
+
+        {usesWeekdays && <div>
+          <p className="text-[12px] font-medium text-[#5a606b]">W dni</p>
+          <div className="mt-1.5 grid grid-cols-7 gap-1">
+            {WEEKDAYS.map(day => {
+              const selected = recurrence.daysOfWeek.includes(day.value);
+              return <button key={day.value} type="button" onClick={() => set({ daysOfWeek: selected ? recurrence.daysOfWeek.filter(value => value !== day.value) : [...recurrence.daysOfWeek, day.value] })} className={`h-8 rounded-md text-[11px] font-medium transition-colors duration-200 ease ${selected ? 'bg-[#0f1115] text-white' : 'bg-[#f7f7f4] text-[#5a606b] hover:bg-[#ececec]'}`}>{day.label}</button>;
+            })}
+          </div>
+        </div>}
+
+        {usesMonthDay && <div className="grid grid-cols-2 gap-2">
+          <label className="text-[12px] font-medium text-[#5a606b]">Dzień miesiąca
+            <input type="number" min="1" max="31" value={recurrence.dayOfMonth ?? new Date(`${recurrence.startDate}T12:00:00`).getDate()} onChange={event => set({ dayOfMonth: Math.max(1, Math.min(31, Number(event.target.value) || 1)) })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[13px] text-[#0f1115] outline-none focus:border-[#9098a4]" />
+          </label>
+          {usesMonth && <label className="text-[12px] font-medium text-[#5a606b]">Miesiąc
+            <input type="number" min="1" max="12" value={recurrence.monthOfYear ?? new Date(`${recurrence.startDate}T12:00:00`).getMonth() + 1} onChange={event => set({ monthOfYear: Math.max(1, Math.min(12, Number(event.target.value) || 1)) })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[13px] text-[#0f1115] outline-none focus:border-[#9098a4]" />
+          </label>}
+        </div>}
+
+        <label className="block text-[12px] font-medium text-[#5a606b]">Godzina wykonania
+          <input type="time" value={recurrence.dueTime ?? ''} onChange={event => set({ dueTime: event.target.value || undefined })} className="mt-1.5 h-9 w-full rounded-lg border border-[#e8e8e4] px-2 text-[13px] text-[#0f1115] outline-none transition-colors focus:border-[#9098a4]" />
+        </label>
+
+        <div className="rounded-xl border border-[#e8e8e4] bg-[#f7f7f4] p-3">
+          <label className="flex cursor-pointer items-center gap-2 text-[12.5px] font-medium text-[#0f1115]">
+            <input type="checkbox" checked={recurrence.notificationsEnabled} onChange={event => set({ notificationsEnabled: event.target.checked })} className="h-4 w-4 rounded border-[#c0c5cc] text-[#0f1115] focus:ring-[#0f1115]/20" />
+            <Bell size={14} /> Powiadomienie o wystąpieniu
+          </label>
+          {recurrence.notificationsEnabled && <div className="mt-3 grid grid-cols-3 gap-2">
+            <label className="text-[10.5px] font-medium text-[#9098a4]">Min. wcześniej
+              <input type="number" min="1" max="10080" value={recurrence.reminderMinutesBefore} onChange={event => set({ reminderMinutesBefore: Math.max(1, Math.min(10080, Number(event.target.value) || 1)) })} className="mt-1 h-8 w-full rounded-md border border-[#e8e8e4] bg-white px-1.5 text-[12px] text-[#0f1115] outline-none focus:border-[#9098a4]" />
+            </label>
+            <label className="text-[10.5px] font-medium text-[#9098a4]">Od godz.
+              <input type="time" value={recurrence.notificationWindowStart ?? ''} onChange={event => set({ notificationWindowStart: event.target.value || undefined })} className="mt-1 h-8 w-full rounded-md border border-[#e8e8e4] bg-white px-1 text-[11px] text-[#0f1115] outline-none focus:border-[#9098a4]" />
+            </label>
+            <label className="text-[10.5px] font-medium text-[#9098a4]">Do godz.
+              <input type="time" value={recurrence.notificationWindowEnd ?? ''} onChange={event => set({ notificationWindowEnd: event.target.value || undefined })} className="mt-1 h-8 w-full rounded-md border border-[#e8e8e4] bg-white px-1 text-[11px] text-[#0f1115] outline-none focus:border-[#9098a4]" />
+            </label>
+          </div>}
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between border-t border-[#f1f0ed] pt-3">
+        {recurrence.isEnabled ? <button type="button" onClick={onDisable} disabled={isSaving} className="rounded-lg px-2.5 py-2 text-[12px] font-medium text-[#9098a4] transition-colors duration-200 ease hover:bg-[#f1f0ed] hover:text-[#0f1115] disabled:opacity-40">Wyłącz serię</button> : <span className="text-[11.5px] text-[#9098a4]">Seria jest wyłączona</span>}
+        <button type="button" onClick={onSave} disabled={isSaving || !recurrence.startDate || (recurrence.notificationsEnabled && Boolean(recurrence.notificationWindowStart) !== Boolean(recurrence.notificationWindowEnd))} className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f1115] px-3 py-2 text-[12px] font-semibold text-white transition-opacity duration-200 ease hover:opacity-85 disabled:cursor-not-allowed disabled:opacity-40"><Repeat2 size={13} /> {isSaving ? 'Zapisuję…' : recurrence.isEnabled ? 'Zapisz serię' : 'Włącz serię'}</button>
+      </div>
+    </div>
+  );
 }
 
 const PRIORITY: Record<TaskPriority, { label: string; name: string; fg: string; bg: string }> = {
@@ -122,7 +245,7 @@ function subtaskStatusPatch(status: TaskStatus): Pick<Subtask, 'status' | 'isCom
   };
 }
 
-export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onComplete, onClose }: Props) {
+export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComplete, onComplete, onOpenTask, onClose }: Props) {
   const [loadedTask, setLoadedTask] = useState(task);
   const [content, setContent]       = useState(task.content);
   const [priority, setPriority]     = useState(task.priority);
@@ -148,6 +271,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
   const [isSavingTask, setIsSavingTask] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [showTimeEntriesModal, setShowTimeEntriesModal] = useState(false);
+  const [detailPanel, setDetailPanel] = useState<'details' | 'recurrence'>('details');
+  const [recurrence, setRecurrence] = useState<TaskRecurrence>(() => task.recurrence ?? getDefaultRecurrence(task));
 
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const onSaveRef = useRef(onSave);
@@ -197,6 +322,7 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
     })));
     setNewTag('');
     setNewSubtask('');
+    setRecurrence(nextTask.recurrence ?? getDefaultRecurrence(nextTask));
   }
 
   useEffect(() => {
@@ -307,6 +433,48 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
       console.warn('Failed to save task details:', error);
       setSaveError('Nie udało się zapisać zmian. Spróbuj ponownie.');
       return false;
+    } finally {
+      setIsSavingTask(false);
+    }
+  }
+
+  async function saveRecurrence() {
+    if (isSavingTask) return;
+    setSaveError(null);
+    setIsSavingTask(true);
+    try {
+      const updated = mapApiTask(await updateTaskRecurrence(loadedTask.id, {
+        ...recurrence,
+        daysOfWeek: recurrence.daysOfWeek.length > 0 ? recurrence.daysOfWeek : undefined,
+      }));
+      applyTaskDetails(updated);
+      await onSaveRef.current({
+        isRecurringTemplate: updated.isRecurringTemplate,
+        recurrence: updated.recurrence,
+        recurringTaskId: updated.recurringTaskId,
+        recurrenceOccurrenceDate: updated.recurrenceOccurrenceDate,
+      });
+      setDetailPanel('details');
+    } catch (error) {
+      console.warn('Failed to save recurrence:', error);
+      setSaveError('Nie udało się zapisać serii. Sprawdź daty i spróbuj ponownie.');
+    } finally {
+      setIsSavingTask(false);
+    }
+  }
+
+  async function disableRecurrence() {
+    if (isSavingTask) return;
+    setSaveError(null);
+    setIsSavingTask(true);
+    try {
+      const updated = mapApiTask(await disableTaskRecurrence(loadedTask.id));
+      applyTaskDetails(updated);
+      await onSaveRef.current({ isRecurringTemplate: updated.isRecurringTemplate, recurrence: updated.recurrence });
+      setDetailPanel('details');
+    } catch (error) {
+      console.warn('Failed to disable recurrence:', error);
+      setSaveError('Nie udało się wyłączyć serii. Spróbuj ponownie.');
     } finally {
       setIsSavingTask(false);
     }
@@ -657,6 +825,17 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
 
             {/* Properties */}
             <aside className="mt-3 border-t border-[#f1f0ed] lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:border-l lg:border-t-0 lg:pl-7">
+              {detailPanel === 'recurrence' ? (
+                <RecurrencePanel
+                  recurrence={recurrence}
+                  onChange={setRecurrence}
+                  onSave={() => void saveRecurrence()}
+                  onDisable={() => void disableRecurrence()}
+                  onBack={() => setDetailPanel('details')}
+                  isSaving={isSavingTask}
+                />
+              ) : (
+                <>
               <p className="hidden text-[11.5px] font-medium uppercase tracking-wider text-[#b0b5be] lg:block">Szczegóły</p>
               <div style={{ marginTop: 12 }}>
 
@@ -891,6 +1070,25 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               </span>
             </button>
 
+            <button
+              type="button"
+              className={`${ROW} w-full text-left transition-colors duration-200 ease hover:bg-[#faf9f7]`}
+              onClick={() => setDetailPanel('recurrence')}
+            >
+              <span className={LABEL}><Repeat2 size={13} /> Powtarzaj</span>
+              <span className={`${VALUE} flex items-center justify-between gap-2`}>
+                <span className={loadedTask.isRecurringTemplate ? 'font-medium text-[#0f1115]' : 'text-[#b0b5be]'}>{loadedTask.isRecurringTemplate ? 'Aktywne' : 'Nie ustawiono'}</span>
+                <span aria-hidden="true" className="text-[#b0b5be]">›</span>
+              </span>
+            </button>
+
+            {loadedTask.recurringTaskId && onOpenTask && (
+              <button type="button" onClick={() => onOpenTask(loadedTask.recurringTaskId!)} className={`${ROW} w-full text-left transition-colors duration-200 ease hover:bg-[#faf9f7]`}>
+                <span className={LABEL}><Repeat2 size={13} /> Seria</span>
+                <span className={`${VALUE} flex items-center justify-between gap-2 text-[#5a606b]`}><span>Przejdź do zadania głównego</span><span aria-hidden="true" className="text-[#b0b5be]">›</span></span>
+              </button>
+            )}
+
             {/* Tags */}
             <div className={`${ROW} flex-wrap`} style={{ borderBottom: 'none' }}>
               <span className={LABEL} style={{ paddingTop: 1 }}><TagIcon /> Etykiety</span>
@@ -937,6 +1135,8 @@ export function TaskEditModal({ task, projects, onSave, onDelete, onToggleComple
               </div>
             </div>
               </div>
+                </>
+              )}
             </aside>
 
             <div className="min-w-0 lg:col-start-1">

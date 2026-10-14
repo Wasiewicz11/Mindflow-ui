@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { TaskAddModal } from './TaskAddModal';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import type { CompleteTaskDto } from '../api/timeEntriesApi';
 import { TaskEditModal } from './TaskEditModal';
 import { WeekViewSkeleton } from '../../../shared/ui/LoadingSkeletons';
+import { getRecurringTaskPreviews } from '../api/tasksApi';
 
 const STATUS_META: Record<string, { label: string; dot: string }> = {
   NotStarted: { label: 'Nie rozpoczęto', dot: 'oklch(0.75 0.01 260)' },
@@ -29,6 +30,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [addingForDate, setAddingForDate] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [recurrencePreviews, setRecurrencePreviews] = useState<Task[]>([]);
 
   const getDaysArray = () => {
     const days = [];
@@ -43,9 +45,39 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
 
   const days = getDaysArray();
   const todayStr = new Date().toISOString().split('T')[0];
+  const previewRange = useMemo(() => {
+    const toKey = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    return { from: toKey(days[0]), to: toKey(days[days.length - 1]) };
+  // The work week only changes at midnight; it is intentionally derived once per mounted view.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    void getRecurringTaskPreviews(previewRange.from, previewRange.to)
+      .then(previews => {
+        if (!active) return;
+        setRecurrencePreviews(previews.map(preview => ({
+          id: `recurrence-preview:${preview.recurringTaskId}:${preview.occurrenceDate}`,
+          content: preview.content,
+          isCompleted: false,
+          status: 'NotStarted',
+          priority: preview.priority,
+          dueDate: preview.occurrenceDate,
+          dueTime: preview.dueTime?.slice(0, 5),
+          createdAt: new Date(),
+          project_id: preview.projectId ?? null,
+          recurringTaskId: preview.recurringTaskId,
+          recurrenceOccurrenceDate: preview.occurrenceDate,
+          isVirtualOccurrence: true,
+        })));
+      })
+      .catch(error => console.warn('Failed to load recurring task previews:', error));
+    return () => { active = false; };
+  }, [previewRange.from, previewRange.to, tasks]);
 
   const activeTasks = useMemo(() => {
-    const open = tasks.filter(t => !t.isCompleted);
+    const open = [...tasks.filter(t => !t.isCompleted && !t.isRecurringTemplate), ...recurrencePreviews];
     if (!search.trim()) return open;
     const q = search.toLowerCase();
     return open.filter(t =>
@@ -53,7 +85,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
       t.tags?.some(tag => tag.toLowerCase().includes(q)) ||
       t.dueSubtasks?.some(subtask => subtask.content.toLowerCase().includes(q))
     );
-  }, [tasks, search]);
+  }, [tasks, recurrencePreviews, search]);
 
   const hasDueSubtaskBefore = (task: Task, dateStr: string) =>
     task.dueSubtasks?.some(subtask => !subtask.isCompleted && subtask.dueDate && subtask.dueDate < dateStr) ?? false;
@@ -129,6 +161,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
   const renderTaskCard = (task: Task, dateKey?: string | null) => {
     const project = projects.find(p => p.id === task.project_id);
     const isBeingDragged = draggedTaskId === task.id;
+    const isVirtualOccurrence = task.isVirtualOccurrence;
 
     const formatDateDetail = (dateStr?: string) => {
       if (!dateStr) return null;
@@ -149,20 +182,24 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
       <div
         key={task.id}
         data-mf-task-card="true"
-        draggable
-        onDragStart={(e) => handleDragStart(e, task.id)}
-        onDragEnd={handleDragEnd}
-        onClick={() => setEditingTask(task)}
+        draggable={!isVirtualOccurrence}
+        onDragStart={isVirtualOccurrence ? undefined : (e) => handleDragStart(e, task.id)}
+        onDragEnd={isVirtualOccurrence ? undefined : handleDragEnd}
+        onClick={isVirtualOccurrence ? undefined : () => setEditingTask(task)}
+        title={isVirtualOccurrence ? 'Zadanie cykliczne — zostanie wygenerowane w dniu wystąpienia.' : undefined}
         className={`relative p-2.5 rounded-xl border mb-2 cursor-pointer transition-all group animate-fade-in-up
           ${isBeingDragged
             ? 'bg-gray-50 dark:bg-white/5 border-dashed border-gray-300 dark:border-white/20 opacity-40 shadow-none scale-[0.98]'
-            : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 shadow-sm hover:shadow-md hover:-translate-y-0.5'
+            : isVirtualOccurrence
+              ? 'border-dashed border-[#c0c5cc] bg-[repeating-linear-gradient(-45deg,#f7f7f4,#f7f7f4_5px,#ececec_5px,#ececec_6px)] shadow-none cursor-help dark:border-white/20'
+              : 'bg-white dark:bg-[#1C1C1E] border-gray-100 dark:border-white/5 shadow-sm hover:shadow-md hover:-translate-y-0.5'
           }
         `}
       >
         <div className={`flex items-start gap-2 ${isBeingDragged ? 'opacity-50' : ''}`}>
           <button
             onClick={(e) => { e.stopPropagation(); onToggle(task.id); }}
+            disabled={isVirtualOccurrence}
             className="mt-0.5 flex-shrink-0 w-3.5 h-3.5 rounded-full border border-gray-300 dark:border-white/20 hover:border-gray-400 dark:hover:border-white/40 hover:bg-gray-50 dark:hover:bg-white/10 transition-colors flex items-center justify-center group/check"
           >
           </button>
@@ -171,6 +208,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
             <p className="text-xs font-medium text-gray-800 dark:text-gray-200 leading-snug mb-1 break-words">
               #{task.content}
             </p>
+            {isVirtualOccurrence && <span className="mb-1 inline-flex rounded-md bg-white/80 px-1.5 py-0.5 text-[9px] font-semibold text-[#5a606b]">↻ Cykliczne · zaplanowane</span>}
             {visibleDueSubtasks.length > 0 && (
               <div className="mb-1 space-y-0.5">
                 {visibleDueSubtasks.slice(0, 3).map(subtask => (
@@ -324,6 +362,7 @@ const TaskWeekView: React.FC<TaskWeekViewProps> = ({ tasks, projects = [], onEdi
           onDelete={() => { onDelete?.(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onComplete={onComplete}
+          onOpenTask={id => setEditingTask(tasks.find(task => task.id === id) ?? null)}
           onClose={() => setEditingTask(null)}
         />
       )}

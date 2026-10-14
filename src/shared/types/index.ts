@@ -47,6 +47,23 @@ export interface Note {
 }
 
 export type TaskStatus = 'NotStarted' | 'InProgress' | 'Completed';
+export type TaskRecurrenceFrequency = 'Daily' | 'Weekly' | 'Monthly' | 'Yearly';
+
+export interface TaskRecurrence {
+  isEnabled: boolean;
+  frequency: TaskRecurrenceFrequency;
+  interval: number;
+  startDate: string;
+  endDate?: string;
+  daysOfWeek: number[];
+  dayOfMonth?: number;
+  monthOfYear?: number;
+  dueTime?: string;
+  notificationsEnabled: boolean;
+  reminderMinutesBefore: number;
+  notificationWindowStart?: string;
+  notificationWindowEnd?: string;
+}
 
 export interface Subtask {
   id: string;
@@ -84,6 +101,14 @@ export interface Task {
   subtaskCompletedCount?: number;
   subtaskTotalCount?: number;
   subtaskDueCount?: number;
+  /** Source task that is configured as a recurrence. */
+  isRecurringTemplate?: boolean;
+  /** Source task for a generated occurrence. */
+  recurringTaskId?: string;
+  recurrenceOccurrenceDate?: string;
+  recurrence?: TaskRecurrence;
+  /** A calculated future occurrence, not persisted yet. */
+  isVirtualOccurrence?: boolean;
 }
 
 export type InputMode = 'text' | 'audio';

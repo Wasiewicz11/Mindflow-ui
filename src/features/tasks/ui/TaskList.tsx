@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock } from 'lucide-react';
+import { Clock, Repeat2 } from 'lucide-react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
@@ -73,8 +73,10 @@ const TaskList: React.FC<TaskListProps> = ({
     return () => window.removeEventListener('keydown', prevent);
   }, []);
 
-  const activeTasks = tasks.filter(t => !t.isCompleted);
-  const completedTasks = tasks.filter(t => t.isCompleted);
+  const recurringTemplates = tasks.filter(task => task.isRecurringTemplate);
+  const regularTasks = tasks.filter(task => !task.isRecurringTemplate);
+  const activeTasks = regularTasks.filter(t => !t.isCompleted);
+  const completedTasks = regularTasks.filter(t => t.isCompleted);
   const completeTaskWithAnimation = (task: Task) => {
     if (task.isCompleted) {
       onToggle(task.id);
@@ -227,11 +229,12 @@ const TaskList: React.FC<TaskListProps> = ({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); completeTaskWithAnimation(task); }}
+              disabled={task.isRecurringTemplate}
               className={`flex-shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200 ease ${compactMode ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${
                 task.isCompleted || isClosing
                   ? 'bg-emerald-500 border-emerald-500 text-white scale-100'
                   : 'bg-white dark:bg-white/5 border-gray-300 dark:border-white/20 text-transparent hover:border-emerald-500 dark:hover:border-emerald-500 hover:scale-110'
-              }`}
+              } ${task.isRecurringTemplate ? 'cursor-not-allowed opacity-40' : ''}`}
             >
               <svg className={compactMode ? 'w-2 h-2' : 'w-3.5 h-3.5'} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
             </button>
@@ -504,6 +507,13 @@ const TaskList: React.FC<TaskListProps> = ({
         )}
       </div>
 
+      {!isLoading && recurringTemplates.length > 0 && (
+        <section className="mt-5 border-t border-[#e8e8e4] pt-3 dark:border-white/10">
+          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#5a606b] dark:text-gray-400"><Repeat2 size={13} /> Cykliczne ({recurringTemplates.length})</div>
+          <div className={compactMode ? 'space-y-1.5' : 'space-y-3'}>{recurringTemplates.map((task, index) => renderTaskItem(task, index))}</div>
+        </section>
+      )}
+
       {!isLoading && completedTasks.length > 0 && !compactMode && !isSelectionMode && (
         <div className="mt-8 pt-4 border-t border-gray-100 dark:border-white/5 animate-fade-in">
           <div className="flex items-center justify-between w-full">
@@ -551,6 +561,7 @@ const TaskList: React.FC<TaskListProps> = ({
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onComplete={onComplete}
+          onOpenTask={id => setEditingTask(tasks.find(task => task.id === id) ?? null)}
           onClose={() => setEditingTask(null)}
         />
       )}

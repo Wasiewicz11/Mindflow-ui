@@ -1,5 +1,5 @@
 import { apiFetch } from '../../../shared/api/client';
-import { TaskPriority, type Subtask } from '../../../shared/types';
+import { TaskPriority, type Subtask, type TaskRecurrenceFrequency } from '../../../shared/types';
 import type { ApiTask } from '../model/taskModel';
 
 export interface CreateTaskDto {
@@ -30,6 +30,31 @@ export interface UpdateTaskDto {
   tags?: string[];
 }
 
+export interface UpdateTaskRecurrenceDto {
+  isEnabled: boolean;
+  frequency: TaskRecurrenceFrequency;
+  interval: number;
+  startDate: string;
+  endDate?: string;
+  daysOfWeek?: number[];
+  dayOfMonth?: number;
+  monthOfYear?: number;
+  dueTime?: string;
+  notificationsEnabled: boolean;
+  reminderMinutesBefore: number;
+  notificationWindowStart?: string;
+  notificationWindowEnd?: string;
+}
+
+export interface ApiRecurringTaskPreview {
+  recurringTaskId: string;
+  occurrenceDate: string;
+  content: string;
+  priority: TaskPriority;
+  projectId?: string;
+  dueTime?: string;
+}
+
 export function getTasks(): Promise<ApiTask[]> {
   return apiFetch<ApiTask[]>('/tasks');
 }
@@ -58,6 +83,21 @@ export function updateTask(id: string, dto: UpdateTaskDto): Promise<ApiTask> {
 
 export function deleteTask(id: string): Promise<void> {
   return apiFetch<void>(`/tasks/${id}`, { method: 'DELETE' });
+}
+
+export function updateTaskRecurrence(id: string, dto: UpdateTaskRecurrenceDto): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${id}/recurrence`, {
+    method: 'PUT',
+    body: JSON.stringify(dto),
+  });
+}
+
+export function disableTaskRecurrence(id: string): Promise<ApiTask> {
+  return apiFetch<ApiTask>(`/tasks/${id}/recurrence`, { method: 'DELETE' });
+}
+
+export function getRecurringTaskPreviews(from: string, to: string): Promise<ApiRecurringTaskPreview[]> {
+  return apiFetch<ApiRecurringTaskPreview[]>(`/tasks/recurrence-occurrences?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`);
 }
 
 export function createSubtask(taskId: string, subtask: Subtask): Promise<ApiTask> {

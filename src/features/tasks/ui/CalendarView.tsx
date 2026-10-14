@@ -963,7 +963,7 @@ export function CalendarView({ tasks, projects, onAdd, onEdit, onComplete, onTog
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const suppressBlockClickUntilRef = useRef(0);
 
-  const activeTasks = useMemo(() => tasks.filter(task => !task.isCompleted), [tasks]);
+  const activeTasks = useMemo(() => tasks.filter(task => !task.isCompleted && !task.isRecurringTemplate), [tasks]);
   const taskById = useMemo(() => new Map(tasks.map(task => [task.id, task])), [tasks]);
   const days = useMemo(
     () => mode === 'month' ? getMonthDays(anchorDate) : mode === 'week' ? getWeekDays(anchorDate) : [anchorDate],

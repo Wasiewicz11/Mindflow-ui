@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { CalendarDays, ChevronDown, CircleDot, Clock, Flag, Search, SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, ChevronDown, CircleDot, Clock, Flag, Repeat2, Search, SlidersHorizontal } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { Task, Project, TaskStatus } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
@@ -494,11 +494,13 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
       ) : (
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
+          disabled={task.isRecurringTemplate}
           className={`relative flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease after:absolute after:-inset-3 after:content-[''] hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
             isDoneVisual
               ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
               : 'border-[#d4d4d0] bg-transparent dark:border-[#747984]'
-          }`}
+          } ${task.isRecurringTemplate ? 'cursor-not-allowed opacity-40 hover:border-[#d4d4d0] hover:bg-transparent' : ''}`}
+          title={task.isRecurringTemplate ? 'To jest szablon serii — wykonuj wygenerowane zadania.' : undefined}
         >
           {isDoneVisual && (
             <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
@@ -862,7 +864,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
   );
 }
 
-function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, onDelete, onAdd, isSelectionMode, selectedIds, onSelect, activeProjectId }: {
+function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, onDelete, onAdd, isSelectionMode, selectedIds, onSelect, activeProjectId, onOpenTask }: {
   group: Group;
   projects: Project[];
   onToggle: (id: string) => void;
@@ -875,6 +877,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
   selectedIds?: string[];
   onSelect?: (id: string) => void;
   activeProjectId?: string | null;
+  onOpenTask?: (taskId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -957,6 +960,7 @@ function GroupBlock({ group, projects, onToggle, onEdit, onComplete, onLogTime, 
           onDelete={() => { onDelete(editingTask.id); setEditingTask(null); }}
           onToggleComplete={() => { onToggle(editingTask.id); setEditingTask(null); }}
           onComplete={onComplete}
+          onOpenTask={onOpenTask}
           onClose={() => setEditingTask(null)}
         />
       )}
@@ -982,6 +986,8 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   const [bulkPicker, setBulkPicker] = useState<{ type: 'priority' | 'status' | 'date'; rect: DOMRect } | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
+  const [editingRecurring, setEditingRecurring] = useState<Task | null>(null);
+  const [linkedTask, setLinkedTask] = useState<Task | null>(null);
   const [loggingTask, setLoggingTask] = useState<Task | null>(null);
   const [groupMode, setGroupMode] = useState<GroupMode>('dueDate');
 
@@ -1055,7 +1061,9 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   };
   const closeBulkPicker = () => setBulkPicker(null);
 
-  const activeTasks = filteredTasks.filter(t => !t.isCompleted);
+  const recurringTemplates = filteredTasks.filter(t => t.isRecurringTemplate);
+  const regularTasks = filteredTasks.filter(t => !t.isRecurringTemplate);
+  const activeTasks = regularTasks.filter(t => !t.isCompleted);
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1354,10 +1362,10 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
     );
   }
 
-  const groups = groupTasks(filteredTasks, groupMode);
-  const completedTasks = filteredTasks.filter(t => t.isCompleted);
+  const groups = groupTasks(regularTasks, groupMode);
+  const completedTasks = regularTasks.filter(t => t.isCompleted);
 
-  if (groups.length === 0 && completedTasks.length === 0 && !hasActiveFilter) {
+  if (groups.length === 0 && completedTasks.length === 0 && recurringTemplates.length === 0 && !hasActiveFilter) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-[14px] text-[#9098a4]">
@@ -1542,7 +1550,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
         )}
       </div>
 
-      {groups.length === 0 && completedTasks.length === 0 && hasActiveFilter && (
+      {groups.length === 0 && completedTasks.length === 0 && recurringTemplates.length === 0 && hasActiveFilter && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-[14px] text-[#9098a4]">Brak zadań pasujących do filtrów.</p>
           <button
@@ -1553,6 +1561,39 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
             Wyczyść filtry
           </button>
         </div>
+      )}
+
+      {recurringTemplates.length > 0 && (
+        <section className="mb-4">
+          <div className="flex items-center gap-2 border-b border-[#f1f0ed] py-2">
+            <Repeat2 size={15} className="text-[#5a606b]" />
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">Cykliczne</h2>
+            <span className="text-[13px] text-[#b0b5be]">{recurringTemplates.length}</span>
+          </div>
+          {recurringTemplates.map(task => (
+            <TaskRow
+              key={task.id}
+              task={task}
+              project={projects.find(project => project.id === task.project_id)}
+              onToggle={() => undefined}
+              onClick={() => setEditingRecurring(task)}
+              onEdit={updates => onEdit(task.id, updates)}
+              onLogTime={undefined}
+            />
+          ))}
+          {editingRecurring && (
+            <TaskEditModal
+              task={editingRecurring}
+              projects={projects}
+              onSave={updates => onEdit(editingRecurring.id, updates)}
+              onDelete={() => { onDelete(editingRecurring.id); setEditingRecurring(null); }}
+              onToggleComplete={() => undefined}
+              onComplete={onComplete}
+              onOpenTask={id => setLinkedTask(tasks.find(task => task.id === id) ?? null)}
+              onClose={() => setEditingRecurring(null)}
+            />
+          )}
+        </section>
       )}
 
       {groups.map(group => (
@@ -1570,8 +1611,22 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
           selectedIds={selectedIds}
           onSelect={toggleSelect}
           activeProjectId={activeProjectId}
+          onOpenTask={id => setLinkedTask(tasks.find(task => task.id === id) ?? null)}
         />
       ))}
+
+      {linkedTask && (
+        <TaskEditModal
+          task={linkedTask}
+          projects={projects}
+          onSave={updates => onEdit(linkedTask.id, updates)}
+          onDelete={() => { onDelete(linkedTask.id); setLinkedTask(null); }}
+          onToggleComplete={() => onToggle(linkedTask.id)}
+          onComplete={onComplete}
+          onOpenTask={id => setLinkedTask(tasks.find(task => task.id === id) ?? null)}
+          onClose={() => setLinkedTask(null)}
+        />
+      )}
 
       {/* Completed section */}
       {completedTasks.length > 0 && (
@@ -1624,6 +1679,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
               onDelete={() => { onDelete(editingCompleted.id); setEditingCompleted(null); }}
               onToggleComplete={() => { onToggle(editingCompleted.id); setEditingCompleted(null); }}
               onComplete={onComplete}
+              onOpenTask={id => setLinkedTask(tasks.find(task => task.id === id) ?? null)}
               onClose={() => setEditingCompleted(null)}
             />
           )}

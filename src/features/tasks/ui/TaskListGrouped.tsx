@@ -433,6 +433,7 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
   };
   const isClosing = !!closingPhase;
   const isDoneVisual = task.isCompleted || isClosing;
+  const isRecurringSeries = task.recurrence != null;
 
   const handlePriorityClick = (e: React.MouseEvent<HTMLElement>) => {
     e.stopPropagation();
@@ -494,13 +495,13 @@ function TaskRow({ task, project, onToggle, onClick, onEdit, onLogTime, isSelect
       ) : (
         <button
           onClick={e => { e.stopPropagation(); onToggle(); }}
-          disabled={task.isRecurringTemplate}
+          disabled={isRecurringSeries}
           className={`relative flex h-5 w-5 flex-none cursor-pointer items-center justify-center rounded-full border transition-all duration-200 ease after:absolute after:-inset-3 after:content-[''] hover:border-[#9098a4] hover:bg-[#f1f0ed] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f1115] dark:hover:border-[#c0c5cc] dark:hover:bg-[#323238] ${
             isDoneVisual
               ? 'border-[#0f1115] bg-[#0f1115] text-white dark:border-[#f7f7f4] dark:bg-[#f7f7f4] dark:text-[#18181B]'
               : 'border-[#d4d4d0] bg-transparent dark:border-[#747984]'
-          } ${task.isRecurringTemplate ? 'cursor-not-allowed opacity-40 hover:border-[#d4d4d0] hover:bg-transparent' : ''}`}
-          title={task.isRecurringTemplate ? 'To jest szablon serii — wykonuj wygenerowane zadania.' : undefined}
+          } ${isRecurringSeries ? 'cursor-not-allowed opacity-40 hover:border-[#d4d4d0] hover:bg-transparent' : ''}`}
+          title={isRecurringSeries ? 'To jest zadanie główne serii — wykonuj wygenerowane zadania.' : undefined}
         >
           {isDoneVisual && (
             <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
@@ -985,6 +986,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [bulkPicker, setBulkPicker] = useState<{ type: 'priority' | 'status' | 'date'; rect: DOMRect } | null>(null);
   const [completedOpen, setCompletedOpen] = useState(false);
+  const [isRecurringExpanded, setIsRecurringExpanded] = useState(false);
   const [editingCompleted, setEditingCompleted] = useState<Task | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<Task | null>(null);
   const [linkedTask, setLinkedTask] = useState<Task | null>(null);
@@ -1061,8 +1063,10 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   };
   const closeBulkPicker = () => setBulkPicker(null);
 
-  const recurringTemplates = filteredTasks.filter(t => t.isRecurringTemplate);
-  const regularTasks = filteredTasks.filter(t => !t.isRecurringTemplate);
+  const recurringSeries = filteredTasks.filter(t => t.recurrence != null);
+  const regularTasks = filteredTasks.filter(t => t.recurrence == null);
+  const enabledRecurringCount = recurringSeries.filter(task => task.recurrence?.isEnabled).length;
+  const disabledRecurringCount = recurringSeries.length - enabledRecurringCount;
   const activeTasks = regularTasks.filter(t => !t.isCompleted);
 
   const toggleSelect = (id: string) => {
@@ -1365,7 +1369,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
   const groups = groupTasks(regularTasks, groupMode);
   const completedTasks = regularTasks.filter(t => t.isCompleted);
 
-  if (groups.length === 0 && completedTasks.length === 0 && recurringTemplates.length === 0 && !hasActiveFilter) {
+  if (groups.length === 0 && completedTasks.length === 0 && recurringSeries.length === 0 && !hasActiveFilter) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-24 text-center">
         <p className="text-[14px] text-[#9098a4]">
@@ -1550,7 +1554,7 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
         )}
       </div>
 
-      {groups.length === 0 && completedTasks.length === 0 && recurringTemplates.length === 0 && hasActiveFilter && (
+      {groups.length === 0 && completedTasks.length === 0 && recurringSeries.length === 0 && hasActiveFilter && (
         <div className="flex flex-col items-center justify-center py-16 gap-3">
           <p className="text-[14px] text-[#9098a4]">Brak zadań pasujących do filtrów.</p>
           <button
@@ -1563,24 +1567,46 @@ export function TaskListGrouped({ tasks, projects, onToggle, onEdit, onComplete,
         </div>
       )}
 
-      {recurringTemplates.length > 0 && (
+      {recurringSeries.length > 0 && (
         <section className="mb-4">
-          <div className="flex items-center gap-2 border-b border-[#f1f0ed] py-2">
-            <Repeat2 size={15} className="text-[#5a606b]" />
+          <button
+            type="button"
+            onClick={() => setIsRecurringExpanded(expanded => !expanded)}
+            aria-expanded={isRecurringExpanded}
+            className="flex w-full items-center gap-2 rounded-lg border-b border-[#f1f0ed] py-2 text-left transition-colors duration-200 hover:bg-[#f7f7f4] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:border-white/8 dark:hover:bg-[#232326] dark:focus:ring-white/15"
+          >
+            <ChevronDown size={16} className={`text-[#5a606b] transition-transform duration-200 ${isRecurringExpanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+            <Repeat2 size={15} className="text-[#5a606b]" aria-hidden="true" />
             <h2 className="text-[15px] font-semibold tracking-[-0.01em] text-[#0f1115] dark:text-white">Cykliczne</h2>
-            <span className="text-[13px] text-[#b0b5be]">{recurringTemplates.length}</span>
+            <span className="ml-auto inline-flex items-center gap-1.5 pr-1 text-[13px] font-semibold tabular-nums">
+              <span className="text-[#0f1115] dark:text-white">{recurringSeries.length}</span>
+              <span className="text-[#c0c5cc]">/</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{enabledRecurringCount}</span>
+              {disabledRecurringCount > 0 && (
+                <>
+                  <span className="text-[#c0c5cc]">/</span>
+                  <span className="text-red-500 dark:text-red-400">{disabledRecurringCount}</span>
+                </>
+              )}
+            </span>
+          </button>
+          <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease ${isRecurringExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className="pt-1">
+                {recurringSeries.map(task => (
+                  <TaskRow
+                    key={task.id}
+                    task={task}
+                    project={projects.find(project => project.id === task.project_id)}
+                    onToggle={() => undefined}
+                    onClick={() => setEditingRecurring(task)}
+                    onEdit={updates => onEdit(task.id, updates)}
+                    onLogTime={undefined}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-          {recurringTemplates.map(task => (
-            <TaskRow
-              key={task.id}
-              task={task}
-              project={projects.find(project => project.id === task.project_id)}
-              onToggle={() => undefined}
-              onClick={() => setEditingRecurring(task)}
-              onEdit={updates => onEdit(task.id, updates)}
-              onLogTime={undefined}
-            />
-          ))}
           {editingRecurring && (
             <TaskEditModal
               task={editingRecurring}

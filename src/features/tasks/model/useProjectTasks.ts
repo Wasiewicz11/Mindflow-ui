@@ -12,15 +12,18 @@ import { mapApiTask, toCreateTaskDto, toUpdateTaskDto } from '../model/taskModel
 export function useProjectTasks(projectId: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [taskLoadError, setTaskLoadError] = useState(false);
   const hasLoadedRef = useRef(false);
 
-  const fetchTasks = useCallback(async () => {
-    if (!hasLoadedRef.current) setIsLoading(true);
+  const fetchTasks = useCallback(async (showLoading = !hasLoadedRef.current) => {
+    if (showLoading) setIsLoading(true);
     try {
       const apiTasks = await getTasksForProject(projectId);
       setTasks(apiTasks.map(mapApiTask));
+      setTaskLoadError(false);
     } catch (error) {
       console.error('Failed to fetch project tasks:', error);
+      setTaskLoadError(true);
     } finally {
       hasLoadedRef.current = true;
       setIsLoading(false);
@@ -32,11 +35,12 @@ export function useProjectTasks(projectId: string) {
     void Promise.resolve().then(() => {
       setIsLoading(true);
       setTasks([]);
+      setTaskLoadError(false);
     });
   }, [projectId]);
 
   useEffect(() => {
-    void Promise.resolve().then(fetchTasks);
+    void Promise.resolve().then(() => fetchTasks());
   }, [fetchTasks]);
 
   const addTask = useCallback(async (
@@ -109,5 +113,7 @@ export function useProjectTasks(projectId: string) {
     await updateTask(id, { status: newStatus });
   }, [tasks]);
 
-  return { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask };
+  const retryTasks = useCallback(() => fetchTasks(true), [fetchTasks]);
+
+  return { tasks, isLoading, taskLoadError, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask, retryTasks };
 }

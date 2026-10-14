@@ -16,16 +16,19 @@ const BASE_URL = import.meta.env.VITE_API_URL ?? '';
 export function useTasks(isLoggedIn: boolean) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [taskLoadError, setTaskLoadError] = useState(false);
   const connectionRef = useRef<signalR.HubConnection | null>(null);
   const hasLoadedRef = useRef(false);
 
-  const fetchTasks = useCallback(async () => {
-    if (!hasLoadedRef.current) setIsLoading(true);
+  const fetchTasks = useCallback(async (showLoading = !hasLoadedRef.current) => {
+    if (showLoading) setIsLoading(true);
     try {
       const all = await getTasks();
       setTasks(all.map(mapApiTask));
+      setTaskLoadError(false);
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
+      setTaskLoadError(true);
     } finally {
       hasLoadedRef.current = true;
       setIsLoading(false);
@@ -37,12 +40,13 @@ export function useTasks(isLoggedIn: boolean) {
       hasLoadedRef.current = false;
       void Promise.resolve().then(() => {
         setTasks([]);
+        setTaskLoadError(false);
         setIsLoading(false);
       });
       return;
     }
 
-    void Promise.resolve().then(fetchTasks);
+    void Promise.resolve().then(() => fetchTasks());
 
     const token = getToken();
     const connection = new signalR.HubConnectionBuilder()
@@ -137,5 +141,7 @@ export function useTasks(isLoggedIn: boolean) {
     setTasks((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
-  return { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks: fetchTasks };
+  const retryTasks = useCallback(() => fetchTasks(true), [fetchTasks]);
+
+  return { tasks, isLoading, taskLoadError, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks: fetchTasks, retryTasks };
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LoginScreen } from '../features/auth/ui';
 import { Sidebar, MobileTasksNav, ThemeSelector, AgendaOverlay, AgendaPositionSelector, type AgendaPosition } from '../features/layout/ui';
-import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask } from '../features/tasks/ui';
+import { CalendarView, TaskList, TaskListGrouped, TaskWeekView, TaskBoardView, QuickAddTask, TaskLoadError } from '../features/tasks/ui';
 import { NotesGrid } from '../features/notes/ui';
 import { BrainView } from '../features/brain';
 import { GoalsView } from '../features/goals';
@@ -47,7 +47,7 @@ function getIsMobileViewport() {
 export function AppShell() {
   const { confirm } = useConfirmDialog();
   const { isAuthReady, isLoggedIn, logout, initGoogleButton } = useAuth();
-  const { tasks, isLoading: isTasksLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks } = useTasks(isLoggedIn);
+  const { tasks, isLoading: isTasksLoading, taskLoadError, addTask, editTask, completeTask, logTimeEntry, removeTask, refreshTasks, retryTasks } = useTasks(isLoggedIn);
   const {
     suggestions: aiSuggestions,
     quota: aiQuota,
@@ -663,6 +663,8 @@ export function AppShell() {
                 <div className="mx-auto w-full max-w-5xl space-y-8 animate-fade-in">
                   {isAppDataLoading ? (
                     <DashboardSkeleton />
+                  ) : taskLoadError ? (
+                    <TaskLoadError onRetry={retryTasks} isRetrying={isTasksLoading} />
                   ) : (
                     <>
                   <SuggestionsPanel
@@ -732,7 +734,10 @@ export function AppShell() {
               )}
 
               {activeTab === 'tasks' && (
-                <>
+                taskLoadError ? (
+                  <TaskLoadError onRetry={retryTasks} isRetrying={isTasksLoading} />
+                ) : (
+                  <>
                   <div className={`animate-fade-in ${!isMobileViewport && taskViewMode === 'week' ? 'h-full -mx-6 px-6' : !isMobileViewport && taskViewMode === 'board' ? 'h-full' : 'max-w-3xl mx-auto'}`}>
                     {(isMobileViewport || taskViewMode === 'list') && (
                       <TaskListGrouped
@@ -785,7 +790,8 @@ export function AppShell() {
                       onAdd={handleAddTask}
                     />
                   )}
-                </>
+                  </>
+                )
               )}
 
               {activeTab === 'brain' && (
@@ -808,17 +814,21 @@ export function AppShell() {
 
               {activeTab === 'calendar' && (
                 <div className="h-full min-h-0 animate-fade-in">
-                  <CalendarView
-                    tasks={sortedAllTasks}
-                    projects={projects}
-                    onAdd={handleAddTask}
-                    onEdit={handleEditTask}
-                    onComplete={handleCompleteTask}
-                    onToggle={handleToggleTask}
-                    onDelete={handleDeleteTask}
-                    onStartFocus={setPomodoroLaunchRequest}
-                    isLoading={isWorkspaceLoading}
-                  />
+                  {taskLoadError ? (
+                    <TaskLoadError onRetry={retryTasks} isRetrying={isTasksLoading} />
+                  ) : (
+                    <CalendarView
+                      tasks={sortedAllTasks}
+                      projects={projects}
+                      onAdd={handleAddTask}
+                      onEdit={handleEditTask}
+                      onComplete={handleCompleteTask}
+                      onToggle={handleToggleTask}
+                      onDelete={handleDeleteTask}
+                      onStartFocus={setPomodoroLaunchRequest}
+                      isLoading={isWorkspaceLoading}
+                    />
+                  )}
                 </div>
               )}
 

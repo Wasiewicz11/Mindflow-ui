@@ -9,4 +9,5 @@ export { TaskAddModal } from './TaskAddModal';
 export { TaskEditModal } from './TaskEditModal';
 export { TaskTimeEntriesModal } from './TaskTimeEntriesModal';
 export { TaskTimeEntryModal } from './TaskTimeEntryModal';
+export { TaskLoadError } from './TaskLoadError';
 export { TasksView } from './TasksView';

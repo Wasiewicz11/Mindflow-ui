@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useProjectTasks } from '../features/tasks';
-import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask } from '../features/tasks/ui';
+import { TaskListGrouped, TaskKanbanView, TaskWeekView, QuickAddTask, TaskLoadError } from '../features/tasks/ui';
 import { MobileTasksNav } from '../features/layout/ui';
 import type { CompleteTaskDto, CreateTaskTimeEntryDto } from '../features/tasks/api/timeEntriesApi';
 import type { Project, Space, Task, TaskPriority, TaskStatus } from '../shared/types';
@@ -21,7 +21,7 @@ interface Props {
 
 export function ProjectView({ projectId, project, projects, spaces, activeSpaceId, taskCountByProjectId, onSelectSpace, onSelectProject }: Props) {
   const { confirm } = useConfirmDialog();
-  const { tasks, isLoading, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask } = useProjectTasks(projectId);
+  const { tasks, isLoading, taskLoadError, addTask, editTask, completeTask, logTimeEntry, removeTask, toggleTask, retryTasks } = useProjectTasks(projectId);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -112,56 +112,62 @@ export function ProjectView({ projectId, project, projects, spaces, activeSpaceI
       </div>
 
       <div className={`flex-1 overflow-y-auto custom-scrollbar px-6 pb-36 lg:pb-24 ${viewMode === 'week' ? 'h-full -mx-6 px-6' : viewMode === 'board' ? 'h-full' : ''}`}>
-        {viewMode === 'list' && (
-          <div className="max-w-3xl mx-auto">
-            <TaskListGrouped
-              tasks={sortedTasks}
-              projects={projects}
-              onToggle={toggleTask}
-              onEdit={editTask}
-              onComplete={handleComplete}
-              onLogTime={handleLogTime}
-              onDelete={removeTask}
-              onAdd={handleAdd}
-              onBulkEdit={handleBulkEdit}
-              onClearCompleted={handleClearCompleted}
-              isLoading={isLoading}
-              activeProjectId={projectId}
-            />
-          </div>
-        )}
+        {taskLoadError ? (
+          <TaskLoadError onRetry={retryTasks} isRetrying={isLoading} />
+        ) : (
+          <>
+            {viewMode === 'list' && (
+              <div className="max-w-3xl mx-auto">
+                <TaskListGrouped
+                  tasks={sortedTasks}
+                  projects={projects}
+                  onToggle={toggleTask}
+                  onEdit={editTask}
+                  onComplete={handleComplete}
+                  onLogTime={handleLogTime}
+                  onDelete={removeTask}
+                  onAdd={handleAdd}
+                  onBulkEdit={handleBulkEdit}
+                  onClearCompleted={handleClearCompleted}
+                  isLoading={isLoading}
+                  activeProjectId={projectId}
+                />
+              </div>
+            )}
 
-        {viewMode === 'week' && (
-          <div className="h-[calc(100vh-200px)]">
-            <TaskWeekView
-              tasks={sortedTasks}
-              projects={projects}
-              onEdit={editTask}
-              onComplete={handleComplete}
-              onToggle={toggleTask}
-              onAdd={handleAdd}
-              onDelete={removeTask}
-              isLoading={isLoading}
-            />
-          </div>
-        )}
+            {viewMode === 'week' && (
+              <div className="h-[calc(100vh-200px)]">
+                <TaskWeekView
+                  tasks={sortedTasks}
+                  projects={projects}
+                  onEdit={editTask}
+                  onComplete={handleComplete}
+                  onToggle={toggleTask}
+                  onAdd={handleAdd}
+                  onDelete={removeTask}
+                  isLoading={isLoading}
+                />
+              </div>
+            )}
 
-        {viewMode === 'board' && (
-          <TaskKanbanView
-            tasks={sortedTasks}
-            projects={projects}
-            activeProjectId={projectId}
-            onEdit={editTask}
-            onComplete={handleComplete}
-            onToggle={toggleTask}
-            onDelete={removeTask}
-            onAdd={handleAdd}
-            isLoading={isLoading}
-          />
+            {viewMode === 'board' && (
+              <TaskKanbanView
+                tasks={sortedTasks}
+                projects={projects}
+                activeProjectId={projectId}
+                onEdit={editTask}
+                onComplete={handleComplete}
+                onToggle={toggleTask}
+                onDelete={removeTask}
+                onAdd={handleAdd}
+                isLoading={isLoading}
+              />
+            )}
+          </>
         )}
       </div>
 
-      {!isLoading && (
+      {!isLoading && !taskLoadError && (
         <QuickAddTask
           activeProjectId={projectId}
           projects={projects}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Space } from '../../../shared/types';
 import type { Task } from '../../../shared/types';
 import { useTasks } from '../model/useTasks';
+import { TaskLoadError } from './TaskLoadError';
 
 interface Props {
   space: Space;
@@ -9,7 +10,7 @@ interface Props {
 }
 
 export function TasksView({ space, onBack }: Props) {
-  const { tasks, addTask, editTask, removeTask } = useTasks(true);
+  const { tasks, isLoading, taskLoadError, addTask, editTask, removeTask, retryTasks } = useTasks(true);
   const [inputValue, setInputValue] = useState('');
   const [adding, setAdding] = useState(false);
   const [connected, setConnected] = useState(true);
@@ -125,13 +126,15 @@ export function TasksView({ space, onBack }: Props) {
 
         {/* Task list */}
         <div className="space-y-2">
-          {tasks.length === 0 && !adding && (
+          {taskLoadError ? (
+            <TaskLoadError onRetry={retryTasks} isRetrying={isLoading} />
+          ) : tasks.length === 0 && !adding && (
             <div className="flex flex-col items-center justify-center h-32 border border-gray-100 dark:border-white/5 rounded-2xl bg-gray-50/30 dark:bg-white/5 animate-fade-in">
               <p className="text-sm text-gray-400 dark:text-gray-500">Brak zadań. Dodaj pierwsze!</p>
             </div>
           )}
 
-          {tasks.map((task, index) => (
+          {!taskLoadError && tasks.map((task, index) => (
             <TaskRow
               key={task.id}
               task={task}

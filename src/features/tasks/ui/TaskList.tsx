@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Clock, Repeat2 } from 'lucide-react';
+import { ChevronDown, Clock, Repeat2 } from 'lucide-react';
 import type { Task, Project } from '../../../shared/types';
 import { TaskPriority } from '../../../shared/types';
 import { useConfirmDialog } from '../../../shared/ui/confirmDialog';
@@ -54,6 +54,7 @@ const TaskList: React.FC<TaskListProps> = ({
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [loggingTask, setLoggingTask] = useState<Task | null>(null);
   const [isCompletedExpanded, setIsCompletedExpanded] = useState(false);
+  const [isRecurringExpanded, setIsRecurringExpanded] = useState(false);
   const [closingTasks, setClosingTasks] = useState<Record<string, 'fading' | 'collapsing'>>({});
 
   // Selection Mode State
@@ -73,8 +74,10 @@ const TaskList: React.FC<TaskListProps> = ({
     return () => window.removeEventListener('keydown', prevent);
   }, []);
 
-  const recurringTemplates = tasks.filter(task => task.isRecurringTemplate);
-  const regularTasks = tasks.filter(task => !task.isRecurringTemplate);
+  const recurringSeries = tasks.filter(task => task.recurrence != null);
+  const regularTasks = tasks.filter(task => task.recurrence == null);
+  const enabledRecurringCount = recurringSeries.filter(task => task.recurrence?.isEnabled).length;
+  const disabledRecurringCount = recurringSeries.length - enabledRecurringCount;
   const activeTasks = regularTasks.filter(t => !t.isCompleted);
   const completedTasks = regularTasks.filter(t => t.isCompleted);
   const completeTaskWithAnimation = (task: Task) => {
@@ -204,6 +207,7 @@ const TaskList: React.FC<TaskListProps> = ({
     const subtaskProgress = getSubtaskProgress(task);
     const dueSubtasks = showDueSubtasks ? (task.dueSubtasks ?? []).filter(subtask => !subtask.isCompleted) : [];
     const loggedLabel = task.loggedMinutes && task.loggedMinutes > 0 ? formatLoggedHours(task.loggedMinutes) : null;
+    const isRecurringSeries = task.recurrence != null;
 
     return (
       <div
@@ -229,12 +233,13 @@ const TaskList: React.FC<TaskListProps> = ({
           ) : (
             <button
               onClick={(e) => { e.stopPropagation(); completeTaskWithAnimation(task); }}
-              disabled={task.isRecurringTemplate}
+              disabled={isRecurringSeries}
               className={`flex-shrink-0 rounded-full border flex items-center justify-center cursor-pointer transition-all duration-200 ease ${compactMode ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${
                 task.isCompleted || isClosing
                   ? 'bg-emerald-500 border-emerald-500 text-white scale-100'
                   : 'bg-white dark:bg-white/5 border-gray-300 dark:border-white/20 text-transparent hover:border-emerald-500 dark:hover:border-emerald-500 hover:scale-110'
-              } ${task.isRecurringTemplate ? 'cursor-not-allowed opacity-40' : ''}`}
+              } ${isRecurringSeries ? 'cursor-not-allowed opacity-40' : ''}`}
+              title={isRecurringSeries ? 'To jest zadanie główne serii — wykonuj wygenerowane zadania.' : undefined}
             >
               <svg className={compactMode ? 'w-2 h-2' : 'w-3.5 h-3.5'} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
             </button>
@@ -507,10 +512,36 @@ const TaskList: React.FC<TaskListProps> = ({
         )}
       </div>
 
-      {!isLoading && recurringTemplates.length > 0 && (
+      {!isLoading && recurringSeries.length > 0 && (
         <section className="mt-5 border-t border-[#e8e8e4] pt-3 dark:border-white/10">
-          <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[#5a606b] dark:text-gray-400"><Repeat2 size={13} /> Cykliczne ({recurringTemplates.length})</div>
-          <div className={compactMode ? 'space-y-1.5' : 'space-y-3'}>{recurringTemplates.map((task, index) => renderTaskItem(task, index))}</div>
+          <button
+            type="button"
+            onClick={() => setIsRecurringExpanded(expanded => !expanded)}
+            aria-expanded={isRecurringExpanded}
+            className="flex w-full items-center gap-2 rounded-lg py-1 text-left text-xs font-semibold uppercase tracking-wide text-[#5a606b] transition-colors duration-200 hover:bg-[#f7f7f4] hover:text-[#0f1115] focus:outline-none focus:ring-2 focus:ring-[#0f1115]/20 dark:text-gray-400 dark:hover:bg-[#232326] dark:hover:text-white dark:focus:ring-white/15"
+          >
+            <ChevronDown size={15} className={`transition-transform duration-200 ${isRecurringExpanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+            <Repeat2 size={13} aria-hidden="true" />
+            <span>Cykliczne</span>
+            <span className="ml-auto inline-flex items-center gap-1.5 pr-1 text-[12px] font-semibold normal-case tracking-normal tabular-nums">
+              <span className="text-[#0f1115] dark:text-white">{recurringSeries.length}</span>
+              <span className="text-[#c0c5cc]">/</span>
+              <span className="text-emerald-600 dark:text-emerald-400">{enabledRecurringCount}</span>
+              {disabledRecurringCount > 0 && (
+                <>
+                  <span className="text-[#c0c5cc]">/</span>
+                  <span className="text-red-500 dark:text-red-400">{disabledRecurringCount}</span>
+                </>
+              )}
+            </span>
+          </button>
+          <div className={`grid transition-[grid-template-rows,opacity] duration-200 ease ${isRecurringExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className={compactMode ? 'space-y-1.5 pt-2' : 'space-y-3 pt-3'}>
+                {recurringSeries.map((task, index) => renderTaskItem(task, index))}
+              </div>
+            </div>
+          </div>
         </section>
       )}
 
